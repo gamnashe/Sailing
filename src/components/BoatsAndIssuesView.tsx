@@ -172,13 +172,13 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
   const getSeverityBadge = (sev: IssueSeverity) => {
     switch (sev) {
       case 'critical':
-        return <span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-md">משביתה סירה</span>;
+        return <span className="bg-rose-100 text-rose-800 text-[0.625rem] font-bold px-2 py-0.5 rounded-md">משביתה סירה</span>;
       case 'high':
-        return <span className="bg-orange-100 text-orange-800 text-[10px] font-bold px-2 py-0.5 rounded-md">חמורה</span>;
+        return <span className="bg-orange-100 text-orange-800 text-[0.625rem] font-bold px-2 py-0.5 rounded-md">חמורה</span>;
       case 'medium':
-        return <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-md">בינונית</span>;
+        return <span className="bg-amber-100 text-amber-800 text-[0.625rem] font-bold px-2 py-0.5 rounded-md">בינונית</span>;
       case 'low':
-        return <span className="bg-slate-100 text-slate-700 text-[10px] font-semibold px-2 py-0.5 rounded-md">קלה</span>;
+        return <span className="bg-slate-100 text-slate-700 text-[0.625rem] font-semibold px-2 py-0.5 rounded-md">קלה</span>;
     }
   };
 
@@ -343,7 +343,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
                       יש {boatOpenIssues.length} דיווחי תקלות פתוחים לסירה זו
                     </span>
-                    <span className="text-[10px] text-amber-700 underline font-semibold">צפה בלוח</span>
+                    <span className="text-[0.625rem] text-amber-700 underline font-semibold">צפה בלוח</span>
                   </div>
                 )}
 
@@ -464,7 +464,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                   )}
 
                   {/* Reporter info & admin action */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[0.6875rem] text-slate-500">
                     <div>
                       דווח ע״י <strong>{issue.reporterName}</strong> ({issue.reporterPhone}) ב-
                       {new Date(issue.createdAt).toLocaleDateString('he-IL', {
@@ -494,7 +494,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL 1: Report Issue */}
       {showReportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
           <form
             onSubmit={handleReportSubmit}
             className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right space-y-4 p-6"
@@ -651,7 +651,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL 2: Admin Add Boat */}
       {showAddBoatModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
           <form
             onSubmit={handleAddBoatSubmit}
             className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right space-y-4 p-6"
@@ -765,7 +765,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL 3: Admin Edit Boat Status */}
       {editingBoat && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4">
             <h3 className="font-bold text-slate-900 text-base">
               עדכון סטטוס כלי שייט: {editingBoat.name}

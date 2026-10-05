@@ -160,7 +160,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
       <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right">
         {/* Header */}
         <div className="bg-gradient-to-r from-sky-800 to-sky-700 p-5 text-white flex items-center justify-between">
@@ -200,11 +200,11 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                   <Sailboat className="w-4 h-4 text-sky-600" />
                   הפלגת מועדון
                 </span>
-                <span className="bg-sky-100 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <span className="bg-sky-100 text-sky-800 text-[0.625rem] font-bold px-2 py-0.5 rounded-full">
                   1 קרדיט
                 </span>
               </div>
-              <p className="text-[11px] font-normal text-slate-500">
+              <p className="text-[0.6875rem] font-normal text-slate-500">
                 סגירה: מינימום 3 אנשים ומקסימום 6 אנשים. יורד קרדיט 1 לכל חבר שנרשם.
               </p>
             </button>
@@ -224,11 +224,11 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                   <Anchor className="w-4 h-4 text-indigo-600" />
                   הפלגה פרטית
                 </span>
-                <span className="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <span className="bg-indigo-100 text-indigo-800 text-[0.625rem] font-bold px-2 py-0.5 rounded-full">
                   3+ קרדיטים
                 </span>
               </div>
-              <p className="text-[11px] font-normal text-slate-500">
+              <p className="text-[0.6875rem] font-normal text-slate-500">
                 מינימום 3 שעות (3 קרדיטים), ו-1 קרדיט נוסף לכל שעה מעבר לכך.
               </p>
             </button>
@@ -252,11 +252,11 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                   <CheckCircle2 className="w-4 h-4 text-sky-600" />
                   כללי סגירת הפלגת מועדון:
                 </span>
-                <span className="bg-sky-200/80 text-sky-900 font-black px-2 py-0.5 rounded-lg text-[11px]">
+                <span className="bg-sky-200/80 text-sky-900 font-black px-2 py-0.5 rounded-lg text-[0.6875rem]">
                   3 עד 6 משתתפים
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600">
+              <p className="text-[0.6875rem] text-slate-600">
                 ההפלגה תאושר ליציאה החל מ-3 נרשמים. לכל משתמש יורד קרדיט 1 מחשבונו בעת אישור הרשמה.
               </p>
             </div>
@@ -271,7 +271,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                   {privateCreditCost} קרדיטים ({durationHours} שעות)
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600">
+              <p className="text-[0.6875rem] text-slate-600">
                 3 קרדיטים עבור 3 שעות ראשונות (מינימום) + 1 קרדיט לכל שעה נוספת.
                 <br />
                 יתרת הקרדיטים שלך: <strong>{userCredits} קרדיטים</strong>.{' '}
@@ -393,7 +393,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
             </div>
           )}
           {!blockReason && restricted && boat && (
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[0.6875rem] text-slate-500">
               🔒 {boat.name} מוגבלת:
               {boat.allowedLevels?.length ? ` רמות ${boat.allowedLevels.join(', ')}` : ''}
               {boat.allowedMemberIds?.length

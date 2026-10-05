@@ -133,7 +133,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
           />
           <div>
             <p className="font-bold text-slate-900 text-sm">{currentUser.fullName}</p>
-            <p className="text-[11px] text-slate-500">שתף עדכון, חוויות שייט, תמונות או קישור</p>
+            <p className="text-[0.6875rem] text-slate-500">שתף עדכון, חוויות שייט, תמונות או קישור</p>
           </div>
         </div>
 
@@ -276,12 +276,12 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                     <div className="flex items-center gap-1.5">
                       <p className="font-bold text-slate-900 text-sm">{post.authorName}</p>
                       {isStaff(post.authorRole) && (
-                        <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-1.5 py-0.2 rounded-md">
+                        <span className="text-[0.625rem] bg-sky-100 text-sky-800 font-bold px-1.5 py-0.2 rounded-md">
                           {ROLE_LABELS[post.authorRole]}
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[0.625rem] text-slate-400">
                       {new Date(post.createdAt).toLocaleDateString('he-IL', {
                         day: 'numeric',
                         month: 'short',
@@ -367,14 +367,14 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                     />
                   )}
                   <div className="p-3">
-                    <div className="flex items-center gap-1 text-[11px] text-sky-700 font-semibold mb-1">
+                    <div className="flex items-center gap-1 text-[0.6875rem] text-sky-700 font-semibold mb-1">
                       <ExternalLink className="w-3 h-3" />
                       <span>{post.linkPreview.domain}</span>
                     </div>
                     <p className="font-bold text-slate-900 text-xs group-hover:text-sky-700 transition">
                       {post.linkPreview.title}
                     </p>
-                    <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
+                    <p className="text-[0.6875rem] text-slate-500 line-clamp-2 mt-0.5">
                       {post.linkPreview.description}
                     </p>
                   </div>
@@ -421,7 +421,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-slate-900">{comm.authorName}</span>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-[0.625rem] text-slate-400">
                                 {new Date(comm.createdAt).toLocaleTimeString('he-IL', {
                                   hour: '2-digit',
                                   minute: '2-digit',

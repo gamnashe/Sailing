@@ -163,7 +163,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right">
         {/* Header */}
         <div className="bg-gradient-to-br from-sky-900 via-sky-800 to-slate-900 p-6 text-white text-center relative">
@@ -250,17 +250,17 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                   <Mail className="w-4 h-4 text-amber-600" />
                   מייל שנשלח אל: {simulatedEmail.email}
                 </span>
-                <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-bold">
+                <span className="text-[0.625rem] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-bold">
                   הודעת שחזור
                 </span>
               </div>
-              <p className="text-[11px] text-slate-700">
+              <p className="text-[0.6875rem] text-slate-700">
                 קיבלת בקשה לאיפוס סיסמתך במועדון השייט. קוד האימות בן 6 ספרות הוא:
               </p>
               <div className="text-center py-1.5 bg-white rounded-xl border border-amber-300 font-mono text-base font-black tracking-widest text-slate-900">
                 {simulatedEmail.code}
               </div>
-              <div className="text-[11px] text-slate-600 flex items-center justify-between pt-1">
+              <div className="text-[0.6875rem] text-slate-600 flex items-center justify-between pt-1">
                 <span>או השתמש בקישור המאובטח:</span>
                 <button
                   type="button"
@@ -451,7 +451,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                         setMode('forgot_password');
                         setError(null);
                       }}
-                      className="text-[11px] font-semibold text-sky-700 hover:underline cursor-pointer"
+                      className="text-[0.6875rem] font-semibold text-sky-700 hover:underline cursor-pointer"
                     >
                       שכחת סיסמה?
                     </button>
@@ -473,10 +473,10 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
               {/* Password complexity checklist for registration */}
               {mode === 'register' && (
                 <>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-[11px] space-y-1">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-[0.6875rem] space-y-1">
                     <p className="font-bold text-slate-700">דרישות מורכבות סיסמה:</p>
                     <div className="flex items-center gap-1.5">
-                      <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${
+                      <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[0.5625rem] ${
                         pwLength ? 'bg-emerald-100 text-emerald-800 font-black' : 'bg-slate-200 text-slate-500'
                       }`}>
                         {pwLength ? '✓' : '•'}
@@ -486,7 +486,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${
+                      <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[0.5625rem] ${
                         pwHasLetter ? 'bg-emerald-100 text-emerald-800 font-black' : 'bg-slate-200 text-slate-500'
                       }`}>
                         {pwHasLetter ? '✓' : '•'}
@@ -496,7 +496,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${
+                      <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[0.5625rem] ${
                         pwHasDigit ? 'bg-emerald-100 text-emerald-800 font-black' : 'bg-slate-200 text-slate-500'
                       }`}>
                         {pwHasDigit ? '✓' : '•'}
@@ -538,7 +538,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
           <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-600 flex items-center justify-between">
             <div>
               <p className="font-bold text-slate-900">כניסת מנהל ראשי (ברירת מחדל נקייה):</p>
-              <p className="text-[11px] text-slate-500">admin@sailingclub.co.il • Admin1234!</p>
+              <p className="text-[0.6875rem] text-slate-500">admin@sailingclub.co.il • Admin1234!</p>
             </div>
             <button
               type="button"
@@ -550,7 +550,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                   onSuccess(res.user);
                 }
               }}
-              className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded-xl transition cursor-pointer text-[11px]"
+              className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded-xl transition cursor-pointer text-[0.6875rem]"
             >
               כניסה כמנהל
             </button>

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist dev-dist",
     "lint": "tsc --noEmit",
-    "test": "tsx src/tests/sailLogic.test.ts && tsx src/tests/weather.test.ts && tsx src/tests/booking.test.ts && tsx src/tests/schema.test.ts",
+    "test": "tsx src/tests/sailLogic.test.ts && tsx src/tests/accessibility.test.ts && tsx src/tests/weather.test.ts && tsx src/tests/booking.test.ts && tsx src/tests/schema.test.ts",
     "icons": "node scripts/generate-icons.js",
     "test:logic": "tsx src/tests/sailLogic.test.ts",
     "test:db": "tsx src/tests/schema.test.ts"
