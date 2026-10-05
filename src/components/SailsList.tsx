@@ -23,7 +23,8 @@ import {
 interface Props {
   currentUser: UserProfile;
   onSelectSail: (sailId: string) => void;
-  onOpenCreateModal: () => void;
+  /** Opens the create-sail window, on a given day when one is passed (YYYY-MM-DD). */
+  onOpenCreateModal: (date?: string) => void;
 }
 
 export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCreateModal }) => {
@@ -114,7 +115,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
           {/* Create sail button */}
           {canCreateSail && (
             <button
-              onClick={onOpenCreateModal}
+              onClick={() => onOpenCreateModal()}
               className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-3.5 py-2 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm shadow-sky-600/20 transition active:scale-95 cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
@@ -129,7 +130,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
         <SailsCalendar
           currentUser={currentUser}
           onSelectSail={onSelectSail}
-          onOpenCreateModal={onOpenCreateModal}
+          onOpenCreateModal={canCreateSail ? onOpenCreateModal : undefined}
         />
       )}
 
@@ -149,7 +150,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
           </p>
           {canCreateSail && activeTab === 'upcoming' && (
             <button
-              onClick={onOpenCreateModal}
+              onClick={() => onOpenCreateModal()}
               className="mt-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
             >
               <Plus className="w-4 h-4" />

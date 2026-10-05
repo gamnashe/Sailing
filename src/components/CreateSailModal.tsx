@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { store, calculateDurationHours, calculatePrivateSailCredits } from '../services/store';
+import {
+  store,
+  calculateDurationHours,
+  calculatePrivateSailCredits,
+  findBoatConflict,
+  mayTakeBoat,
+  boatConflictMessage,
+} from '../services/store';
 import { UserProfile, Sail, SailType, isStaff } from '../types';
 import {
   X,
@@ -22,9 +29,14 @@ interface Props {
   currentUser: UserProfile;
   onClose: () => void;
   onCreated: (sail: Sail) => void;
+  /** YYYY-MM-DD the sail opens on, e.g. the calendar day the person pressed + on. */
+  initialDate?: string;
 }
 
-export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose, onCreated }) => {
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose, onCreated, initialDate }) => {
   const members = store.getUsers().filter((u) => u.status === 'approved');
   const skippers = members.filter((u) => u.experienceLevel.includes('סקיפר') || isStaff(u.role));
   const boats = store.getBoats();
@@ -32,16 +44,19 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
   const [sailType, setSailType] = useState<SailType>('club');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(() => {
+    if (initialDate) return initialDate;
     const d = new Date();
     d.setDate(d.getDate() + 2);
-    return d.toISOString().split('T')[0];
+    return isoDate(d);
   });
+  // Opening from a calendar day sets that day each time the window opens.
+  useEffect(() => {
+    if (isOpen && initialDate) setDate(initialDate);
+  }, [isOpen, initialDate]);
   const [departureTime, setDepartureTime] = useState('16:00');
   const [estimatedReturnTime, setEstimatedReturnTime] = useState('19:00');
   const [durationHours, setDurationHours] = useState(3);
-  const [boatName, setBoatName] = useState(
-    boats[0]?.name ? `${boats[0].name} (${boats[0].model})` : 'גלית (Bavaria 38 Cruiser)'
-  );
+  const [boatId, setBoatId] = useState(boats.find((b) => b.status === 'available')?.id ?? boats[0]?.id ?? '');
   const [selectedSkipperId, setSelectedSkipperId] = useState(currentUser.id);
   const [customSkipperName, setCustomSkipperName] = useState('');
   const [departurePoint, setDeparturePoint] = useState('מרינה הרצליה, רציף B');
@@ -56,6 +71,22 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
 
   if (!isOpen) return null;
 
+  const boat = boats.find((b) => b.id === boatId);
+  const boatName = boat ? `${boat.name} (${boat.model})` : '';
+  const conflict = boat ? findBoatConflict(store.getSails(), boat, date, departureTime, estimatedReturnTime) : undefined;
+  const restricted = Boolean(boat && ((boat.allowedLevels?.length ?? 0) > 0 || (boat.allowedMemberIds?.length ?? 0) > 0));
+  const skipperUser = selectedSkipperId === 'custom' ? undefined : members.find((m) => m.id === selectedSkipperId);
+  const taker = sailType === 'private' ? currentUser : skipperUser;
+  const permissionProblem =
+    boat && restricted
+      ? sailType === 'private'
+        ? !mayTakeBoat(boat, currentUser) && `אין לך הרשאה להוציא את ${boat.name}. פנה להנהלת המועדון.`
+        : selectedSkipperId === 'custom'
+        ? !isStaff(currentUser.role) && `${boat.name} מוגבלת לסקיפרים מורשים; בחר סקיפר מורשה מהרשימה`
+        : !mayTakeBoat(boat, taker) && `${taker?.fullName ?? 'הסקיפר'} אינו מורשה להוציא את ${boat.name}`
+      : false;
+  const blockReason = conflict ? boatConflictMessage(conflict, boat!.name) : permissionProblem || null;
+
   // Credits calculation
   const privateCreditCost = calculatePrivateSailCredits(durationHours);
   const userCredits = currentUser.credits ?? 5;
@@ -64,6 +95,11 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+
+    if (blockReason) {
+      setErrorMsg(blockReason);
+      return;
+    }
 
     if (!title.trim()) {
       setErrorMsg('יש להזין כותרת / מטרת ההפלגה');
@@ -103,6 +139,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
         estimatedReturnTime,
         durationHours: Math.max(3, Math.round(durationHours * 10) / 10),
         boatName,
+        boatId: boat?.id,
         skipperName: finalSkipperName,
         skipperId: finalSkipperId,
         departurePoint,
@@ -310,16 +347,20 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                 <Anchor className="w-3.5 h-3.5 text-slate-400" /> סירה
               </label>
               <select
-                value={boatName}
-                onChange={(e) => setBoatName(e.target.value)}
+                value={boatId}
+                onChange={(e) => setBoatId(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
               >
-                {boats.map((b) => (
-                  <option key={b.id} value={`${b.name} (${b.model})`}>
-                    {b.status === 'available' ? '🟢' : b.status === 'maintenance' ? '🟠 (בהספנה/תיקון)' : '🔴 (לא זמין)'}{' '}
-                    {b.name} ({b.model})
-                  </option>
-                ))}
+                {boats.map((b) => {
+                  const busy = findBoatConflict(store.getSails(), b, date, departureTime, estimatedReturnTime);
+                  return (
+                    <option key={b.id} value={b.id}>
+                      {busy ? '⛔ (תפוסה בשעות אלה)' : b.status === 'available' ? '🟢' : b.status === 'maintenance' ? '🟠 (בהספנה/תיקון)' : '🔴 (לא זמין)'}{' '}
+                      {b.name} ({b.model})
+                      {(b.allowedLevels?.length || b.allowedMemberIds?.length) ? ' 🔒' : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -332,15 +373,34 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                 onChange={(e) => setSelectedSkipperId(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
               >
-                {skippers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.fullName} ({s.experienceLevel})
-                  </option>
-                ))}
+                {skippers.map((s) => {
+                  const allowed = !boat || mayTakeBoat(boat, s);
+                  return (
+                    <option key={s.id} value={s.id} disabled={!allowed}>
+                      {s.fullName} ({s.experienceLevel}){allowed ? '' : ' — לא מורשה לסירה זו'}
+                    </option>
+                  );
+                })}
                 <option value="custom">סקיפר אורח / אחר...</option>
               </select>
             </div>
           </div>
+
+          {blockReason && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>{blockReason}</span>
+            </div>
+          )}
+          {!blockReason && restricted && boat && (
+            <p className="text-[11px] text-slate-500">
+              🔒 {boat.name} מוגבלת:
+              {boat.allowedLevels?.length ? ` רמות ${boat.allowedLevels.join(', ')}` : ''}
+              {boat.allowedMemberIds?.length
+                ? ` · ${boat.allowedMemberIds.map((id) => store.getUserById(id)?.fullName).filter(Boolean).join(', ')}`
+                : ''}
+            </p>
+          )}
 
           {selectedSkipperId === 'custom' && (
             <div>
@@ -397,9 +457,9 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
           <div className="pt-2">
             <button
               type="submit"
-              disabled={sailType === 'private' && !canAffordPrivate}
+              disabled={(sailType === 'private' && !canAffordPrivate) || Boolean(blockReason)}
               className={`w-full font-bold py-3 rounded-xl transition shadow-md cursor-pointer text-sm flex items-center justify-center gap-2 ${
-                sailType === 'private' && !canAffordPrivate
+                (sailType === 'private' && !canAffordPrivate) || blockReason
                   ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   : 'bg-sky-600 hover:bg-sky-700 text-white shadow-sky-600/20 active:scale-98'
               }`}

@@ -84,11 +84,14 @@ async function notificationCount(uid: string, type?: string): Promise<number> {
   return res.rows[0].n;
 }
 
+// Each test sail gets its own day by default, so sails on the same boat never collide by accident.
+let sailDay = 0;
 function sailJson(overrides: Record<string, unknown> = {}) {
+  sailDay += 1;
   return JSON.stringify({
     title: 'הפלגת בדיקה',
     sailType: 'club',
-    date: '2099-06-01',
+    date: `2099-06-${String(sailDay).padStart(2, '0')}`,
     departureTime: '09:00',
     estimatedReturnTime: '13:00',
     durationHours: 4,
@@ -324,6 +327,49 @@ async function run() {
   assert((await boatStatus()) === 'available', 'resolving the last critical issue returns the boat to service');
   const boatEdit = await as(dana, (tx) => tx.query(`UPDATE boats SET status = 'unavailable'`));
   assert(boatEdit.affectedRows === 0, 'member cannot edit boats directly');
+
+  // --- Boat booking: no overlapping sails on the same boat ---
+  const galit = (await db.query<any>(`SELECT id FROM boats WHERE name = 'גלית'`)).rows[0].id;
+  const slot = { boatId: galit, boatName: 'גלית (Bavaria 38 Cruiser)', date: '2099-07-01', departureTime: '10:00', estimatedReturnTime: '14:00' };
+  const first = await rpc(tomer, 'create_sail($1::jsonb)', [sailJson(slot)]);
+  assert(first.success, 'a sail books the boat for its window');
+  const sailRow = (await db.query<any>('SELECT boat_id FROM sails WHERE id = $1', [first.sail_id])).rows[0];
+  assert(sailRow.boat_id === galit, 'the sail is linked to its boat');
+  const overlap = await rpc(tomer, 'create_sail($1::jsonb)', [sailJson({ ...slot, departureTime: '13:00', estimatedReturnTime: '17:00' })]);
+  assert(overlap.success === false && /תפוסה/.test(overlap.message), 'an overlapping sail on the same boat is refused');
+  const byName = await rpc(tomer, 'create_sail($1::jsonb)', [sailJson({ ...slot, boatId: undefined, departureTime: '11:00', estimatedReturnTime: '12:00' })]);
+  assert(byName.success === false, 'the overlap check also finds the boat by its label');
+  const backToBack = await rpc(tomer, 'create_sail($1::jsonb)', [sailJson({ ...slot, departureTime: '14:00', estimatedReturnTime: '17:00' })]);
+  assert(backToBack.success, 'a sail starting when the previous one returns is allowed');
+  const otherBoat = (await db.query<any>(`SELECT id FROM boats WHERE name = 'רוח ים'`)).rows[0].id;
+  const sameTimeOtherBoat = await rpc(tomer, 'create_sail($1::jsonb)', [sailJson({ ...slot, boatId: otherBoat, boatName: 'רוח ים' })]);
+  assert(sameTimeOtherBoat.success, 'another boat at the same time is fine');
+  await rpc(tomer, 'cancel_sail($1)', [first.sail_id]);
+  const afterCancel = await rpc(tomer, 'create_sail($1::jsonb)', [sailJson({ ...slot, departureTime: '11:00', estimatedReturnTime: '13:00' })]);
+  assert(afterCancel.success, 'a cancelled sail frees the boat');
+
+  // --- Boat permissions: who may take a boat out ---
+  await as(rina, (tx) =>
+    tx.query(`UPDATE boats SET allowed_levels = ARRAY['משיט 60 (סקיפר בינלאומי)'], allowed_member_ids = ARRAY[$1::uuid] WHERE id = $2`, [dana, otherBoat])
+  );
+  const restricted = { boatId: otherBoat, boatName: 'רוח ים', date: '2099-08-01' };
+  await as(tomer, (tx) => tx.query(`UPDATE club_settings SET who_can_create_sails = 'all_members'`));
+  const yaelPrivate = await rpc(yael, 'create_sail($1::jsonb)', [sailJson({ ...restricted, sailType: 'private', creditCost: 3 })]);
+  assert(yaelPrivate.success === false && /הרשאה/.test(yaelPrivate.message), 'a member without permission cannot open a private sail on a restricted boat');
+  await rpc(tomer, 'update_member_credits($1, $2)', [dana, 10]);
+  const danaPrivate = await rpc(dana, 'create_sail($1::jsonb)', [sailJson({ ...restricted, sailType: 'private', creditCost: 3 })]);
+  assert(danaPrivate.success, 'a member listed on the boat may open a private sail on it');
+  await as(tomer, (tx) => tx.query(`UPDATE profiles SET experience_level = 'משיט 60 (סקיפר בינלאומי)' WHERE id = $1`, [tomer]));
+  const levelSkipper = await rpc(rina, 'create_sail($1::jsonb)', [sailJson({ ...restricted, date: '2099-08-02', skipperId: tomer })]);
+  assert(levelSkipper.success, 'a skipper with an allowed qualification may take the boat');
+  const badSkipper = await rpc(rina, 'create_sail($1::jsonb)', [sailJson({ ...restricted, date: '2099-08-03', skipperId: yael })]);
+  assert(badSkipper.success === false, 'a club sail with an unauthorised skipper is refused');
+  const guestByMember = await rpc(dana, 'create_sail($1::jsonb)', [sailJson({ ...restricted, date: '2099-08-04' })]);
+  assert(guestByMember.success === false, 'a member cannot put a guest skipper on a restricted boat');
+  const guestByStaff = await rpc(rina, 'create_sail($1::jsonb)', [sailJson({ ...restricted, date: '2099-08-05' })]);
+  assert(guestByStaff.success, 'staff may assign a guest skipper to a restricted boat');
+  const memberEditsBoat = await as(yael, (tx) => tx.query(`UPDATE boats SET allowed_member_ids = ARRAY[$1::uuid] WHERE id = $2`, [yael, otherBoat]));
+  assert(memberEditsBoat.affectedRows === 0, 'members cannot grant themselves boat permission');
 
   // --- Feed ---
   const post = await as(dana, (tx) =>

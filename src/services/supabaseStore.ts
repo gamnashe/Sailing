@@ -101,6 +101,8 @@ function mapBoat(r: Row): Boat {
     berthLocation: r.berth_location ?? undefined,
     year: r.year ?? undefined,
     capacity: r.capacity ?? undefined,
+    allowedLevels: r.allowed_levels ?? [],
+    allowedMemberIds: r.allowed_member_ids ?? [],
     createdAt: r.created_at,
   };
 }
@@ -114,6 +116,8 @@ function boatToRow(b: Partial<Boat>): Row {
   if (b.berthLocation !== undefined) row.berth_location = b.berthLocation;
   if (b.year !== undefined) row.year = b.year;
   if (b.capacity !== undefined) row.capacity = b.capacity;
+  if (b.allowedLevels !== undefined) row.allowed_levels = b.allowedLevels;
+  if (b.allowedMemberIds !== undefined) row.allowed_member_ids = b.allowedMemberIds;
   return row;
 }
 
@@ -126,6 +130,7 @@ function sailToRow(s: Partial<Sail>): Row {
   if (s.estimatedReturnTime !== undefined) row.estimated_return_time = s.estimatedReturnTime;
   if (s.durationHours !== undefined) row.duration_hours = s.durationHours;
   if (s.boatName !== undefined) row.boat_name = s.boatName;
+  if (s.boatId !== undefined) row.boat_id = s.boatId || null;
   if (s.skipperName !== undefined) row.skipper_name = s.skipperName;
   if (s.skipperId !== undefined) row.skipper_id = s.skipperId || null;
   if (s.departurePoint !== undefined) row.departure_point = s.departurePoint;
@@ -317,6 +322,7 @@ export class SupabaseStore implements DataStore {
         estimatedReturnTime: hhmm(s.estimated_return_time),
         durationHours: Number(s.duration_hours),
         boatName: s.boat_name,
+        boatId: s.boat_id ?? undefined,
         skipperName: s.skipper_name,
         skipperId: s.skipper_id ?? undefined,
         departurePoint: s.departure_point,

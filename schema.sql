@@ -71,6 +71,9 @@ CREATE TABLE boats (
   berth_location TEXT DEFAULT 'מרינה הרצליה',
   year INT,
   capacity INT NOT NULL DEFAULT 8,
+  -- מי רשאי להוציא את הסירה (סקיפר בהפלגת מועדון / פותח הפלגה פרטית). שתי הרשימות ריקות = כולם.
+  allowed_levels TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  allowed_member_ids UUID[] NOT NULL DEFAULT ARRAY[]::UUID[],
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -103,6 +106,7 @@ CREATE TABLE sails (
   estimated_return_time TIME NOT NULL,
   duration_hours NUMERIC(4, 1) NOT NULL DEFAULT 3,
   boat_name TEXT NOT NULL,
+  boat_id UUID REFERENCES boats(id) ON DELETE SET NULL,
   skipper_name TEXT NOT NULL,
   skipper_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   departure_point TEXT NOT NULL,
@@ -118,6 +122,7 @@ CREATE TABLE sails (
 
 CREATE INDEX idx_sails_date ON sails(date);
 CREATE INDEX idx_sails_status ON sails(status);
+CREATE INDEX idx_sails_boat_date ON sails(boat_id, date);
 
 -- הרשמות להפלגה (מאושרים + רשימת המתנה)
 CREATE TABLE sail_registrations (
@@ -531,6 +536,16 @@ BEGIN
 END;
 $$;
 
+-- האם חבר רשאי להוציא את הסירה (לפי האנשים / רמות ההסמכה שהוגדרו לה)
+CREATE OR REPLACE FUNCTION _may_take_boat(p_boat boats, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT (cardinality(p_boat.allowed_levels) = 0 AND cardinality(p_boat.allowed_member_ids) = 0)
+    OR p_user_id = ANY (p_boat.allowed_member_ids)
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = p_user_id AND experience_level = ANY (p_boat.allowed_levels));
+$$;
+
 -- יצירת הפלגה: בהפלגה פרטית היוצר מחויב ונרשם, בהפלגת מועדון הסקיפר נרשם בחינם. כל החברים מקבלים התראה.
 CREATE OR REPLACE FUNCTION create_sail(p_sail JSONB)
 RETURNS JSONB
@@ -541,26 +556,76 @@ DECLARE
   v_policy sail_creation_policy;
   v_sail sails;
   v_member RECORD;
+  v_boat boats;
+  v_type sail_type := COALESCE(p_sail->>'sailType', 'club')::sail_type;
+  v_skipper UUID := NULLIF(p_sail->>'skipperId', '')::UUID;
+  v_date DATE := (p_sail->>'date')::DATE;
+  v_dep TIME := (p_sail->>'departureTime')::TIME;
+  v_ret TIME := (p_sail->>'estimatedReturnTime')::TIME;
+  v_conflict RECORD;
+  v_taker UUID;
 BEGIN
   SELECT who_can_create_sails INTO v_policy FROM club_settings WHERE id = 1;
   IF NOT (is_staff() OR (is_approved_member() AND v_policy = 'all_members')) THEN
     RETURN jsonb_build_object('success', false, 'message', 'אין לך הרשאה לפתוח הפלגות');
   END IF;
 
+  -- הסירה: לפי מזהה, ולתאימות לאחור לפי השם שבתווית ("גלית (Bavaria 38)")
+  SELECT * INTO v_boat FROM boats
+  WHERE id = NULLIF(p_sail->>'boatId', '')::UUID
+     OR (NULLIF(p_sail->>'boatId', '') IS NULL
+         AND (name = p_sail->>'boatName' OR p_sail->>'boatName' LIKE name || ' (%'))
+  LIMIT 1
+  FOR UPDATE; -- נעילה: שתי פתיחות במקביל לאותה סירה לא יעברו שתיהן את בדיקת החפיפה
+
+  IF FOUND THEN
+    -- אין שתי הפלגות לאותה סירה בשעות חופפות (חזרה לפני היציאה = עד חצות)
+    SELECT * INTO v_conflict FROM sails
+    WHERE boat_id = v_boat.id AND date = v_date AND status <> 'cancelled'
+      AND departure_time < (CASE WHEN v_ret > v_dep THEN v_ret ELSE TIME '23:59:59' END)
+      AND v_dep < (CASE WHEN estimated_return_time > departure_time THEN estimated_return_time ELSE TIME '23:59:59' END)
+    LIMIT 1;
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'message', v_boat.name || ' כבר תפוסה בשעות האלה: "' || v_conflict.title || '" (' ||
+          to_char(v_conflict.departure_time, 'HH24:MI') || '–' || to_char(v_conflict.estimated_return_time, 'HH24:MI') ||
+          '). בחר שעה או סירה אחרת.'
+      );
+    END IF;
+
+    -- הרשאת הוצאת הסירה: הסקיפר בהפלגת מועדון, הפותח בהפלגה פרטית
+    v_taker := CASE WHEN v_type = 'private' THEN v_uid ELSE v_skipper END;
+    IF v_taker IS NULL THEN
+      -- סקיפר אורח: רק צוות ההנהלה רשאי לשבץ אותו בסירה מוגבלת
+      IF (cardinality(v_boat.allowed_levels) > 0 OR cardinality(v_boat.allowed_member_ids) > 0) AND NOT is_staff() THEN
+        RETURN jsonb_build_object('success', false, 'message', 'הסירה ' || v_boat.name || ' מוגבלת לסקיפרים מורשים; בחר סקיפר מורשה');
+      END IF;
+    ELSIF NOT _may_take_boat(v_boat, v_taker) THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'message', CASE WHEN v_type = 'private'
+          THEN 'אין לך הרשאה להוציא את ' || v_boat.name || '. פנה להנהלת המועדון.'
+          ELSE 'הסקיפר שנבחר אינו מורשה להוציא את ' || v_boat.name || '.' END
+      );
+    END IF;
+  END IF;
+
   INSERT INTO sails (
     title, sail_type, date, departure_time, estimated_return_time, duration_hours,
-    boat_name, skipper_name, skipper_id, departure_point, notes,
+    boat_name, boat_id, skipper_name, skipper_id, departure_point, notes,
     min_participants, max_participants, credit_cost, status, created_by
   ) VALUES (
     p_sail->>'title',
-    COALESCE(p_sail->>'sailType', 'club')::sail_type,
-    (p_sail->>'date')::DATE,
-    (p_sail->>'departureTime')::TIME,
-    (p_sail->>'estimatedReturnTime')::TIME,
+    v_type,
+    v_date,
+    v_dep,
+    v_ret,
     COALESCE((p_sail->>'durationHours')::NUMERIC, 3),
     p_sail->>'boatName',
+    v_boat.id,
     p_sail->>'skipperName',
-    NULLIF(p_sail->>'skipperId', '')::UUID,
+    v_skipper,
     p_sail->>'departurePoint',
     COALESCE(p_sail->>'notes', ''),
     COALESCE((p_sail->>'minParticipants')::INT, 3),
@@ -908,6 +973,7 @@ $$;
 -- פונקציות פנימיות - לא נגישות מהדפדפן
 REVOKE EXECUTE ON FUNCTION _notify(UUID, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION _active_admin_count() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION _may_take_boat(boats, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION handle_new_user() FROM PUBLIC, anon, authenticated;
 
 -- פונקציות ה-RPC זמינות רק למשתמשים מחוברים (כל אחת בודקת בעצמה את הרשאות הקורא)

@@ -55,6 +55,9 @@ export interface Boat {
   berthLocation?: string;
   year?: number;
   capacity?: number;
+  /** Who may take the boat out (skipper / private sail opener). Both empty = everyone. */
+  allowedLevels?: ExperienceLevel[];
+  allowedMemberIds?: string[];
   createdAt: string;
 }
 
@@ -101,6 +104,8 @@ export interface Sail {
   estimatedReturnTime: string; // HH:mm
   durationHours: number; // Minimum 3 hours for private
   boatName: string;
+  /** The boat the sail books; older sails only carry boatName. */
+  boatId?: string;
   skipperName: string;
   skipperId?: string;
   departurePoint: string;
