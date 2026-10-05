@@ -73,7 +73,7 @@ const DayWeather: React.FC<{ forecast: Forecast | null; date: string; showWaves?
   const cond = sailingConditions(day.windMax, day.gustMax, day.waveMax);
   return (
     <span
-      className="inline-flex items-center gap-1 text-[10px] leading-tight"
+      className="inline-flex items-center gap-1 text-[0.625rem] leading-tight"
       title={`${weatherLabel(day.weatherCode).label} · רוח ${Math.round(day.windMax)} קשר (משבים ${Math.round(day.gustMax)}) מ${windFrom(day.windDir)}${day.waveMax !== null ? ` · גלים עד ${day.waveMax.toFixed(1)} מ'` : ''}`}
     >
       <span>{weatherLabel(day.weatherCode).icon}</span>
@@ -159,7 +159,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
           e.stopPropagation();
           onSelectSail(sail.id);
         }}
-        className={`w-full text-right p-1 rounded-lg ${compact ? 'text-[10px] sm:text-xs' : 'text-xs p-2'} font-semibold truncate block transition cursor-pointer border ${OCCUPANCY_STYLE[occ]}`}
+        className={`w-full text-right p-1 rounded-lg ${compact ? 'text-[0.625rem] sm:text-xs' : 'text-xs p-2'} font-semibold truncate block transition cursor-pointer border ${OCCUPANCY_STYLE[occ]}`}
         title={`${sail.title} (${sail.departureTime}–${sail.estimatedReturnTime}) · ${sail.boatName} · סקיפר: ${sail.skipperName}`}
       >
         <div className="flex items-center gap-1 truncate">
@@ -167,7 +167,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
           {!compact && <span className="font-normal">–{sail.estimatedReturnTime}</span>}
           <span className="truncate">{sail.title}</span>
         </div>
-        <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-slate-500 font-normal mt-0.5">
+        <div className="flex items-center justify-between text-[0.5625rem] sm:text-[0.625rem] text-slate-500 font-normal mt-0.5">
           <span className="truncate">{sail.boatName.split(' (')[0]}</span>
           {sail.sailType === 'club' && occ !== 'cancelled' && (
             <span className={occ === 'full' ? 'text-rose-700 font-black' : 'text-slate-600'}>
@@ -245,7 +245,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                     <SailChip key={sail.id} sail={sail} compact />
                   ))}
                   {daySails.length > 2 && (
-                    <div className="text-[10px] font-bold text-slate-500 text-center">+{daySails.length - 2} נוספות</div>
+                    <div className="text-[0.625rem] font-bold text-slate-500 text-center">+{daySails.length - 2} נוספות</div>
                   )}
                 </div>
               </div>
@@ -317,7 +317,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
             <DayWeather forecast={forecast} date={key} />
             <div className="space-y-1">
               {daySails.length === 0 ? (
-                <p className="text-[10px] text-slate-400">אין הפלגות</p>
+                <p className="text-[0.625rem] text-slate-400">אין הפלגות</p>
               ) : (
                 daySails.map((sail) => <SailChip key={sail.id} sail={sail} compact />)
               )}
@@ -347,7 +347,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         </div>
 
         {strip.length > 0 && (
-          <div className="grid grid-cols-6 gap-1 text-center text-[10px] bg-slate-50 rounded-2xl border border-slate-200 p-2">
+          <div className="grid grid-cols-6 gap-1 text-center text-[0.625rem] bg-slate-50 rounded-2xl border border-slate-200 p-2">
             {strip.map((h) => {
               const cond = sailingConditions(h.wind, h.gust, h.wave);
               return (
@@ -364,7 +364,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         )}
 
         <div className="space-y-2">
-          <div className="relative h-4 mr-24 sm:mr-32 text-[9px] text-slate-400">
+          <div className="relative h-4 mr-24 sm:mr-32 text-[0.5625rem] text-slate-400">
             {hours.map((h) => (
               <span key={h} className="absolute translate-x-1/2" style={{ right: `${pct(h * 60)}%` }}>
                 {String(h).padStart(2, '0')}:00
@@ -381,7 +381,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                     {restricted && <Lock className="w-3 h-3 text-slate-400 shrink-0" />}
                     {boat.name}
                   </div>
-                  <div className={`text-[10px] ${boat.status === 'available' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <div className={`text-[0.625rem] ${boat.status === 'available' ? 'text-emerald-600' : 'text-amber-600'}`}>
                     {boat.status === 'available' ? 'זמינה' : boat.status === 'maintenance' ? 'בתיקון' : 'לא זמינה'}
                   </div>
                 </div>
@@ -400,7 +400,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                         key={sail.id}
                         type="button"
                         onClick={() => onSelectSail(sail.id)}
-                        className={`absolute top-1 bottom-1 rounded-lg border px-1 text-[10px] font-bold truncate text-right cursor-pointer ${OCCUPANCY_STYLE[occupancy(sail)]}`}
+                        className={`absolute top-1 bottom-1 rounded-lg border px-1 text-[0.625rem] font-bold truncate text-right cursor-pointer ${OCCUPANCY_STYLE[occupancy(sail)]}`}
                         style={{ right: `${pct(start)}%`, width: `${Math.max(pct(end) - pct(start), 4)}%` }}
                         title={`${sail.title} ${sail.departureTime}–${sail.estimatedReturnTime}`}
                       >
@@ -427,7 +427,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
 
   const DaySummary: React.FC<{ date: string }> = ({ date }) => {
     const day = forecast?.days[date];
-    if (!day) return <span className="text-[11px] text-slate-400">אין עדיין תחזית לתאריך זה</span>;
+    if (!day) return <span className="text-[0.6875rem] text-slate-400">אין עדיין תחזית לתאריך זה</span>;
     const w = weatherLabel(day.weatherCode);
     return (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-700">
@@ -438,7 +438,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
           💨 עד {Math.round(day.windMax)} קשר, משבים {Math.round(day.gustMax)} (מ{windFrom(day.windDir)})
         </span>
         {day.waveMax !== null && <span>🌊 גלים עד {day.waveMax.toFixed(1)} מ'</span>}
-        <span className="text-[10px] text-slate-400">{CLUB_LOCATION.name}</span>
+        <span className="text-[0.625rem] text-slate-400">{CLUB_LOCATION.name}</span>
       </div>
     );
   };
@@ -452,21 +452,21 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         className="p-3 bg-white rounded-xl border border-slate-200 hover:border-sky-300 shadow-2xs cursor-pointer transition text-xs space-y-1"
       >
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${isClub ? 'bg-sky-100 text-sky-800' : 'bg-indigo-100 text-indigo-800'}`}>
+          <span className={`px-1.5 py-0.5 rounded text-[0.625rem] font-bold ${isClub ? 'bg-sky-100 text-sky-800' : 'bg-indigo-100 text-indigo-800'}`}>
             {isClub ? '⛵ מועדון' : '🚤 פרטית'}
           </span>
           <h4 className="font-bold text-slate-900">{sail.title}</h4>
         </div>
-        <p className="text-slate-500 text-[11px]">
+        <p className="text-slate-500 text-[0.6875rem]">
           {sail.departureTime}–{sail.estimatedReturnTime} · {sail.boatName} · סקיפר: <strong>{sail.skipperName}</strong>
         </p>
         {isClub && sail.status !== 'cancelled' && (
           confirmed >= sail.minParticipants ? (
-            <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+            <span className="text-[0.625rem] font-bold text-emerald-700 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" /> יציאה מובטחת · {confirmed}/{sail.maxParticipants}
             </span>
           ) : (
-            <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1">
+            <span className="text-[0.625rem] font-bold text-amber-700 flex items-center gap-1">
               <AlertCircle className="w-3 h-3" /> ממתין ל-{sail.minParticipants - confirmed} חברים · {confirmed}/{sail.maxParticipants}
             </span>
           )

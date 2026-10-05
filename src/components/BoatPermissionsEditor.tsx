@@ -51,14 +51,14 @@ export const BoatPermissionsEditor: React.FC<Props> = ({ allowedLevels, allowedM
           </button>
         )}
       </div>
-      <p className="text-[11px] text-slate-500">
+      <p className="text-[0.6875rem] text-slate-500">
         {isOpen
           ? 'פתוחה לכולם. סמן רמות הסמכה ו/או חברים כדי להגביל.'
           : 'רק סקיפר (בהפלגת מועדון) או פותח הפלגה פרטית שעומד באחד התנאים רשאי להוציא אותה.'}
       </p>
 
       <div>
-        <div className="text-[11px] font-semibold text-slate-600 mb-1">רמות הסמכה מורשות</div>
+        <div className="text-[0.6875rem] font-semibold text-slate-600 mb-1">רמות הסמכה מורשות</div>
         <div className="flex flex-wrap gap-1.5">
           {levels.map((level) => {
             const on = allowedLevels.includes(level);
@@ -67,7 +67,7 @@ export const BoatPermissionsEditor: React.FC<Props> = ({ allowedLevels, allowedM
                 key={level}
                 type="button"
                 onClick={() => toggleLevel(level)}
-                className={`px-2 py-1 rounded-lg border text-[11px] cursor-pointer transition ${
+                className={`px-2 py-1 rounded-lg border text-[0.6875rem] cursor-pointer transition ${
                   on ? 'bg-sky-600 border-sky-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-700 hover:border-sky-300'
                 }`}
               >
@@ -80,7 +80,7 @@ export const BoatPermissionsEditor: React.FC<Props> = ({ allowedLevels, allowedM
       </div>
 
       <div>
-        <div className="text-[11px] font-semibold text-slate-600 mb-1">חברים מורשים (בנוסף לרמות)</div>
+        <div className="text-[0.6875rem] font-semibold text-slate-600 mb-1">חברים מורשים (בנוסף לרמות)</div>
         <div className="flex flex-wrap gap-1.5 mb-1.5">
           {allowedMemberIds.map((id) => (
             <span key={id} className="px-2 py-1 rounded-lg bg-sky-50 border border-sky-200 text-sky-900 font-semibold flex items-center gap-1">
@@ -110,7 +110,7 @@ export const BoatPermissionsEditor: React.FC<Props> = ({ allowedLevels, allowedM
                 className="w-full text-right px-3 py-1.5 hover:bg-sky-50 cursor-pointer flex justify-between"
               >
                 <span className="font-semibold">{m.fullName}</span>
-                <span className="text-[10px] text-slate-400">{m.experienceLevel}</span>
+                <span className="text-[0.625rem] text-slate-400">{m.experienceLevel}</span>
               </button>
             ))}
           </div>

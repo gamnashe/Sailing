@@ -1,5 +1,18 @@
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import { AccessibilityMenu } from './components/AccessibilityMenu';
+import { initAccessibility } from './services/accessibility';
 import './index.css';
 
-createRoot(document.getElementById('root')!).render(<App />);
+// Apply saved accessibility preferences before the first paint
+initAccessibility();
+
+createRoot(document.getElementById('root')!).render(
+  <>
+    <a href="#main-content" className="skip-link">
+      דלג לתוכן הראשי
+    </a>
+    <App />
+    <AccessibilityMenu />
+  </>
+);

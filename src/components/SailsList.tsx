@@ -196,7 +196,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
                   <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                        className={`text-[0.6875rem] font-bold px-2 py-0.5 rounded-md ${
                           isClub
                             ? 'bg-sky-100 text-sky-800'
                             : 'bg-indigo-100 text-indigo-800'
@@ -212,29 +212,29 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
 
                     {/* Status badges */}
                     {sail.status === 'cancelled' ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                      <span className="text-[0.625rem] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
                         בוטלה
                       </span>
                     ) : sail.status === 'closed' ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                      <span className="text-[0.625rem] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                         סגורה
                       </span>
                     ) : isUserConfirmed ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                      <span className="text-[0.625rem] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
                         <CheckCircle className="w-3 h-3 text-emerald-600" />
                         אתה רשום!
                       </span>
                     ) : isUserWaitlist ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 flex items-center gap-1">
+                      <span className="text-[0.625rem] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 flex items-center gap-1">
                         <Clock className="w-3 h-3 text-amber-600" />
                         ממתין #{userReg?.waitlistPosition}
                       </span>
                     ) : isFull ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                      <span className="text-[0.625rem] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                         הפלגה מלאה
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="text-[0.625rem] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                         פתוחה להרשמה
                       </span>
                     )}
@@ -246,14 +246,14 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
                   </h3>
 
                   {/* Sailing Cost & Rules Banner */}
-                  <div className="mb-3 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-[11px] flex items-center justify-between text-slate-700">
+                  <div className="mb-3 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-[0.6875rem] flex items-center justify-between text-slate-700">
                     <span className="flex items-center gap-1 font-semibold text-amber-800">
                       <Coins className="w-3.5 h-3.5 text-amber-600" />
                       {isClub ? '1 קרדיט למשתתף' : `${sail.creditCost || 3} קרדיטים (${sail.durationHours || 3} שעות)`}
                     </span>
 
                     {isClub ? (
-                      <span className={`text-[10px] font-bold flex items-center gap-1 ${
+                      <span className={`text-[0.625rem] font-bold flex items-center gap-1 ${
                         isClubGuaranteed ? 'text-emerald-700' : 'text-amber-700'
                       }`}>
                         {isClubGuaranteed ? (
@@ -269,7 +269,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
                         )}
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold text-indigo-700">
+                      <span className="text-[0.625rem] font-bold text-indigo-700">
                         הפלגה פרטית נעולה
                       </span>
                     )}
@@ -312,12 +312,12 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
                       />
                     ))}
                     {confirmedMembers.length > 4 && (
-                      <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center border-2 border-white">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 font-bold text-[0.625rem] flex items-center justify-center border-2 border-white">
                         +{confirmedMembers.length - 4}
                       </div>
                     )}
                     {confirmedMembers.length === 0 && (
-                      <span className="text-[11px] text-slate-400">טרם נרשמו משתתפים</span>
+                      <span className="text-[0.6875rem] text-slate-400">טרם נרשמו משתתפים</span>
                     )}
                   </div>
 
@@ -328,7 +328,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
                       {confirmedMembers.length}/{sail.maxParticipants} משתתפים
                     </span>
                     {waitlist.length > 0 && (
-                      <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">
+                      <span className="text-[0.625rem] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">
                         +{waitlist.length} בהמתנה
                       </span>
                     )}

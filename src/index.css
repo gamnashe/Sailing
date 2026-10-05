@@ -4,12 +4,125 @@
   body {
     font-family: 'Assistant', 'Rubik', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-tap-highlight-color: transparent;
-    user-select: none;
   }
 
-  input, textarea, select {
-    user-select: auto;
+  html {
+    /* Accessibility menu → text size; all sizes are rem so everything scales together */
+    font-size: calc(100% * var(--a11y-text-scale, 1));
   }
+
+  /* Visible keyboard focus everywhere (mouse/touch clicks don't show it) */
+  :focus-visible {
+    outline: 3px solid #f59e0b;
+    outline-offset: 2px;
+  }
+}
+
+/* ===== Accessibility mode (classes set on <html> by services/accessibility.ts) ===== */
+
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  background: #0c4a6e;
+  color: #fff;
+  font-weight: 700;
+  padding: 0.6rem 1rem;
+  border-radius: 0.75rem;
+}
+.skip-link:focus {
+  transform: none;
+}
+
+/* High contrast: darker greys, brand and status colours, stronger borders */
+html.a11y-contrast {
+  --color-slate-200: #94a3b8;
+  --color-slate-300: #64748b;
+  --color-slate-400: #334155;
+  --color-slate-500: #1e293b;
+  --color-slate-600: #0f172a;
+  --color-slate-700: #020617;
+  --color-slate-800: #020617;
+  --color-sky-500: #0369a1;
+  --color-sky-600: #075985;
+  --color-sky-700: #0c4a6e;
+  --color-emerald-500: #047857;
+  --color-emerald-600: #065f46;
+  --color-emerald-700: #064e3b;
+  --color-amber-500: #b45309;
+  --color-amber-600: #92400e;
+  --color-amber-700: #78350f;
+  --color-rose-500: #be123c;
+  --color-rose-600: #9f1239;
+  --color-rose-700: #881337;
+}
+html.a11y-contrast ::placeholder {
+  color: #334155;
+  opacity: 1;
+}
+
+/* Colour filters go on <html> so fixed headers/bars keep their position */
+html.a11y-invert {
+  filter: invert(1) hue-rotate(180deg);
+  background: #fff;
+}
+html.a11y-grayscale {
+  filter: grayscale(1);
+}
+html.a11y-invert.a11y-grayscale {
+  filter: invert(1) hue-rotate(180deg) grayscale(1);
+}
+html.a11y-invert img,
+html.a11y-invert video,
+html.a11y-invert picture,
+html.a11y-invert canvas {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+html.a11y-links a,
+html.a11y-links button,
+html.a11y-links [role='button'] {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+  outline: 2px dashed #f59e0b;
+  outline-offset: 1px;
+}
+
+html.a11y-readable,
+html.a11y-readable * {
+  font-family: Arial, 'Assistant', Helvetica, sans-serif !important;
+  font-weight: 600;
+}
+
+html.a11y-spacing * {
+  line-height: 1.8 !important;
+  letter-spacing: 0.06em !important;
+  word-spacing: 0.16em !important;
+}
+
+html.a11y-no-motion *,
+html.a11y-no-motion *::before,
+html.a11y-no-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html.a11y-cursor,
+html.a11y-cursor * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24'%3E%3Cpath d='M4 2l16 10-7 1.5L9.5 21z' fill='%23000' stroke='%23fff' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 4 2, auto !important;
 }
 
 /* Custom scrollbars for mobile feel */

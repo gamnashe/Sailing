@@ -129,7 +129,7 @@ export const QualificationLevelsEditor: React.FC = () => {
                 }}
                 className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
-              <span className="text-[10px] text-slate-400 w-14 text-center shrink-0">{holders(level)} חברים</span>
+              <span className="text-[0.625rem] text-slate-400 w-14 text-center shrink-0">{holders(level)} חברים</span>
               {changed && (
                 <button
                   type="button"

@@ -136,7 +136,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
 
         <div className="text-left bg-white/40 backdrop-blur-xs px-4 py-2 rounded-2xl border border-white/40">
           <span className="text-2xl font-black text-amber-950">{user.credits ?? 5}</span>
-          <span className="text-[10px] font-bold block text-amber-900">קרדיטים</span>
+          <span className="text-[0.625rem] font-bold block text-amber-900">קרדיטים</span>
         </div>
       </div>
 
@@ -245,7 +245,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
         <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
           <div>
             <p className="font-bold text-slate-800">התראות דפדפן / מערכת</p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[0.6875rem] text-slate-500">
               {pushEnabled ? 'התראות פעילות במכשיר זה' : 'טרם אושרו התראות במכשיר זה'}
             </p>
           </div>

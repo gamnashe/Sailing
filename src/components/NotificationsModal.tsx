@@ -44,7 +44,7 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="bg-slate-900 text-white p-5 flex items-center justify-between shrink-0">
@@ -54,7 +54,7 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
             </div>
             <div>
               <h2 className="text-base font-bold">מרכז התראות</h2>
-              <p className="text-[11px] text-slate-300">{unreadCount} התראות חדשות שלא נקראו</p>
+              <p className="text-[0.6875rem] text-slate-300">{unreadCount} התראות חדשות שלא נקראו</p>
             </div>
           </div>
 
@@ -62,7 +62,7 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-[11px] text-sky-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+                className="text-[0.6875rem] text-sky-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
                 title="סמן הכל כנקרא"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
@@ -105,7 +105,7 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
                     <p className={`font-bold ${n.read ? 'text-slate-800' : 'text-sky-950 font-black'}`}>
                       {n.title}
                     </p>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[0.625rem] text-slate-400">
                       {new Date(n.createdAt).toLocaleDateString('he-IL', {
                         day: 'numeric',
                         month: 'numeric',
@@ -114,7 +114,7 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
                       })}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">{n.message}</p>
+                  <p className="text-[0.6875rem] text-slate-600 leading-relaxed">{n.message}</p>
                 </div>
               </div>
             ))

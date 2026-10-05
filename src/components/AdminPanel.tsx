@@ -493,15 +493,15 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-slate-900 text-sm">{member.fullName}</p>
                       {member.role === 'admin' ? (
-                        <span className="bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full text-[10px] flex items-center gap-1">
+                        <span className="bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full text-[0.625rem] flex items-center gap-1">
                           <Shield className="w-3 h-3 text-sky-600" /> {ROLE_LABELS.admin}
                         </span>
                       ) : member.role === 'assistant' ? (
-                        <span className="bg-violet-100 text-violet-800 font-bold px-2 py-0.5 rounded-full text-[10px] flex items-center gap-1">
+                        <span className="bg-violet-100 text-violet-800 font-bold px-2 py-0.5 rounded-full text-[0.625rem] flex items-center gap-1">
                           <Shield className="w-3 h-3 text-violet-600" /> {ROLE_LABELS.assistant}
                         </span>
                       ) : (
-                        <span className="bg-slate-200 text-slate-700 font-medium px-2 py-0.5 rounded-full text-[10px]">
+                        <span className="bg-slate-200 text-slate-700 font-medium px-2 py-0.5 rounded-full text-[0.625rem]">
                           חבר מועדון
                         </span>
                       )}
@@ -514,7 +514,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                     </div>
 
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-slate-500 text-[11px]">{member.phone} •</span>
+                      <span className="text-slate-500 text-[0.6875rem]">{member.phone} •</span>
                       {/* Qualification Level Selector */}
                       <div className="flex items-center gap-1">
                         <Compass className="w-3 h-3 text-sky-600" />
@@ -523,7 +523,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                           onChange={(e) =>
                             handleUpdateQualification(member.id, e.target.value as ExperienceLevel, member.fullName)
                           }
-                          className="bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg px-2 py-0.5 hover:border-sky-400 focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                          className="bg-white border border-slate-200 text-slate-700 text-[0.6875rem] font-semibold rounded-lg px-2 py-0.5 hover:border-sky-400 focus:ring-1 focus:ring-sky-500 cursor-pointer"
                           title="עדכן רמת הסמכה של המשיט"
                         >
                           {levelOptions(clubSettings.experienceLevels, member.experienceLevel).map((lvl) => (
@@ -759,14 +759,14 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-sm text-slate-900">{sail.title}</span>
-                        <span className="bg-sky-100 text-sky-800 px-2 py-0.5 rounded-md font-semibold text-[10px]">
+                        <span className="bg-sky-100 text-sky-800 px-2 py-0.5 rounded-md font-semibold text-[0.625rem]">
                           ⛵ {sail.boatName}
                         </span>
                       </div>
                       <p className="text-slate-600">
                         {sail.date} | שעות: {sail.departureTime} - {sail.estimatedReturnTime} | סקיפר: {sail.skipperName}
                       </p>
-                      <p className="text-slate-500 text-[11px] mt-0.5">
+                      <p className="text-slate-500 text-[0.6875rem] mt-0.5">
                         רשומים: <strong>{confirmed.length}/{sail.maxParticipants}</strong>
                         {waitlist.length > 0 && ` (+${waitlist.length} בהמתנה)`}
                       </p>
@@ -831,7 +831,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                       <p className="text-slate-500">
                         שם משתמש: <strong>{user.username}</strong> | טלפון: <strong>{user.phone}</strong>
                       </p>
-                      <span className="inline-block mt-1 bg-sky-50 text-sky-700 px-2 py-0.5 rounded-md font-semibold text-[10px]">
+                      <span className="inline-block mt-1 bg-sky-50 text-sky-700 px-2 py-0.5 rounded-md font-semibold text-[0.625rem]">
                         ניסיון: {user.experienceLevel}
                       </span>
                     </div>
@@ -1001,7 +1001,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                     <img src={user.avatar} alt={user.fullName} className="w-8 h-8 rounded-full object-cover" />
                     <div>
                       <p className="font-bold text-slate-900">{user.fullName}</p>
-                      <p className="text-[10px] text-slate-400">{user.experienceLevel}</p>
+                      <p className="text-[0.625rem] text-slate-400">{user.experienceLevel}</p>
                     </div>
                   </div>
 
@@ -1017,7 +1017,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL: Credit Adjustment */}
       {creditModalUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <form
             onSubmit={handleApplyCredits}
             className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
@@ -1055,7 +1055,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                 placeholder="למשל: 5 להוספה, או 1- להפחתה"
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-sky-500"
               />
-              <span className="text-[10px] text-slate-400 mt-1 block">
+              <span className="text-[0.625rem] text-slate-400 mt-1 block">
                 ניתן להזין מספר חיובי להוספה, או שלילי להפחתה.
               </span>
             </div>
@@ -1093,7 +1093,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL: Cancel Sail with Credit Refund */}
       {cancellingSail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <form
             onSubmit={handleConfirmCancelSail}
             className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
@@ -1143,7 +1143,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL: Add New Boat */}
       {showAddMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
@@ -1168,7 +1168,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                   <div>מייל: <span className="font-mono">{createdMember.email}</span></div>
                   <div>סיסמה זמנית: <span className="font-mono font-black text-sm tracking-wider">{createdMember.password}</span></div>
                 </div>
-                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">
+                <p className="text-[0.6875rem] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">
                   הסיסמה מוצגת פעם אחת בלבד. החבר יכול להחליף אותה במסך הפרופיל.
                 </p>
                 <a
@@ -1290,7 +1290,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
       )}
 
       {showAddBoatModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <form
             onSubmit={handleAddBoat}
             className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
@@ -1393,7 +1393,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL: Edit Existing Boat */}
       {editingBoat && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <form
             onSubmit={handleUpdateBoat}
             className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
