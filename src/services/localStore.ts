@@ -18,6 +18,7 @@ import {
   ExperienceLevel,
   PasswordResetToken
 } from '../types';
+import { DEFAULT_EXPERIENCE_LEVELS } from '../types';
 import type { DataStore, NewMember, Result } from './dataStore';
 import { validatePasswordComplexity } from './sailRules';
 
@@ -45,6 +46,7 @@ const INITIAL_SETTINGS: ClubSettings = {
   defaultMaxParticipants: 6,
   whoCanCreateSails: 'all_members',
   cancellationDeadlineHours: 12,
+  experienceLevels: DEFAULT_EXPERIENCE_LEVELS,
 };
 
 // Clean initial admin user
@@ -522,7 +524,7 @@ export class LocalStore implements DataStore {
     const user = this.data.users.find(u => u.id === userId);
     if (!user) return { success: false, error: 'משתמש לא נמצא' };
 
-    if (user.role === 'admin' && newRole === 'member') {
+    if (user.role === 'admin' && newRole !== 'admin') {
       const adminCount = this.data.users.filter(u => u.role === 'admin' && u.status === 'approved').length;
       if (adminCount <= 1) {
         return { success: false, error: 'לא ניתן להוריד מנהל זה: חייב להישאר לפחות מנהל אחד פעיל במועדון!' };
@@ -1108,7 +1110,17 @@ export class LocalStore implements DataStore {
 
   // --- Settings ---
   public getSettings(): ClubSettings {
-    return { ...this.data.settings };
+    // Data saved before levels became editable has no list yet.
+    return { ...INITIAL_SETTINGS, ...this.data.settings };
+  }
+
+  public async renameExperienceLevel(oldName: string, newName: string): Promise<Result> {
+    const name = newName.trim();
+    if (!name) return { success: false, error: 'יש להזין שם לרמת ההסמכה' };
+    const levels = this.getSettings().experienceLevels.map(l => (l === oldName ? name : l));
+    const users = this.data.users.map(u => (u.experienceLevel === oldName ? { ...u, experienceLevel: name } : u));
+    this.saveData({ ...this.data, users, settings: { ...this.getSettings(), experienceLevels: levels } });
+    return { success: true };
   }
 
   public async updateSettings(settings: Partial<ClubSettings>) {

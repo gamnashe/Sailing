@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
-import { UserProfile, UserRole, ClubSettings, Boat, BoatStatus, Sail, ExperienceLevel } from '../types';
+import { QualificationLevelsEditor } from './QualificationLevelsEditor';
+import { UserProfile, UserRole, ClubSettings, Boat, BoatStatus, Sail, ExperienceLevel, levelOptions, ROLE_LABELS } from '../types';
 import {
   Shield,
   UserCheck,
@@ -10,8 +11,6 @@ import {
   Search,
   Check,
   X,
-  ArrowUpCircle,
-  ArrowDownCircle,
   Award,
   Sailboat,
   AlertTriangle,
@@ -33,14 +32,6 @@ import {
   KeyRound
 } from 'lucide-react';
 
-const EXPERIENCE_OPTIONS: ExperienceLevel[] = [
-  'משיט 60 (סקיפר בינלאומי)',
-  'משיט 30 (סקיפר חופי)',
-  'משיט 40 (סקיפר מסחרי)',
-  'איש צוות מנוסה',
-  'סקיפר מתלמד',
-  'חובב / מתחיל',
-];
 
 interface Props {
   currentUser: UserProfile;
@@ -57,7 +48,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     email: '',
     fullName: '',
     phone: '',
-    experienceLevel: 'איש צוות מנוסה' as ExperienceLevel,
+    experienceLevel: (store.getSettings().experienceLevels[3] ?? store.getSettings().experienceLevels[0] ?? '') as ExperienceLevel,
     credits: 5,
   });
   const [addMemberBusy, setAddMemberBusy] = useState(false);
@@ -97,6 +88,10 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
   const registrations = store.getRegistrations();
   const clubSettings = store.getSettings();
 
+  // Assistants manage the club like admins, except credits, roles and other staff members' accounts.
+  const isAdminUser = currentUser.role === 'admin';
+  const canManageAccount = (member: UserProfile) => isAdminUser || member.role === 'member';
+
   const pendingUsers = users.filter((u) => u.status === 'pending');
   const approvedUsers = users.filter((u) => u.status === 'approved');
   const upcomingSails = sails.filter((s) => s.status === 'open' || s.status === 'closed');
@@ -112,7 +107,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     setCreatedMember(null);
     setAddMemberError(null);
     setCopied(false);
-    setNewMember({ email: '', fullName: '', phone: '', experienceLevel: 'איש צוות מנוסה', credits: 5 });
+    setNewMember({ email: '', fullName: '', phone: '', experienceLevel: clubSettings.experienceLevels[3] ?? clubSettings.experienceLevels[0] ?? '', credits: 5 });
   };
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -120,7 +115,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     if (addMemberBusy) return;
     setAddMemberError(null);
     setAddMemberBusy(true);
-    const res = await store.createMember({ ...newMember, credits: Number(newMember.credits) || 0 });
+    const res = await store.createMember({ ...newMember, credits: isAdminUser ? Number(newMember.credits) || 0 : 5 });
     setAddMemberBusy(false);
     if (res.success && res.email && res.temporaryPassword) {
       setCreatedMember({ fullName: newMember.fullName, phone: newMember.phone, email: res.email, password: res.temporaryPassword });
@@ -177,7 +172,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     const res = await store.toggleMemberRole(userId, newRole);
     if (res.success) {
       setFeedbackMessage({
-        text: newRole === 'admin' ? 'החבר קודם לתפקיד מנהל בהצלחה' : 'התפקיד עודכן לחבר מועדון',
+        text: `התפקיד עודכן ל${ROLE_LABELS[newRole]}`,
         type: 'success',
       });
     } else {
@@ -496,7 +491,11 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                       <p className="font-bold text-slate-900 text-sm">{member.fullName}</p>
                       {member.role === 'admin' ? (
                         <span className="bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full text-[10px] flex items-center gap-1">
-                          <Shield className="w-3 h-3 text-sky-600" /> מנהל
+                          <Shield className="w-3 h-3 text-sky-600" /> {ROLE_LABELS.admin}
+                        </span>
+                      ) : member.role === 'assistant' ? (
+                        <span className="bg-violet-100 text-violet-800 font-bold px-2 py-0.5 rounded-full text-[10px] flex items-center gap-1">
+                          <Shield className="w-3 h-3 text-violet-600" /> {ROLE_LABELS.assistant}
                         </span>
                       ) : (
                         <span className="bg-slate-200 text-slate-700 font-medium px-2 py-0.5 rounded-full text-[10px]">
@@ -524,12 +523,9 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                           className="bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg px-2 py-0.5 hover:border-sky-400 focus:ring-1 focus:ring-sky-500 cursor-pointer"
                           title="עדכן רמת הסמכה של המשיט"
                         >
-                          <option value="משיט 60 (סקיפר בינלאומי)">משיט 60 (סקיפר בינלאומי)</option>
-                          <option value="משיט 30 (סקיפר חופי)">משיט 30 (סקיפר חופי)</option>
-                          <option value="משיט 40 (סקיפר מסחרי)">משיט 40 (סקיפר מסחרי)</option>
-                          <option value="איש צוות מנוסה">איש צוות מנוסה</option>
-                          <option value="סקיפר מתלמד">סקיפר מתלמד</option>
-                          <option value="חובב / מתחיל">חובב / מתחיל</option>
+                          {levelOptions(clubSettings.experienceLevels, member.experienceLevel).map((lvl) => (
+                            <option key={lvl} value={lvl}>{lvl}</option>
+                          ))}
                         </select>
                       </div>
                     </div>
@@ -538,7 +534,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
 
                 {/* Role Switcher & Credit Modifiers & Delete */}
                 <div className="flex items-center gap-2 flex-wrap self-end sm:self-center">
-                  {/* Credits Adjust Buttons */}
+                  {/* Credits Adjust Buttons (admin only) */}
+                  {isAdminUser && (
                   <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-2xs">
                     <button
                       type="button"
@@ -577,29 +574,24 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                       הגדר קרדיטים
                     </button>
                   </div>
+                  )}
 
-                  {/* Role promotion/demotion */}
-                  {member.role === 'member' ? (
-                    <button
-                      onClick={() => handleToggleRole(member.id, 'admin')}
-                      className="bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold px-3 py-1.5 rounded-xl border border-sky-200 transition flex items-center gap-1.5 cursor-pointer"
+                  {/* Role (admin only) */}
+                  {isAdminUser && (
+                    <select
+                      value={member.role}
+                      onChange={(e) => handleToggleRole(member.id, e.target.value as UserRole)}
+                      className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-2 py-1.5 cursor-pointer hover:border-sky-400"
+                      title="תפקיד במועדון"
                     >
-                      <ArrowUpCircle className="w-3.5 h-3.5" />
-                      קדם למנהל
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleToggleRole(member.id, 'member')}
-                      className="bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded-xl border border-amber-200 transition flex items-center gap-1.5 cursor-pointer"
-                      title="הורד מתפקיד מנהל (מותנה בהישארות לפחות מנהל אחד)"
-                    >
-                      <ArrowDownCircle className="w-3.5 h-3.5" />
-                      הורד לחבר
-                    </button>
+                      <option value="member">{ROLE_LABELS.member}</option>
+                      <option value="assistant">{ROLE_LABELS.assistant}</option>
+                      <option value="admin">{ROLE_LABELS.admin}</option>
+                    </select>
                   )}
 
                   {/* Resend login details (new temporary password) */}
-                  {member.id !== currentUser.id && (
+                  {member.id !== currentUser.id && canManageAccount(member) && (
                     <button
                       type="button"
                       onClick={() => handleResendLogin(member)}
@@ -612,6 +604,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                   )}
 
                   {/* Delete User Button */}
+                  {canManageAccount(member) && (
                   <button
                     type="button"
                     onClick={() => handleDeleteUser(member.id, member.fullName)}
@@ -620,6 +613,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -852,6 +846,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
 
       {/* TAB 5: Club Settings */}
       {activeTab === 'settings' && (
+        <div className="space-y-4">
         <form onSubmit={handleSaveSettings} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-base font-bold text-slate-900">הגדרות מועדון ומדיניות הפלגות</h2>
@@ -913,6 +908,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
 
           <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
             <div className="flex items-center gap-2">
+              {isAdminUser && (
               <button
                 type="button"
                 onClick={handleResetDatabase}
@@ -922,6 +918,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                 <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
                 מחק נתוני טסט (דטה בייס נקי)
               </button>
+              )}
             </div>
 
             <button
@@ -932,6 +929,9 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
             </button>
           </div>
         </form>
+
+        <QualificationLevelsEditor />
+        </div>
       )}
 
       {/* TAB 6: Statistics */}
@@ -1234,7 +1234,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                     className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-left"
                   />
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${isAdminUser ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <label className="block">
                     <span className="font-semibold text-slate-700">רמת הסמכה</span>
                     <select
@@ -1242,11 +1242,12 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                       onChange={(e) => setNewMember({ ...newMember, experienceLevel: e.target.value as ExperienceLevel })}
                       className="mt-1 w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                     >
-                      {EXPERIENCE_OPTIONS.map((lvl) => (
+                      {clubSettings.experienceLevels.map((lvl) => (
                         <option key={lvl} value={lvl}>{lvl}</option>
                       ))}
                     </select>
                   </label>
+                  {isAdminUser && (
                   <label className="block">
                     <span className="font-semibold text-slate-700">קרדיטים התחלתיים</span>
                     <input
@@ -1257,6 +1258,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                       className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                     />
                   </label>
+                  )}
                 </div>
                 <button
                   type="submit"

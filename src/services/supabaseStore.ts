@@ -14,6 +14,7 @@ import type {
   NotificationType,
 } from '../types';
 import type { DataStore, MessageResult, NewMember, Result } from './dataStore';
+import { DEFAULT_EXPERIENCE_LEVELS } from '../types';
 import { validatePasswordComplexity } from './sailRules';
 
 type Row = Record<string, any>;
@@ -35,6 +36,7 @@ const DEFAULT_SETTINGS: ClubSettings = {
   defaultMaxParticipants: 6,
   whoCanCreateSails: 'all_members',
   cancellationDeadlineHours: 12,
+  experienceLevels: DEFAULT_EXPERIENCE_LEVELS,
 };
 
 const emptySnapshot = (settings: ClubSettings = DEFAULT_SETTINGS): Snapshot => ({
@@ -69,6 +71,7 @@ function mapSettings(r: Row): ClubSettings {
     defaultMaxParticipants: r.default_max_participants,
     whoCanCreateSails: r.who_can_create_sails,
     cancellationDeadlineHours: r.cancellation_deadline_hours,
+    experienceLevels: r.experience_levels?.length ? r.experience_levels : DEFAULT_EXPERIENCE_LEVELS,
   };
 }
 
@@ -813,7 +816,13 @@ export class SupabaseStore implements DataStore {
     if (settings.defaultMaxParticipants !== undefined) row.default_max_participants = settings.defaultMaxParticipants;
     if (settings.whoCanCreateSails !== undefined) row.who_can_create_sails = settings.whoCanCreateSails;
     if (settings.cancellationDeadlineHours !== undefined) row.cancellation_deadline_hours = settings.cancellationDeadlineHours;
+    if (settings.experienceLevels !== undefined) row.experience_levels = settings.experienceLevels;
     await this.write(this.sb.from('club_settings').update(row).eq('id', 1));
+  }
+
+  public async renameExperienceLevel(oldName: string, newName: string): Promise<Result> {
+    const r = await this.rpc('rename_experience_level', { p_old: oldName, p_new: newName });
+    return { success: Boolean(r.success), error: r.message };
   }
 
   // --- Boats & issues ---

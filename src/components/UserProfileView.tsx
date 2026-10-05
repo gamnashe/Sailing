@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
-import { UserProfile, ExperienceLevel } from '../types';
+import { UserProfile, ExperienceLevel, levelOptions, ROLE_LABELS, isStaff } from '../types';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import {
   User,
@@ -22,14 +22,6 @@ interface Props {
   onUpdate: () => void;
 }
 
-const EXPERIENCE_OPTIONS: ExperienceLevel[] = [
-  'משיט 60 (סקיפר בינלאומי)',
-  'משיט 30 (סקיפר חופי)',
-  'משיט 40 (סקיפר מסחרי)',
-  'איש צוות מנוסה',
-  'סקיפר מתלמד',
-  'חובב / מתחיל',
-];
 
 export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
@@ -108,9 +100,9 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
         <div className="flex-1">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
             <h2 className="text-xl font-bold text-slate-900">{user.fullName}</h2>
-            {user.role === 'admin' ? (
+            {isStaff(user.role) ? (
               <span className="text-xs bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                <Shield className="w-3 h-3 text-sky-600" /> מנהל מועדון
+                <Shield className="w-3 h-3 text-sky-600" /> {user.role === 'admin' ? 'מנהל מועדון' : ROLE_LABELS.assistant}
               </span>
             ) : (
               <span className="text-xs bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded-full">
@@ -189,7 +181,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
               onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs cursor-pointer font-medium"
             >
-              {EXPERIENCE_OPTIONS.map((opt) => (
+              {levelOptions(store.getSettings().experienceLevels, user.experienceLevel).map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
                 </option>

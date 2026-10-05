@@ -1,4 +1,6 @@
-// Admin-only destructive actions, run with the service role after verifying the caller is an approved admin.
+// Staff-only account actions, run with the service role after verifying the caller's role.
+// Admins may do everything; assistant managers only act on regular members' accounts, cannot set
+// credits and cannot reset club activity.
 //   POST { action: 'delete_member', userId }  → deletes the auth account (profile and data cascade)
 //   POST { action: 'reset_club_activity' }    → deletes sails, posts, boat issues and notifications
 //   POST { action: 'create_member', email, fullName, phone, experienceLevel, credits }
@@ -41,12 +43,24 @@ Deno.serve(async (req: Request) => {
   const asCaller = createClient(url, anonKey, {
     global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
   });
-  const { data: isAdmin, error: adminErr } = await asCaller.rpc('is_admin');
-  if (adminErr || isAdmin !== true) {
-    return json({ success: false, message: 'פעולה זו מותרת למנהלים בלבד' }, 403);
+  const [{ data: isStaff, error: staffErr }, { data: isAdmin }] = await Promise.all([
+    asCaller.rpc('is_staff'),
+    asCaller.rpc('is_admin'),
+  ]);
+  if (staffErr || isStaff !== true) {
+    return json({ success: false, message: 'פעולה זו מותרת לצוות ההנהלה בלבד' }, 403);
   }
+  const callerIsAdmin = isAdmin === true;
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+
+  /** Assistants may only act on regular members; admins on anyone. */
+  const mayManage = async (userId: string): Promise<{ ok: boolean; role?: string; status?: string }> => {
+    const { data } = await admin.from('profiles').select('role, status').eq('id', userId).maybeSingle();
+    if (!data) return { ok: false };
+    return { ok: callerIsAdmin || data.role === 'member', role: data.role, status: data.status };
+  };
+  const notAllowed = () => json({ success: false, message: 'רק מנהל יכול לבצע פעולה זו על מנהל או עוזר מנהל' }, 403);
   let body: {
     action?: string;
     userId?: string;
@@ -64,8 +78,9 @@ Deno.serve(async (req: Request) => {
 
   if (body.action === 'delete_member') {
     if (!body.userId) return json({ success: false, message: 'חסר מזהה משתמש' }, 400);
-    const { data: target } = await admin.from('profiles').select('role, status').eq('id', body.userId).maybeSingle();
-    if (!target) return json({ success: false, message: 'משתמש לא נמצא' });
+    const target = await mayManage(body.userId);
+    if (!target.role) return json({ success: false, message: 'משתמש לא נמצא' });
+    if (!target.ok) return notAllowed();
     if (target.role === 'admin' && target.status === 'approved') {
       const { count } = await admin
         .from('profiles')
@@ -80,6 +95,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (body.action === 'reset_club_activity') {
+    if (!callerIsAdmin) return json({ success: false, message: 'איפוס נתוני המועדון מותר למנהל בלבד' }, 403);
     for (const table of ['posts', 'sails', 'boat_issues', 'notifications']) {
       const { error } = await admin.from(table).delete().not('id', 'is', null);
       if (error) return json({ success: false, message: `${table}: ${error.message}` }, 500);
@@ -110,7 +126,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // The sign-up trigger created the profile as pending; an admin-added member starts approved.
-    const credits = Number.isFinite(body.credits) ? Math.max(0, Math.floor(body.credits!)) : 5;
+    // Only admins set credits; members an assistant adds start with the default.
+    const credits = callerIsAdmin && Number.isFinite(body.credits) ? Math.max(0, Math.floor(body.credits!)) : 5;
     const { error: profileError } = await admin
       .from('profiles')
       .update({ status: 'approved', credits })
@@ -122,6 +139,9 @@ Deno.serve(async (req: Request) => {
 
   if (body.action === 'reset_member_password') {
     if (!body.userId) return json({ success: false, message: 'חסר מזהה משתמש' }, 400);
+    const target = await mayManage(body.userId);
+    if (!target.role) return json({ success: false, message: 'משתמש לא נמצא' });
+    if (!target.ok) return notAllowed();
     const password = temporaryPassword();
     const { data, error } = await admin.auth.admin.updateUserById(body.userId, { password });
     if (error || !data.user) return json({ success: false, message: error?.message ?? 'משתמש לא נמצא' });

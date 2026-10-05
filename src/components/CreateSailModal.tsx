@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { store, calculateDurationHours, calculatePrivateSailCredits } from '../services/store';
-import { UserProfile, Sail, SailType } from '../types';
+import { UserProfile, Sail, SailType, isStaff } from '../types';
 import {
   X,
   Calendar,
@@ -26,7 +26,7 @@ interface Props {
 
 export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose, onCreated }) => {
   const members = store.getUsers().filter((u) => u.status === 'approved');
-  const skippers = members.filter((u) => u.experienceLevel.includes('סקיפר') || u.role === 'admin');
+  const skippers = members.filter((u) => u.experienceLevel.includes('סקיפר') || isStaff(u.role));
   const boats = store.getBoats();
 
   const [sailType, setSailType] = useState<SailType>('club');

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
-import { Boat, BoatIssue, BoatStatus, IssueSeverity, UserProfile } from '../types';
+import { Boat, BoatIssue, BoatStatus, IssueSeverity, UserProfile, isStaff } from '../types';
 import { compressImage } from '../utils/imageCompression';
 import {
   Anchor,
@@ -36,7 +36,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
   const boats = store.getBoats();
   const issues = store.getBoatIssues();
-  const isAdmin = currentUser.role === 'admin';
+  const isAdmin = isStaff(currentUser.role);
 
   // --- Report Issue Form State ---
   const [selectedBoatId, setSelectedBoatId] = useState(boats[0]?.id || '');

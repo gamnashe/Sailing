@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
-import { Sail, UserProfile } from '../types';
+import { Sail, UserProfile, isStaff } from '../types';
 import { compressImage } from '../utils/imageCompression';
 import { useForecast, forecastAt, weatherLabel, windFrom, sailingConditions, CONDITIONS_STYLE } from '../services/weather';
 import {
@@ -43,7 +43,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
   const userRegistration = store.getUserRegistrationForSail(sail.id, currentUser.id);
   const isConfirmed = userRegistration?.status === 'confirmed';
   const isWaitlisted = userRegistration?.status === 'waitlist';
-  const isAdmin = currentUser.role === 'admin';
+  const isAdmin = isStaff(currentUser.role);
 
   const forecast = useForecast();
   const departureForecast = forecastAt(forecast, sail.date, sail.departureTime);
