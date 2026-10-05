@@ -4,6 +4,8 @@
 //   POST { action: 'create_member', email, fullName, phone, experienceLevel, credits }
 //        → creates a confirmed, approved account with a temporary password the admin hands over
 //          (no email is sent: Supabase's built-in mailer only reaches the project's own team)
+//   POST { action: 'reset_member_password', userId }
+//        → gives a member a new temporary password, for resending their login details
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -116,6 +118,14 @@ Deno.serve(async (req: Request) => {
     if (profileError) return json({ success: false, message: profileError.message }, 500);
 
     return json({ success: true, userId: data.user.id, email, temporaryPassword: password });
+  }
+
+  if (body.action === 'reset_member_password') {
+    if (!body.userId) return json({ success: false, message: 'חסר מזהה משתמש' }, 400);
+    const password = temporaryPassword();
+    const { data, error } = await admin.auth.admin.updateUserById(body.userId, { password });
+    if (error || !data.user) return json({ success: false, message: error?.message ?? 'משתמש לא נמצא' });
+    return json({ success: true, userId: data.user.id, email: data.user.email, temporaryPassword: password });
   }
 
   return json({ success: false, message: 'פעולה לא מוכרת' }, 400);

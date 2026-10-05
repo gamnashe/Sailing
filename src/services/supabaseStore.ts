@@ -609,6 +609,13 @@ export class SupabaseStore implements DataStore {
       : { success: false, error: (r.message as string) || 'הוספת החבר נכשלה' };
   }
 
+  public async resetMemberPassword(userId: string) {
+    const r = await this.adminAction({ action: 'reset_member_password', userId });
+    return r.success
+      ? { success: true, email: r.email as string, temporaryPassword: r.temporaryPassword as string }
+      : { success: false, error: (r.message as string) || 'איפוס הסיסמה נכשל' };
+  }
+
   public async deleteUser(userId: string): Promise<Result> {
     const r = await this.adminAction({ action: 'delete_member', userId });
     return { success: Boolean(r.success), error: r.message };

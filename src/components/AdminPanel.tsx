@@ -28,7 +28,9 @@ import {
   MapPin,
   UserPlus,
   Copy,
-  Share2
+  Share2,
+  Mail,
+  KeyRound
 } from 'lucide-react';
 
 const EXPERIENCE_OPTIONS: ExperienceLevel[] = [
@@ -60,7 +62,14 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
   });
   const [addMemberBusy, setAddMemberBusy] = useState(false);
   const [addMemberError, setAddMemberError] = useState<string | null>(null);
-  const [createdMember, setCreatedMember] = useState<{ fullName: string; phone: string; email: string; password: string } | null>(null);
+  const [createdMember, setCreatedMember] = useState<{
+    fullName: string;
+    phone: string;
+    email: string;
+    password: string;
+    /** True when resending details to an existing member (a new temporary password was issued). */
+    isResend?: boolean;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Credit adjustment modal state
@@ -120,17 +129,37 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
-  const welcomeMessage = createdMember
-    ? `שלום ${createdMember.fullName}! הצטרפת ל${clubSettings.clubName} ⛵\n` +
+  const emailSubject = `פרטי כניסה ל${clubSettings.clubName} ⛵`;
+  const emailBody = createdMember
+    ? `שלום ${createdMember.fullName},\n\n` +
+      (createdMember.isResend
+        ? `הנה פרטי כניסה מעודכנים לאפליקציית ${clubSettings.clubName}.\n\n`
+        : `צורפת כחבר/ה ב${clubSettings.clubName}! מעכשיו אפשר להירשם להפלגות, לראות את לוח השנה ותחזית הים, ולהתעדכן בפיד המועדון.\n\n`) +
       `כניסה לאפליקציה: ${window.location.origin}\n` +
       `מייל: ${createdMember.email}\n` +
-      `סיסמה זמנית: ${createdMember.password}\n` +
-      `מומלץ להחליף סיסמה במסך הפרופיל אחרי הכניסה הראשונה.`
+      `סיסמה זמנית: ${createdMember.password}\n\n` +
+      `אחרי הכניסה הראשונה מומלץ להחליף סיסמה במסך "פרופיל".\n` +
+      `טיפ: אפשר להוסיף את האפליקציה למסך הבית בטלפון (בתפריט הדפדפן: "הוסף למסך הבית").\n\n` +
+      `נתראה במים,\n${currentUser.fullName}`
+    : '';
+  const mailtoLink = createdMember
+    ? `mailto:${createdMember.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`
     : '';
 
   const whatsappLink = createdMember
-    ? `https://wa.me/${createdMember.phone.replace(/\D/g, '').replace(/^0/, '972')}?text=${encodeURIComponent(welcomeMessage)}`
+    ? `https://wa.me/${createdMember.phone.replace(/\D/g, '').replace(/^0/, '972')}?text=${encodeURIComponent(emailBody)}`
     : '';
+
+  const handleResendLogin = async (member: UserProfile) => {
+    if (!confirm(`להנפיק ל${member.fullName} סיסמה זמנית חדשה ולשלוח לו את פרטי הכניסה? הסיסמה הקודמת שלו תפסיק לעבוד.`)) return;
+    const res = await store.resetMemberPassword(member.id);
+    if (res.success && res.email && res.temporaryPassword) {
+      setCreatedMember({ fullName: member.fullName, phone: member.phone, email: res.email, password: res.temporaryPassword, isResend: true });
+      setShowAddMember(true);
+    } else {
+      setFeedbackMessage({ text: res.error || 'הנפקת סיסמה חדשה נכשלה', type: 'error' });
+    }
+  };
 
   const handleApprove = async (userId: string) => {
     await store.approveMember(userId);
@@ -566,6 +595,19 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                     >
                       <ArrowDownCircle className="w-3.5 h-3.5" />
                       הורד לחבר
+                    </button>
+                  )}
+
+                  {/* Resend login details (new temporary password) */}
+                  {member.id !== currentUser.id && (
+                    <button
+                      type="button"
+                      onClick={() => handleResendLogin(member)}
+                      className="bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-xl border border-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+                      title="הנפק סיסמה זמנית חדשה ושלח פרטי כניסה במייל / וואטסאפ"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      שלח פרטי כניסה
                     </button>
                   )}
 
@@ -1090,7 +1132,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
                 <UserPlus className="w-5 h-5 text-sky-600" />
-                {createdMember ? 'החבר נוסף בהצלחה' : 'הוספת חבר מועדון'}
+                {createdMember ? (createdMember.isResend ? 'פרטי כניסה חדשים' : 'החבר נוסף בהצלחה') : 'הוספת חבר מועדון'}
               </h3>
               <button type="button" onClick={closeAddMember} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
@@ -1100,7 +1142,11 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
             {createdMember ? (
               <div className="space-y-3 text-xs">
                 <p className="text-slate-600">
-                  החשבון של <strong>{createdMember.fullName}</strong> נוצר ומאושר. שלח לו את פרטי הכניסה:
+                  {createdMember.isResend ? (
+                    <>הונפקה סיסמה זמנית חדשה ל<strong>{createdMember.fullName}</strong>. שלח לו את פרטי הכניסה:</>
+                  ) : (
+                    <>החשבון של <strong>{createdMember.fullName}</strong> נוצר ומאושר. שלח לו את פרטי הכניסה:</>
+                  )}
                 </p>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 font-medium">
                   <div>מייל: <span className="font-mono">{createdMember.email}</span></div>
@@ -1109,6 +1155,14 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                 <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">
                   הסיסמה מוצגת פעם אחת בלבד. החבר יכול להחליף אותה במסך הפרופיל.
                 </p>
+                <a
+                  href={mailtoLink}
+                  className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5"
+                >
+                  <Mail className="w-4 h-4" />
+                  שלח במייל
+                  <span dir="ltr" className="font-mono font-normal opacity-90">({createdMember.email})</span>
+                </a>
                 <div className="flex gap-2">
                   {createdMember.phone.replace(/\D/g, '').length >= 9 && (
                     <a
@@ -1125,7 +1179,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                     type="button"
                     onClick={async () => {
                       try {
-                        await navigator.clipboard.writeText(welcomeMessage);
+                        await navigator.clipboard.writeText(`${emailSubject}\n\n${emailBody}`);
                         setCopied(true);
                       } catch {
                         setCopied(false);
