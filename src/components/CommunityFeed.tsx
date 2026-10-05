@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
-import { ClubPost, UserProfile } from '../types';
+import { ClubPost, UserProfile, isStaff, ROLE_LABELS } from '../types';
 import { compressImage } from '../utils/imageCompression';
 import {
   MessageSquare,
@@ -26,7 +26,7 @@ interface Props {
 export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) => {
   const posts = store.getPosts();
   const sails = store.getSails();
-  const isAdmin = currentUser.role === 'admin';
+  const isAdmin = isStaff(currentUser.role);
 
   // New post state
   const [content, setContent] = useState('');
@@ -275,9 +275,9 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                   <div>
                     <div className="flex items-center gap-1.5">
                       <p className="font-bold text-slate-900 text-sm">{post.authorName}</p>
-                      {post.authorRole === 'admin' && (
+                      {isStaff(post.authorRole) && (
                         <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-1.5 py-0.2 rounded-md">
-                          מנהל
+                          {ROLE_LABELS[post.authorRole]}
                         </span>
                       )}
                     </div>

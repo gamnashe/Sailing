@@ -1,13 +1,34 @@
-export type UserRole = 'admin' | 'member';
+/** admin: everything. assistant: like admin except credits, roles and other staff accounts. */
+export type UserRole = 'admin' | 'assistant' | 'member';
 export type UserStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
 
-export type ExperienceLevel = 
-  | 'משיט 60 (סקיפר בינלאומי)'
-  | 'משיט 30 (סקיפר חופי)'
-  | 'משיט 40 (סקיפר מסחרי)'
-  | 'איש צוות מנוסה'
-  | 'סקיפר מתלמד'
-  | 'חובב / מתחיל';
+/** A qualification level; the club's list is editable (ClubSettings.experienceLevels). */
+export type ExperienceLevel = string;
+
+export const DEFAULT_EXPERIENCE_LEVELS: ExperienceLevel[] = [
+  'משיט 60 (סקיפר בינלאומי)',
+  'משיט 30 (סקיפר חופי)',
+  'משיט 40 (סקיפר מסחרי)',
+  'איש צוות מנוסה',
+  'סקיפר מתלמד',
+  'חובב / מתחיל',
+];
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: 'מנהל',
+  assistant: 'עוזר מנהל',
+  member: 'חבר מועדון',
+};
+
+/** Management staff: admins and assistant managers. */
+export function isStaff(role: UserRole | undefined): boolean {
+  return role === 'admin' || role === 'assistant';
+}
+
+/** The club's levels, plus the member's current one if it has since been removed from the list. */
+export function levelOptions(levels: ExperienceLevel[], current?: ExperienceLevel): ExperienceLevel[] {
+  return current && !levels.includes(current) ? [...levels, current] : levels;
+}
 
 export interface UserProfile {
   id: string;
@@ -171,6 +192,8 @@ export interface ClubSettings {
   defaultMaxParticipants: number;
   whoCanCreateSails: 'admin_only' | 'all_members';
   cancellationDeadlineHours: number;
+  /** Qualification levels the club offers, highest first. */
+  experienceLevels: ExperienceLevel[];
 }
 
 export interface PasswordResetToken {

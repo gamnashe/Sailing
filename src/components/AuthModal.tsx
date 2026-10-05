@@ -28,14 +28,6 @@ interface Props {
   initialMode?: 'login' | 'enter_new_password';
 }
 
-const EXPERIENCE_OPTIONS: ExperienceLevel[] = [
-  'משיט 60 (סקיפר בינלאומי)',
-  'משיט 30 (סקיפר חופי)',
-  'משיט 40 (סקיפר מסחרי)',
-  'איש צוות מנוסה',
-  'סקיפר מתלמד',
-  'חובב / מתחיל',
-];
 
 export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initialMode }) => {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot_password' | 'enter_new_password'>(initialMode ?? 'login');
@@ -48,7 +40,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>('משיט 30 (סקיפר חופי)');
+  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>(() => store.getSettings().experienceLevels[1] ?? store.getSettings().experienceLevels[0] ?? '');
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
@@ -421,7 +413,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                         onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
                         className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 cursor-pointer"
                       >
-                        {EXPERIENCE_OPTIONS.map((opt) => (
+                        {store.getSettings().experienceLevels.map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
                           </option>

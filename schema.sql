@@ -11,7 +11,7 @@
 -- ==============================================================================
 
 -- 1. טיפוסי ENUM
-CREATE TYPE user_role AS ENUM ('admin', 'member');
+CREATE TYPE user_role AS ENUM ('admin', 'assistant', 'member');
 CREATE TYPE user_status AS ENUM ('pending', 'approved', 'rejected', 'suspended');
 CREATE TYPE sail_status AS ENUM ('open', 'closed', 'cancelled', 'completed');
 CREATE TYPE sail_type AS ENUM ('club', 'private');
@@ -33,6 +33,11 @@ CREATE TABLE club_settings (
   default_max_participants INT NOT NULL DEFAULT 6,
   who_can_create_sails sail_creation_policy NOT NULL DEFAULT 'all_members',
   cancellation_deadline_hours INT NOT NULL DEFAULT 12,
+  -- רמות ההסמכה שהמועדון מציע (ניתנות לעריכה בהגדרות), מהגבוהה לנמוכה
+  experience_levels TEXT[] NOT NULL DEFAULT ARRAY[
+    'משיט 60 (סקיפר בינלאומי)', 'משיט 30 (סקיפר חופי)', 'משיט 40 (סקיפר מסחרי)',
+    'איש צוות מנוסה', 'סקיפר מתלמד', 'חובב / מתחיל'
+  ],
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT single_row_settings CHECK (id = 1)
 );
@@ -211,6 +216,18 @@ AS $$
   );
 $$;
 
+-- צוות הנהלה: מנהל או עוזר מנהל. עוזר מנהל עושה כל מה שמנהל עושה, חוץ מקרדיטים, תפקידים
+-- ופעולות על חשבונות של מנהלים/עוזרים אחרים.
+CREATE OR REPLACE FUNCTION is_staff()
+RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = auth.uid() AND role IN ('admin', 'assistant') AND status = 'approved'
+  );
+$$;
+
 -- יצירת התראה (פנימי בלבד - לא נגיש מהדפדפן)
 CREATE OR REPLACE FUNCTION _notify(
   p_user_id UUID, p_type TEXT, p_title TEXT, p_message TEXT, p_target_id TEXT DEFAULT NULL
@@ -298,12 +315,17 @@ RETURNS TRIGGER
 LANGUAGE plpgsql SET search_path = public
 AS $$
 BEGIN
-  IF current_user IN ('authenticated', 'anon') AND NOT is_admin() THEN
-    IF NEW.role IS DISTINCT FROM OLD.role
-       OR NEW.status IS DISTINCT FROM OLD.status
-       OR NEW.credits IS DISTINCT FROM OLD.credits
-       OR NEW.email IS DISTINCT FROM OLD.email
-       OR NEW.username IS DISTINCT FROM OLD.username THEN
+  IF current_user IN ('authenticated', 'anon') THEN
+    -- תפקיד וקרדיטים: מנהל בלבד
+    IF NOT is_admin() AND (NEW.role IS DISTINCT FROM OLD.role OR NEW.credits IS DISTINCT FROM OLD.credits) THEN
+      RAISE EXCEPTION 'אין הרשאה לשנות תפקיד או קרדיטים' USING ERRCODE = '42501';
+    END IF;
+    -- סטטוס, מייל ושם משתמש: צוות הנהלה בלבד
+    IF NOT is_staff() AND (
+      NEW.status IS DISTINCT FROM OLD.status
+      OR NEW.email IS DISTINCT FROM OLD.email
+      OR NEW.username IS DISTINCT FROM OLD.username
+    ) THEN
       RAISE EXCEPTION 'אין הרשאה לשנות שדות אלה' USING ERRCODE = '42501';
     END IF;
   END IF;
@@ -428,7 +450,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
   v_uid UUID := COALESCE(p_user_id, auth.uid());
-  v_is_admin BOOLEAN := is_admin();
+  v_is_admin BOOLEAN := is_staff();
   v_sail RECORD;
   v_reg RECORD;
   v_next RECORD;
@@ -521,7 +543,7 @@ DECLARE
   v_member RECORD;
 BEGIN
   SELECT who_can_create_sails INTO v_policy FROM club_settings WHERE id = 1;
-  IF NOT (is_admin() OR (is_approved_member() AND v_policy = 'all_members')) THEN
+  IF NOT (is_staff() OR (is_approved_member() AND v_policy = 'all_members')) THEN
     RETURN jsonb_build_object('success', false, 'message', 'אין לך הרשאה לפתוח הפלגות');
   END IF;
 
@@ -586,7 +608,7 @@ BEGIN
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'הפלגה לא נמצאה');
   END IF;
-  IF NOT (is_admin() OR v_sail.created_by = auth.uid()) THEN
+  IF NOT (is_staff() OR v_sail.created_by = auth.uid()) THEN
     RETURN jsonb_build_object('success', false, 'message', 'אין הרשאה לבטל הפלגה זו');
   END IF;
   IF v_sail.status = 'cancelled' THEN
@@ -629,7 +651,7 @@ DECLARE
   v_sail RECORD;
   v_name TEXT;
 BEGIN
-  IF NOT is_admin() THEN
+  IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
 
@@ -671,7 +693,7 @@ RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  IF NOT is_admin() THEN
+  IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
   UPDATE profiles SET status = 'approved' WHERE id = p_user_id;
@@ -691,8 +713,11 @@ RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  IF NOT is_admin() THEN
+  IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
+  END IF;
+  IF (SELECT role FROM profiles WHERE id = p_user_id) <> 'member' AND NOT is_admin() THEN
+    RETURN jsonb_build_object('success', false, 'message', 'רק מנהל יכול לדחות מנהל או עוזר מנהל');
   END IF;
   IF (SELECT role FROM profiles WHERE id = p_user_id) = 'admin' AND _active_admin_count() <= 1 THEN
     RETURN jsonb_build_object('success', false, 'message', 'לא ניתן לדחות את המנהל האחרון במערכת!');
@@ -716,7 +741,7 @@ BEGIN
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'משתמש לא נמצא');
   END IF;
-  IF v_current = 'admin' AND p_role = 'member' AND _active_admin_count() <= 1 THEN
+  IF v_current = 'admin' AND p_role <> 'admin' AND _active_admin_count() <= 1 THEN
     RETURN jsonb_build_object('success', false, 'message', 'לא ניתן להוריד מנהל זה: חייב להישאר לפחות מנהל אחד פעיל במועדון!');
   END IF;
   UPDATE profiles SET role = p_role WHERE id = p_user_id;
@@ -729,7 +754,7 @@ RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  IF NOT is_admin() THEN
+  IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
   UPDATE profiles SET experience_level = p_level WHERE id = p_user_id;
@@ -776,6 +801,28 @@ $$;
 
 -- מחיקת חבר מתבצעת ב-Edge Function בשם admin-actions (supabase/functions/admin-actions),
 -- דרך ה-Admin API הרשמי של Supabase (auth.admin.deleteUser) ולא ב-SQL.
+
+-- שינוי שם של רמת הסמכה: מעדכן את רשימת המועדון ואת כל החברים שמחזיקים בה
+CREATE OR REPLACE FUNCTION rename_experience_level(p_old TEXT, p_new TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_count INT;
+BEGIN
+  IF NOT is_staff() THEN
+    RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת לצוות ההנהלה בלבד');
+  END IF;
+  IF trim(COALESCE(p_new, '')) = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'יש להזין שם לרמת ההסמכה');
+  END IF;
+  UPDATE club_settings SET experience_levels = array_replace(experience_levels, p_old, trim(p_new)), updated_at = NOW()
+  WHERE id = 1;
+  UPDATE profiles SET experience_level = trim(p_new) WHERE experience_level = p_old;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN jsonb_build_object('success', true, 'members_updated', v_count);
+END;
+$$;
 
 -- ==============================================================================
 -- 7. פונקציות RPC - כלי שייט ותקלות
@@ -829,7 +876,7 @@ AS $$
 DECLARE
   v_issue RECORD;
 BEGIN
-  IF NOT is_admin() THEN
+  IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
   SELECT * INTO v_issue FROM boat_issues WHERE id = p_issue_id FOR UPDATE;
@@ -869,7 +916,7 @@ DECLARE
   f TEXT;
 BEGIN
   FOREACH f IN ARRAY ARRAY[
-    'is_admin()', 'is_approved_member()',
+    'is_admin()', 'is_staff()', 'is_approved_member()', 'rename_experience_level(text, text)',
     'join_sail(uuid)', 'cancel_registration(uuid, uuid)', 'create_sail(jsonb)', 'cancel_sail(uuid, text)',
     'add_participant(uuid, uuid)', 'approve_member(uuid)', 'reject_member(uuid)',
     'set_member_role(uuid, user_role)', 'set_member_qualification(uuid, text)',
@@ -900,24 +947,26 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- הגדרות: כולם קוראים (שם המועדון מוצג במסך הכניסה), מנהל מעדכן
 CREATE POLICY "settings_select" ON club_settings FOR SELECT USING (TRUE);
-CREATE POLICY "settings_update_admin" ON club_settings FOR UPDATE USING (is_admin());
+CREATE POLICY "settings_update_staff" ON club_settings FOR UPDATE USING (is_staff());
 
 -- פרופילים: חברים מאושרים רואים את כולם, כל אחד רואה ועורך את עצמו, מנהל מנהל הכל
 CREATE POLICY "profiles_select" ON profiles FOR SELECT USING (is_approved_member() OR id = auth.uid());
 CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 CREATE POLICY "profiles_admin_all" ON profiles FOR ALL USING (is_admin());
+-- עוזר מנהל מעדכן פרופילים של חברים רגילים בלבד (תפקיד וקרדיטים חסומים בטריגר)
+CREATE POLICY "profiles_staff_update_members" ON profiles FOR UPDATE USING (is_staff() AND role = 'member') WITH CHECK (role = 'member');
 
 -- כלי שייט: חברים רואים, מנהל מנהל
 CREATE POLICY "boats_select" ON boats FOR SELECT USING (is_approved_member());
-CREATE POLICY "boats_admin_all" ON boats FOR ALL USING (is_admin()) WITH CHECK (is_admin());
+CREATE POLICY "boats_staff_all" ON boats FOR ALL USING (is_staff()) WITH CHECK (is_staff());
 
 -- תקלות: חברים רואים (לוח מודעות פומבי). יצירה ועדכון דרך RPC.
 CREATE POLICY "issues_select" ON boat_issues FOR SELECT USING (is_approved_member());
 
 -- הפלגות: חברים רואים. יצירה וביטול דרך RPC. עריכה (נעילת הרשמה וכו') למנהל או ליוצר.
 CREATE POLICY "sails_select" ON sails FOR SELECT USING (is_approved_member());
-CREATE POLICY "sails_update" ON sails FOR UPDATE USING (is_admin() OR created_by = auth.uid());
-CREATE POLICY "sails_delete_admin" ON sails FOR DELETE USING (is_admin());
+CREATE POLICY "sails_update" ON sails FOR UPDATE USING (is_staff() OR created_by = auth.uid());
+CREATE POLICY "sails_delete_staff" ON sails FOR DELETE USING (is_staff());
 
 -- הרשמות: חברים רואים. כל השינויים דרך RPC בלבד.
 CREATE POLICY "registrations_select" ON sail_registrations FOR SELECT USING (is_approved_member());
@@ -925,13 +974,13 @@ CREATE POLICY "registrations_select" ON sail_registrations FOR SELECT USING (is_
 -- תמונות הפלגה: חברים רואים ומעלים בשמם, מעלה התמונה או מנהל מוחקים
 CREATE POLICY "photos_select" ON sail_photos FOR SELECT USING (is_approved_member());
 CREATE POLICY "photos_insert_own" ON sail_photos FOR INSERT WITH CHECK (is_approved_member() AND user_id = auth.uid());
-CREATE POLICY "photos_delete" ON sail_photos FOR DELETE USING (is_admin() OR user_id = auth.uid());
+CREATE POLICY "photos_delete" ON sail_photos FOR DELETE USING (is_staff() OR user_id = auth.uid());
 
 -- פוסטים: חברים רואים ומפרסמים בשמם, מנהל נועץ, מנהל או כותב מוחקים
 CREATE POLICY "posts_select" ON posts FOR SELECT USING (is_approved_member());
 CREATE POLICY "posts_insert_own" ON posts FOR INSERT WITH CHECK (is_approved_member() AND author_id = auth.uid());
-CREATE POLICY "posts_update_admin" ON posts FOR UPDATE USING (is_admin());
-CREATE POLICY "posts_delete" ON posts FOR DELETE USING (is_admin() OR author_id = auth.uid());
+CREATE POLICY "posts_update_staff" ON posts FOR UPDATE USING (is_staff());
+CREATE POLICY "posts_delete" ON posts FOR DELETE USING (is_staff() OR author_id = auth.uid());
 
 -- לייקים
 CREATE POLICY "likes_select" ON post_likes FOR SELECT USING (is_approved_member());
@@ -941,7 +990,7 @@ CREATE POLICY "likes_delete_own" ON post_likes FOR DELETE USING (user_id = auth.
 -- תגובות
 CREATE POLICY "comments_select" ON post_comments FOR SELECT USING (is_approved_member());
 CREATE POLICY "comments_insert_own" ON post_comments FOR INSERT WITH CHECK (is_approved_member() AND author_id = auth.uid());
-CREATE POLICY "comments_delete" ON post_comments FOR DELETE USING (is_admin() OR author_id = auth.uid());
+CREATE POLICY "comments_delete" ON post_comments FOR DELETE USING (is_staff() OR author_id = auth.uid());
 
 -- התראות: כל משתמש רואה, מסמן כנקרא ומוחק רק את שלו. יצירה רק דרך פונקציות השרת.
 CREATE POLICY "notifications_select_own" ON notifications FOR SELECT USING (user_id = auth.uid());

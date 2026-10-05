@@ -245,6 +245,64 @@ async function run() {
   const demoteNow = await rpc(tomer, `set_member_role($1, 'member')`, [admin]);
   assert(demoteNow.success, 'with two admins, one can be demoted');
 
+  // --- Assistant manager: staff powers without credits or roles ---
+  // State here: tomer is the only admin; admin (the first user) is a member again.
+  const rina = await signUp('rina@club.co.il', { full_name: 'רינה' });
+  await rpc(tomer, 'approve_member($1)', [rina]);
+  const makeAssistant = await rpc(tomer, `set_member_role($1, 'assistant')`, [rina]);
+  assert(makeAssistant.success, 'admin makes a member an assistant manager');
+  const rinaRole = (await db.query<any>('SELECT role FROM profiles WHERE id = $1', [rina])).rows[0].role;
+  assert(rinaRole === 'assistant', 'assistant role is stored');
+
+  const yael = await signUp('yael@club.co.il', { full_name: 'יעל' });
+  const assistantApproves = await rpc(rina, 'approve_member($1)', [yael]);
+  assert(assistantApproves.success, 'assistant approves a pending member');
+  const assistantQual = await rpc(rina, `set_member_qualification($1, 'סקיפר מתלמד')`, [yael]);
+  assert(assistantQual.success, 'assistant changes a qualification level');
+  const assistantSail = await rpc(rina, 'create_sail($1::jsonb)', [sailJson({ boatName: 'רוח ים' })]);
+  assert(assistantSail.success, 'assistant opens a sail even under the admin_only policy');
+  const assistantCancel = await rpc(rina, 'cancel_sail($1, $2)', [assistantSail.sail_id, 'בדיקה']);
+  assert(assistantCancel.success, 'assistant cancels a sail');
+
+  const assistantCredits = await rpc(rina, 'update_member_credits($1, $2)', [yael, 10]);
+  assert(assistantCredits.success === false, 'assistant cannot add credits');
+  assert(
+    await fails(rina, 'UPDATE profiles SET credits = 50 WHERE id = $1', [yael]),
+    "assistant cannot set a member's credits directly"
+  );
+  assert(
+    await fails(rina, 'UPDATE profiles SET credits = 50 WHERE id = $1', [rina]),
+    'assistant cannot set their own credits'
+  );
+  const assistantRole = await rpc(rina, `set_member_role($1, 'admin')`, [rina]);
+  assert(assistantRole.success === false, 'assistant cannot promote themselves to admin');
+  assert(
+    await fails(rina, `UPDATE profiles SET role = 'admin' WHERE id = $1`, [rina]),
+    'assistant cannot change their role directly'
+  );
+  const rejectAdmin = await rpc(rina, 'reject_member($1)', [tomer]);
+  assert(rejectAdmin.success === false, 'assistant cannot reject an admin');
+  const editAdmin = await as(rina, (tx) => tx.query(`UPDATE profiles SET full_name = 'x' WHERE id = $1`, [tomer]));
+  assert(editAdmin.affectedRows === 0, "assistant cannot edit an admin's profile");
+  const editMember = await as(rina, (tx) => tx.query(`UPDATE profiles SET phone = '052-1' WHERE id = $1`, [yael]));
+  assert(editMember.affectedRows === 1, "assistant can edit a member's profile");
+  const assistantBoat = await as(rina, (tx) => tx.query(`UPDATE boats SET status_notes = 'נבדק' WHERE name = 'רוח ים'`));
+  assert(assistantBoat.affectedRows === 1, 'assistant manages boats');
+
+  // --- Editable qualification levels ---
+  const memberRename = await rpc(dana, `rename_experience_level('סקיפר מתלמד', 'x')`);
+  assert(memberRename.success === false, 'members cannot rename qualification levels');
+  const rename = await rpc(rina, `rename_experience_level('סקיפר מתלמד', 'סקיפר בהכשרה')`);
+  assert(rename.success && rename.members_updated === 1, 'renaming a level updates the members who hold it');
+  const levels = (await db.query<any>('SELECT experience_levels FROM club_settings')).rows[0].experience_levels;
+  assert(levels.includes('סקיפר בהכשרה') && !levels.includes('סקיפר מתלמד'), 'renaming a level updates the club list');
+  const yaelLevel = (await db.query<any>('SELECT experience_level FROM profiles WHERE id = $1', [yael])).rows[0].experience_level;
+  assert(yaelLevel === 'סקיפר בהכשרה', "the member's level follows the rename");
+  const newLevels = await as(rina, (tx) =>
+    tx.query(`UPDATE club_settings SET experience_levels = array_append(experience_levels, 'משיט ים פתוח')`)
+  );
+  assert(newLevels.affectedRows === 1, 'staff can add a qualification level');
+
   // Member deletion runs in the admin-actions Edge Function via auth.admin.deleteUser;
   // here we check the database side: removing the auth account cascades to all member data.
   await db.query('DELETE FROM auth.users WHERE id = $1', [guy]);

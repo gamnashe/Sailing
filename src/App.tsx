@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { store } from './services/store';
-import { UserProfile } from './types';
+import { UserProfile, isStaff, ROLE_LABELS } from './types';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AuthModal } from './components/AuthModal';
@@ -115,7 +115,7 @@ export default function App() {
   }
 
   const unreadNotifications = store.getNotifications(currentUser.id).filter((n) => !n.read).length;
-  const pendingApprovalsCount = currentUser.role === 'admin'
+  const pendingApprovalsCount = isStaff(currentUser.role)
     ? users.filter((u) => u.status === 'pending').length
     : 0;
 
@@ -224,7 +224,7 @@ export default function App() {
                         <span className="truncate">{u.fullName}</span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-medium">
-                        {u.role === 'admin' ? 'מנהל' : u.status === 'pending' ? 'ממתין' : `${u.credits ?? 5} קרד'`}
+                        {isStaff(u.role) ? ROLE_LABELS[u.role] : u.status === 'pending' ? 'ממתין' : `${u.credits ?? 5} קרד'`}
                       </span>
                     </button>
                   ))}
@@ -284,7 +284,7 @@ export default function App() {
               פיד וקהילה
             </button>
 
-            {currentUser.role === 'admin' && (
+            {isStaff(currentUser.role) && (
               <button
                 onClick={() => setActiveTab('admin')}
                 className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-2 cursor-pointer relative ${
@@ -348,7 +348,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'admin' && currentUser.role === 'admin' && (
+        {activeTab === 'admin' && isStaff(currentUser.role) && (
           <AdminPanel currentUser={currentUser} />
         )}
 
@@ -393,7 +393,7 @@ export default function App() {
           <span className="text-[10px]">פיד</span>
         </button>
 
-        {currentUser.role === 'admin' && (
+        {isStaff(currentUser.role) && (
           <button
             onClick={() => setActiveTab('admin')}
             className={`flex flex-col items-center gap-1 py-1 px-2 rounded-2xl transition cursor-pointer relative ${

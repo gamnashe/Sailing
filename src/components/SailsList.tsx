@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
-import { Sail, UserProfile } from '../types';
+import { Sail, UserProfile, isStaff } from '../types';
 import { SailsCalendar } from './SailsCalendar';
 import {
   Calendar,
@@ -51,7 +51,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
   });
 
   const canCreateSail =
-    currentUser.role === 'admin' ||
+    isStaff(currentUser.role) ||
     (settings.whoCanCreateSails === 'all_members' && currentUser.status === 'approved');
 
   return (

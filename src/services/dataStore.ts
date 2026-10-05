@@ -130,6 +130,8 @@ export interface DataStore {
   // --- Settings ---
   getSettings(): ClubSettings;
   updateSettings(settings: Partial<ClubSettings>): Promise<void>;
+  /** Renames a qualification level in the club list and for every member who holds it. */
+  renameExperienceLevel(oldName: string, newName: string): Promise<Result>;
 
   // --- Boats & issues ---
   getBoats(): Boat[];
