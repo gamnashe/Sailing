@@ -25,8 +25,20 @@ import {
   Clock,
   Compass,
   RotateCcw,
-  MapPin
+  MapPin,
+  UserPlus,
+  Copy,
+  Share2
 } from 'lucide-react';
+
+const EXPERIENCE_OPTIONS: ExperienceLevel[] = [
+  'משיט 60 (סקיפר בינלאומי)',
+  'משיט 30 (סקיפר חופי)',
+  'משיט 40 (סקיפר מסחרי)',
+  'איש צוות מנוסה',
+  'סקיפר מתלמד',
+  'חובב / מתחיל',
+];
 
 interface Props {
   currentUser: UserProfile;
@@ -36,6 +48,20 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
   const [activeTab, setActiveTab] = useState<'pending' | 'members' | 'fleet' | 'sails' | 'settings' | 'stats'>('members');
   const [searchMember, setSearchMember] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Add member modal state
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMember, setNewMember] = useState({
+    email: '',
+    fullName: '',
+    phone: '',
+    experienceLevel: 'איש צוות מנוסה' as ExperienceLevel,
+    credits: 5,
+  });
+  const [addMemberBusy, setAddMemberBusy] = useState(false);
+  const [addMemberError, setAddMemberError] = useState<string | null>(null);
+  const [createdMember, setCreatedMember] = useState<{ fullName: string; phone: string; email: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Credit adjustment modal state
   const [creditModalUser, setCreditModalUser] = useState<UserProfile | null>(null);
@@ -71,6 +97,40 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
   const [defaultMaxParticipants, setDefaultMaxParticipants] = useState(clubSettings.defaultMaxParticipants);
   const [whoCanCreateSails, setWhoCanCreateSails] = useState(clubSettings.whoCanCreateSails);
   const [cancellationDeadlineHours, setCancellationDeadlineHours] = useState(clubSettings.cancellationDeadlineHours);
+
+  const closeAddMember = () => {
+    setShowAddMember(false);
+    setCreatedMember(null);
+    setAddMemberError(null);
+    setCopied(false);
+    setNewMember({ email: '', fullName: '', phone: '', experienceLevel: 'איש צוות מנוסה', credits: 5 });
+  };
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (addMemberBusy) return;
+    setAddMemberError(null);
+    setAddMemberBusy(true);
+    const res = await store.createMember({ ...newMember, credits: Number(newMember.credits) || 0 });
+    setAddMemberBusy(false);
+    if (res.success && res.email && res.temporaryPassword) {
+      setCreatedMember({ fullName: newMember.fullName, phone: newMember.phone, email: res.email, password: res.temporaryPassword });
+    } else {
+      setAddMemberError(res.error || 'הוספת החבר נכשלה');
+    }
+  };
+
+  const welcomeMessage = createdMember
+    ? `שלום ${createdMember.fullName}! הצטרפת ל${clubSettings.clubName} ⛵\n` +
+      `כניסה לאפליקציה: ${window.location.origin}\n` +
+      `מייל: ${createdMember.email}\n` +
+      `סיסמה זמנית: ${createdMember.password}\n` +
+      `מומלץ להחליף סיסמה במסך הפרופיל אחרי הכניסה הראשונה.`
+    : '';
+
+  const whatsappLink = createdMember
+    ? `https://wa.me/${createdMember.phone.replace(/\D/g, '').replace(/^0/, '972')}?text=${encodeURIComponent(welcomeMessage)}`
+    : '';
 
   const handleApprove = async (userId: string) => {
     await store.approveMember(userId);
@@ -368,6 +428,15 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                 ניהול תפקידים, הוספת נקודות קרדיט לכל חבר, או קידום להרשאות מנהל
               </p>
             </div>
+            <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAddMember(true)}
+              className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+            >
+              <UserPlus className="w-4 h-4" />
+              הוספת חבר
+            </button>
             <div className="relative">
               <input
                 type="text"
@@ -377,6 +446,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                 className="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs pr-8 focus:ring-2 focus:ring-sky-500"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5" />
+            </div>
             </div>
           </div>
 
@@ -1014,6 +1084,139 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
       )}
 
       {/* MODAL: Add New Boat */}
+      {showAddMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                <UserPlus className="w-5 h-5 text-sky-600" />
+                {createdMember ? 'החבר נוסף בהצלחה' : 'הוספת חבר מועדון'}
+              </h3>
+              <button type="button" onClick={closeAddMember} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {createdMember ? (
+              <div className="space-y-3 text-xs">
+                <p className="text-slate-600">
+                  החשבון של <strong>{createdMember.fullName}</strong> נוצר ומאושר. שלח לו את פרטי הכניסה:
+                </p>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 font-medium">
+                  <div>מייל: <span className="font-mono">{createdMember.email}</span></div>
+                  <div>סיסמה זמנית: <span className="font-mono font-black text-sm tracking-wider">{createdMember.password}</span></div>
+                </div>
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">
+                  הסיסמה מוצגת פעם אחת בלבד. החבר יכול להחליף אותה במסך הפרופיל.
+                </p>
+                <div className="flex gap-2">
+                  {createdMember.phone.replace(/\D/g, '').length >= 9 && (
+                    <a
+                      href={whatsappLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      שלח בוואטסאפ
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(welcomeMessage);
+                        setCopied(true);
+                      } catch {
+                        setCopied(false);
+                      }
+                    }}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Copy className="w-4 h-4" />
+                    {copied ? 'הועתק!' : 'העתק הודעה'}
+                  </button>
+                </div>
+                <button type="button" onClick={closeAddMember} className="w-full text-sky-700 font-bold py-2 cursor-pointer">
+                  סיום
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleAddMember} className="space-y-3 text-xs">
+                <p className="text-slate-500">
+                  החבר יקבל חשבון מאושר עם סיסמה זמנית, שתעביר לו בוואטסאפ או בהודעה. לא נשלח מייל.
+                </p>
+                {addMemberError && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-2.5">{addMemberError}</div>
+                )}
+                <label className="block">
+                  <span className="font-semibold text-slate-700">שם מלא *</span>
+                  <input
+                    required
+                    value={newMember.fullName}
+                    onChange={(e) => setNewMember({ ...newMember, fullName: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="font-semibold text-slate-700">מייל *</span>
+                  <input
+                    required
+                    type="email"
+                    dir="ltr"
+                    value={newMember.email}
+                    onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-left"
+                  />
+                </label>
+                <label className="block">
+                  <span className="font-semibold text-slate-700">טלפון (לשליחה בוואטסאפ)</span>
+                  <input
+                    type="tel"
+                    dir="ltr"
+                    placeholder="050-1234567"
+                    value={newMember.phone}
+                    onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-left"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="font-semibold text-slate-700">רמת הסמכה</span>
+                    <select
+                      value={newMember.experienceLevel}
+                      onChange={(e) => setNewMember({ ...newMember, experienceLevel: e.target.value as ExperienceLevel })}
+                      className="mt-1 w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    >
+                      {EXPERIENCE_OPTIONS.map((lvl) => (
+                        <option key={lvl} value={lvl}>{lvl}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="font-semibold text-slate-700">קרדיטים התחלתיים</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={newMember.credits}
+                      onChange={(e) => setNewMember({ ...newMember, credits: Number(e.target.value) })}
+                      className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  disabled={addMemberBusy}
+                  className="w-full bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl cursor-pointer"
+                >
+                  {addMemberBusy ? 'יוצר חשבון...' : 'צור חבר'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {showAddBoatModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <form

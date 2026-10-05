@@ -12,7 +12,8 @@ import {
   Check,
   RotateCcw,
   Shield,
-  Download
+  Download,
+  KeyRound
 } from 'lucide-react';
 
 interface Props {
@@ -37,6 +38,19 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
   const [phone, setPhone] = useState(user.phone);
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>(user.experienceLevel);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordMsg, setPasswordMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordBusy) return;
+    setPasswordBusy(true);
+    const res = await store.changePassword(newPassword);
+    setPasswordBusy(false);
+    setPasswordMsg(res.success ? { text: 'הסיסמה עודכנה בהצלחה', ok: true } : { text: res.error || 'עדכון הסיסמה נכשל', ok: false });
+    if (res.success) setNewPassword('');
+  };
 
   // Push notifications state
   const [pushEnabled, setPushEnabled] = useState(() => {
@@ -190,6 +204,38 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
             className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-xs transition active:scale-95 cursor-pointer"
           >
             שמור שינויים
+          </button>
+        </div>
+      </form>
+
+      {/* Change password */}
+      <form onSubmit={handleChangePassword} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
+        <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+          <KeyRound className="w-4 h-4 text-sky-600" />
+          החלפת סיסמה
+        </h3>
+        <p className="text-xs text-slate-500">לפחות 8 תווים, שילוב של אותיות ומספרים. מומלץ אם קיבלת סיסמה זמנית מהמנהל.</p>
+        {passwordMsg && (
+          <div className={`text-xs rounded-xl p-2.5 border ${passwordMsg.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+            {passwordMsg.text}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <input
+            type="password"
+            required
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="סיסמה חדשה"
+            className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+          />
+          <button
+            type="submit"
+            disabled={passwordBusy}
+            className="px-4 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white font-bold rounded-xl text-xs cursor-pointer"
+          >
+            {passwordBusy ? 'מעדכן...' : 'עדכן'}
           </button>
         </div>
       </form>

@@ -27,7 +27,7 @@ interface Props {
 }
 
 export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCreateModal }) => {
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'calendar' | 'archive'>('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'calendar' | 'archive'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
   const settings = store.getSettings();
   const allSails = store.getSails();
@@ -58,20 +58,8 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
     <div className="space-y-4">
       {/* Top action & search bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-        {/* Tabs: Upcoming / Calendar / Archive */}
+        {/* Tabs: Calendar / Upcoming / Archive */}
         <div className="flex bg-slate-200/80 p-1 rounded-2xl w-full sm:w-auto font-medium text-xs">
-          <button
-            onClick={() => setActiveTab('upcoming')}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'upcoming'
-                ? 'bg-white text-sky-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Sailboat className="w-3.5 h-3.5" />
-            הפלגות קרובות ({upcomingSails.length})
-          </button>
-
           <button
             onClick={() => setActiveTab('calendar')}
             className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
@@ -82,6 +70,18 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
           >
             <Calendar className="w-3.5 h-3.5" />
             לוח שנה
+          </button>
+
+          <button
+            onClick={() => setActiveTab('upcoming')}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeTab === 'upcoming'
+                ? 'bg-white text-sky-900 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Sailboat className="w-3.5 h-3.5" />
+            הפלגות קרובות ({upcomingSails.length})
           </button>
 
           <button
