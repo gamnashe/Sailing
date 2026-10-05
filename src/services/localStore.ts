@@ -16,10 +16,12 @@ import {
   IssueSeverity,
   IssueStatus,
   ExperienceLevel,
-  PasswordResetToken
+  PasswordResetToken,
+  CreditRequest,
+  NotificationType,
 } from '../types';
-import { DEFAULT_EXPERIENCE_LEVELS } from '../types';
-import type { DataStore, NewMember, Result } from './dataStore';
+import { DEFAULT_EXPERIENCE_LEVELS, isStaff } from '../types';
+import type { DataStore, JoinDetails, NewMember, Result } from './dataStore';
 import { validatePasswordComplexity, findBoatConflict, mayTakeBoat, boatConflictMessage, sailUsesBoat } from './sailRules';
 
 // Using v2 clean storage key to clear out old test mock clutter
@@ -37,7 +39,13 @@ interface AppData {
   boats: Boat[];
   boatIssues: BoatIssue[];
   resetTokens: PasswordResetToken[];
+  /** Missing in data saved before these features existed. */
+  creditRequests?: CreditRequest[];
+  inviteCode?: string;
 }
+
+const DEFAULT_INVITE_CODE = 'demo-join';
+const newId = (prefix: string) => prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
 
 // Initial clean settings
 const INITIAL_SETTINGS: ClubSettings = {
@@ -296,14 +304,14 @@ export class LocalStore implements DataStore {
     const newUsers = [...this.data.users, newUser];
     const newPasswords = { ...this.data.passwords, [newUser.id]: password };
 
-    // Notify admins about pending user
+    // Notify the managers (admins and assistants) about the pending user
     const newNotifications = [...this.data.notifications];
     if (!isFirstUser) {
-      this.data.users.filter(u => u.role === 'admin').forEach(admin => {
+      this.data.users.filter(u => isStaff(u.role) && u.status === 'approved').forEach(admin => {
         newNotifications.unshift({
           id: 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
           userId: admin.id,
-          type: 'new_sail',
+          type: 'member_request',
           title: 'בקשת הצטרפות חדשה למועדון',
           message: `${newUser.fullName} (${newUser.email}) נרשם וממתין לאישורך.`,
           read: false,
@@ -321,6 +329,66 @@ export class LocalStore implements DataStore {
 
     if (!this.addingMember) this.setCurrentUser(newUser.id);
     return { success: true, user: newUser };
+  }
+
+  public async joinWithInvite(inviteCode: string, details: JoinDetails) {
+    if (inviteCode !== (this.data.inviteCode ?? DEFAULT_INVITE_CODE)) {
+      return { success: false, error: 'קישור ההצטרפות אינו בתוקף. בקש מהנהלת המועדון קישור חדש.' };
+    }
+    return this.register(details.email, details.password, details.fullName, details.phone, details.experienceLevel);
+  }
+
+  public getInviteCode() {
+    return isStaff(this.getCurrentUser()?.role) ? this.data.inviteCode ?? DEFAULT_INVITE_CODE : null;
+  }
+
+  public async regenerateInviteCode(): Promise<Result> {
+    if (!isStaff(this.getCurrentUser()?.role)) return { success: false, error: 'פעולה זו מותרת לצוות ההנהלה בלבד' };
+    this.saveData({ ...this.data, inviteCode: Math.random().toString(36).slice(2, 12) });
+    return { success: true };
+  }
+
+  /** Adds notifications for the given users (newest first). */
+  private withNotifications(
+    userIds: string[],
+    type: NotificationType,
+    title: string,
+    message: string,
+    targetId?: string
+  ): AppNotification[] {
+    const created = userIds.map(userId => ({
+      id: newId('notif'),
+      userId,
+      type,
+      title,
+      message,
+      targetId,
+      read: false,
+      createdAt: new Date().toISOString(),
+    }));
+    return [...created, ...this.data.notifications];
+  }
+
+  public async requestPasswordHelp(email: string): Promise<Result> {
+    const clean = email.trim().toLowerCase();
+    if (!clean.includes('@')) return { success: false, error: 'יש להזין כתובת מייל תקינה' };
+    const user = this.data.users.find(u => u.email === clean);
+    if (!user || user.status === 'rejected') return { success: true };
+    // Assistants may only reset regular members' passwords
+    const helpers = this.data.users.filter(
+      u => u.id !== user.id && u.status === 'approved' && (u.role === 'admin' || (u.role === 'assistant' && user.role === 'member'))
+    );
+    this.saveData({
+      ...this.data,
+      notifications: this.withNotifications(
+        helpers.map(h => h.id),
+        'password_help',
+        '🔑 בקשה לאיפוס סיסמה',
+        `${user.fullName} (${user.email}) שכח/ה את הסיסמה ומבקש/ת סיסמה זמנית חדשה.`,
+        user.id
+      ),
+    });
+    return { success: true };
   }
 
   public async login(identifier: string, password: string): Promise<{ success: boolean; error?: string; user?: UserProfile }> {
@@ -1111,6 +1179,88 @@ export class LocalStore implements DataStore {
     const updatedPosts = this.data.posts.filter(p => p.id !== postId);
     this.saveData({ ...this.data, posts: updatedPosts });
     return true;
+  }
+
+  // --- Credit requests ---
+  public getCreditRequests(): CreditRequest[] {
+    const me = this.getCurrentUser();
+    if (!me) return [];
+    const all = this.data.creditRequests ?? [];
+    return (me.role === 'admin' ? all : all.filter(r => r.userId === me.id)).sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt)
+    );
+  }
+
+  public async requestCredits(amount: number, note: string): Promise<Result> {
+    const me = this.getCurrentUser();
+    if (!me || me.status !== 'approved') return { success: false, error: 'רק חברים מאושרים יכולים לבקש קרדיטים' };
+    const n = Math.floor(amount);
+    if (!(n >= 1 && n <= 100)) return { success: false, error: 'יש לבקש בין 1 ל-100 קרדיטים' };
+    const all = this.data.creditRequests ?? [];
+    if (all.some(r => r.userId === me.id && r.status === 'pending')) {
+      return { success: false, error: 'כבר יש לך בקשה ממתינה. ההנהלה תטפל בה בקרוב.' };
+    }
+    const request: CreditRequest = {
+      id: newId('creq'),
+      userId: me.id,
+      amount: n,
+      note: note.trim().slice(0, 300),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    const admins = this.data.users.filter(u => u.role === 'admin' && u.status === 'approved').map(u => u.id);
+    this.saveData({
+      ...this.data,
+      creditRequests: [request, ...all],
+      notifications: this.withNotifications(
+        admins,
+        'credit_request',
+        '🪙 בקשה לקרדיטים נוספים',
+        `${me.fullName} מבקש/ת ${n} קרדיטים (יתרה נוכחית: ${me.credits}).${request.note ? ` "${request.note}"` : ''}`,
+        request.id
+      ),
+    });
+    return { success: true };
+  }
+
+  public async resolveCreditRequest(requestId: string, approve: boolean, amount?: number): Promise<Result> {
+    if (this.getCurrentUser()?.role !== 'admin') return { success: false, error: 'רק מנהל יכול לאשר קרדיטים' };
+    const all = this.data.creditRequests ?? [];
+    const request = all.find(r => r.id === requestId);
+    if (!request) return { success: false, error: 'הבקשה לא נמצאה' };
+    if (request.status !== 'pending') return { success: false, error: 'הבקשה כבר טופלה' };
+    const grant = Math.floor(amount ?? request.amount);
+    if (approve && !(grant >= 1 && grant <= 100)) return { success: false, error: 'יש לאשר בין 1 ל-100 קרדיטים' };
+
+    const user = this.data.users.find(u => u.id === request.userId);
+    const newCredits = (user?.credits ?? 0) + (approve ? grant : 0);
+    const handled: CreditRequest = {
+      ...request,
+      status: approve ? 'approved' : 'rejected',
+      granted: approve ? grant : undefined,
+      handledAt: new Date().toISOString(),
+    };
+    this.data = {
+      ...this.data,
+      // The admins' "please approve" notifications are done
+      notifications: this.data.notifications.map(n =>
+        n.type === 'credit_request' && n.targetId === requestId ? { ...n, read: true } : n
+      ),
+    };
+    this.saveData({
+      ...this.data,
+      users: this.data.users.map(u => (u.id === request.userId ? { ...u, credits: newCredits } : u)),
+      creditRequests: all.map(r => (r.id === requestId ? handled : r)),
+      notifications: this.withNotifications(
+        [request.userId],
+        'credit_update',
+        approve ? '🪙 בקשת הקרדיטים אושרה!' : 'בקשת הקרדיטים לא אושרה',
+        approve
+          ? `נוספו לך ${grant} קרדיטים. יתרה עדכנית: ${newCredits} קרדיטים.`
+          : `הנהלת המועדון לא אישרה את בקשתך ל-${request.amount} קרדיטים. לפרטים פנה להנהלה.`
+      ),
+    });
+    return { success: true };
   }
 
   // --- Notifications ---

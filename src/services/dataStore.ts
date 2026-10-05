@@ -10,6 +10,7 @@ import type {
   BoatIssue,
   IssueStatus,
   ExperienceLevel,
+  CreditRequest,
 } from '../types';
 
 export type NewMember = {
@@ -18,6 +19,14 @@ export type NewMember = {
   phone: string;
   experienceLevel: ExperienceLevel;
   credits: number;
+};
+
+export type JoinDetails = {
+  email: string;
+  password: string;
+  fullName: string;
+  phone: string;
+  experienceLevel: ExperienceLevel;
 };
 
 export type Result = { success: boolean; error?: string };
@@ -59,10 +68,24 @@ export interface DataStore {
     experienceLevel: ExperienceLevel,
     avatar?: string
   ): Promise<{ success: boolean; error?: string; user?: UserProfile; needsEmailConfirmation?: boolean }>;
+  /**
+   * Sign-up through the club's invite link: creates the account (no email confirmation step), signs it in,
+   * and leaves it pending until a manager or assistant approves it.
+   */
+  joinWithInvite(inviteCode: string, details: JoinDetails): Promise<{ success: boolean; error?: string; user?: UserProfile }>;
+  /** The current invite code (staff only; null for everyone else). */
+  getInviteCode(): string | null;
+  /** Replaces the invite code, so links sent earlier stop working. */
+  regenerateInviteCode(): Promise<Result>;
   login(identifier: string, password: string): Promise<{ success: boolean; error?: string; user?: UserProfile }>;
   logout(): Promise<void>;
   /** In demo mode returns the "emailed" code and link so the UI can display them. */
   requestPasswordReset(email: string): Promise<{ success: boolean; error?: string; resetCode?: string; resetLink?: string }>;
+  /**
+   * A signed-out member who forgot their password asks the management for a new one (staff get a
+   * notification and use resetMemberPassword). Always reports success so it can't reveal who is a member.
+   */
+  requestPasswordHelp(email: string): Promise<Result>;
   /** True after the user opened a password-recovery link and must now choose a new password. */
   isPasswordRecovery(): boolean;
   resetPassword(email: string, tokenOrCode: string, newPassword: string): Promise<Result>;
@@ -87,6 +110,13 @@ export interface DataStore {
     reason: string,
     adminName: string
   ): Promise<{ success: boolean; newCredits: number }>;
+
+  // --- Credit requests ---
+  /** The signed-in member's own requests; admins see everyone's. Newest first. */
+  getCreditRequests(): CreditRequest[];
+  requestCredits(amount: number, note: string): Promise<Result>;
+  /** Admin only. amount overrides the requested amount when approving. */
+  resolveCreditRequest(requestId: string, approve: boolean, amount?: number): Promise<Result>;
 
   // --- Sails & registrations ---
   getSails(): Sail[];

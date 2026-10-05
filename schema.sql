@@ -297,9 +297,9 @@ BEGIN
   );
 
   IF NOT v_is_first THEN
-    FOR v_admin IN SELECT id FROM profiles WHERE role = 'admin' AND status = 'approved' LOOP
+    FOR v_admin IN SELECT id FROM profiles WHERE role IN ('admin', 'assistant') AND status = 'approved' LOOP
       PERFORM _notify(
-        v_admin.id, 'new_sail', 'בקשת הצטרפות חדשה למועדון',
+        v_admin.id, 'member_request', 'בקשת הצטרפות חדשה למועדון',
         v_full_name || ' (' || lower(NEW.email) || ') נרשם וממתין לאישורך.'
       );
     END LOOP;
@@ -1084,3 +1084,152 @@ INSERT INTO boats (name, model, status, status_notes, berth_location, year, capa
   ('גלית', 'Bavaria 38 Cruiser', 'available', 'תקינה לחלוטין ומוכנה להפלגות מועדון ופרטיות', 'מרינה הרצליה, רציף B', 2021, 8),
   ('רוח ים', 'Beneteau Oceanis 41', 'available', 'מאובזרת ומתוחזקת', 'מרינה תל אביב, רציף ראשי', 2022, 10),
   ('אלת הים', 'Jeanneau Sun Odyssey 349', 'maintenance', 'בהספנה שנתית - טיפול מנוע ואנטי-פאולינג', 'מרינה הרצליה, מספנה רציף C', 2020, 6);
+
+-- ==============================================================================
+-- 11. הצטרפות בקישור ובקשות קרדיטים
+-- ==============================================================================
+
+-- קישור הצטרפות: קוד סודי שהנהלה שולחת למצטרפים חדשים (טבלה נפרדת: הגדרות המועדון קריאות לכולם)
+CREATE TABLE IF NOT EXISTS club_invite (
+  id INT PRIMARY KEY DEFAULT 1,
+  code TEXT NOT NULL DEFAULT replace(gen_random_uuid()::TEXT, '-', ''),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT single_row_invite CHECK (id = 1)
+);
+INSERT INTO club_invite (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- בקשות לקרדיטים נוספים: חבר מבקש, מנהל מאשר (עם כמות לבחירתו) או דוחה
+CREATE TABLE IF NOT EXISTS credit_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  amount INT NOT NULL CHECK (amount BETWEEN 1 AND 100),
+  note TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  granted INT,
+  handled_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  handled_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_credit_requests_status ON credit_requests(status, created_at);
+-- לכל חבר לכל היותר בקשה ממתינה אחת
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_credit_requests_pending ON credit_requests(user_id) WHERE status = 'pending';
+
+ALTER TABLE club_invite ENABLE ROW LEVEL SECURITY;
+ALTER TABLE credit_requests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "invite_select_staff" ON club_invite;
+CREATE POLICY "invite_select_staff" ON club_invite FOR SELECT USING (is_staff());
+DROP POLICY IF EXISTS "credit_requests_select" ON credit_requests;
+CREATE POLICY "credit_requests_select" ON credit_requests FOR SELECT USING (user_id = auth.uid() OR is_admin());
+-- כתיבה רק דרך פונקציות ה-RPC
+REVOKE ALL ON club_invite, credit_requests FROM anon, authenticated;
+GRANT SELECT ON club_invite, credit_requests TO authenticated;
+
+-- חידוש הקוד מבטל את הקישור הקודם
+CREATE OR REPLACE FUNCTION regenerate_invite_code()
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_code TEXT;
+BEGIN
+  IF NOT is_staff() THEN
+    RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת לצוות ההנהלה בלבד');
+  END IF;
+  UPDATE club_invite SET code = replace(gen_random_uuid()::TEXT, '-', ''), updated_at = NOW() WHERE id = 1
+  RETURNING code INTO v_code;
+  RETURN jsonb_build_object('success', true, 'code', v_code);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION request_credits(p_amount INT, p_note TEXT DEFAULT '')
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_req credit_requests;
+  v_me profiles;
+  v_admin RECORD;
+BEGIN
+  SELECT * INTO v_me FROM profiles WHERE id = v_uid AND status = 'approved';
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'רק חברים מאושרים יכולים לבקש קרדיטים');
+  END IF;
+  IF p_amount IS NULL OR p_amount < 1 OR p_amount > 100 THEN
+    RETURN jsonb_build_object('success', false, 'message', 'יש לבקש בין 1 ל-100 קרדיטים');
+  END IF;
+  IF EXISTS (SELECT 1 FROM credit_requests WHERE user_id = v_uid AND status = 'pending') THEN
+    RETURN jsonb_build_object('success', false, 'message', 'כבר יש לך בקשה ממתינה. ההנהלה תטפל בה בקרוב.');
+  END IF;
+
+  INSERT INTO credit_requests (user_id, amount, note)
+  VALUES (v_uid, p_amount, left(COALESCE(trim(p_note), ''), 300))
+  RETURNING * INTO v_req;
+
+  FOR v_admin IN SELECT id FROM profiles WHERE role = 'admin' AND status = 'approved' LOOP
+    PERFORM _notify(
+      v_admin.id, 'credit_request', '🪙 בקשה לקרדיטים נוספים',
+      v_me.full_name || ' מבקש/ת ' || p_amount || ' קרדיטים (יתרה נוכחית: ' || v_me.credits || ').' ||
+        CASE WHEN v_req.note <> '' THEN ' "' || v_req.note || '"' ELSE '' END,
+      v_req.id::TEXT
+    );
+  END LOOP;
+  RETURN jsonb_build_object('success', true, 'request_id', v_req.id);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION resolve_credit_request(p_request_id UUID, p_approve BOOLEAN, p_amount INT DEFAULT NULL)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_req credit_requests;
+  v_grant INT;
+  v_new INT;
+BEGIN
+  IF NOT is_admin() THEN
+    RETURN jsonb_build_object('success', false, 'message', 'רק מנהל יכול לאשר קרדיטים');
+  END IF;
+  SELECT * INTO v_req FROM credit_requests WHERE id = p_request_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'הבקשה לא נמצאה');
+  END IF;
+  IF v_req.status <> 'pending' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'הבקשה כבר טופלה');
+  END IF;
+
+  IF p_approve THEN
+    v_grant := COALESCE(p_amount, v_req.amount);
+    IF v_grant < 1 OR v_grant > 100 THEN
+      RETURN jsonb_build_object('success', false, 'message', 'יש לאשר בין 1 ל-100 קרדיטים');
+    END IF;
+    UPDATE profiles SET credits = credits + v_grant WHERE id = v_req.user_id RETURNING credits INTO v_new;
+    UPDATE credit_requests SET status = 'approved', granted = v_grant, handled_by = auth.uid(), handled_at = NOW()
+    WHERE id = p_request_id;
+    PERFORM _notify(
+      v_req.user_id, 'credit_update', '🪙 בקשת הקרדיטים אושרה!',
+      'נוספו לך ' || v_grant || ' קרדיטים. יתרה עדכנית: ' || v_new || ' קרדיטים.'
+    );
+  ELSE
+    UPDATE credit_requests SET status = 'rejected', handled_by = auth.uid(), handled_at = NOW()
+    WHERE id = p_request_id;
+    PERFORM _notify(
+      v_req.user_id, 'credit_update', 'בקשת הקרדיטים לא אושרה',
+      'הנהלת המועדון לא אישרה את בקשתך ל-' || v_req.amount || ' קרדיטים. לפרטים פנה להנהלה.'
+    );
+  END IF;
+
+  -- ההתראה למנהלים על הבקשה מסומנת כנקראה
+  UPDATE notifications SET read = TRUE WHERE type = 'credit_request' AND target_id = p_request_id::TEXT;
+  RETURN jsonb_build_object('success', true, 'new_credits', v_new);
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION regenerate_invite_code() FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION request_credits(INT, TEXT) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION resolve_credit_request(UUID, BOOLEAN, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION regenerate_invite_code() TO authenticated;
+GRANT EXECUTE ON FUNCTION request_credits(INT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION resolve_credit_request(UUID, BOOLEAN, INT) TO authenticated;
+
+ALTER PUBLICATION supabase_realtime ADD TABLE club_invite, credit_requests;

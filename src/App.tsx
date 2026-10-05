@@ -3,7 +3,7 @@ import { store } from './services/store';
 import { UserProfile, isStaff, ROLE_LABELS } from './types';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { OfflineIndicator } from './components/OfflineIndicator';
-import { AuthModal } from './components/AuthModal';
+import { AuthModal, inviteCodeFromUrl } from './components/AuthModal';
 import { PendingApprovalView } from './components/PendingApprovalView';
 import { SailsList } from './components/SailsList';
 import { SailDetailModal } from './components/SailDetailModal';
@@ -57,6 +57,17 @@ export default function App() {
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserSwitcher, setShowUserSwitcher] = useState(false);
+  // Arrived through the club's invite link (?join=code)
+  const [inviteCode, setInviteCode] = useState(inviteCodeFromUrl);
+  // Bumped to make the admin panel jump to its requests tab (from a notification)
+  const [adminRequestsNonce, setAdminRequestsNonce] = useState(0);
+
+  // The invite code is only needed until the visitor has an account
+  useEffect(() => {
+    if (!store.getCurrentUser()) return;
+    if (inviteCodeFromUrl()) window.history.replaceState(null, '', window.location.pathname);
+    if (inviteCode) setInviteCode(undefined);
+  });
 
   const isDemo = store.mode === 'local';
   const lastError = store.getLastError();
@@ -102,6 +113,7 @@ export default function App() {
         {errorToast}
         <AuthModal
           isOpen={true}
+          inviteCode={inviteCode}
           onSuccess={() => setTick((t) => t + 1)}
         />
       </div>
@@ -120,8 +132,10 @@ export default function App() {
   }
 
   const unreadNotifications = store.getNotifications(currentUser.id).filter((n) => !n.read).length;
+  // Badge on the management tab: sign-ups waiting for approval, plus credit requests for admins
   const pendingApprovalsCount = isStaff(currentUser.role)
-    ? users.filter((u) => u.status === 'pending').length
+    ? users.filter((u) => u.status === 'pending').length +
+      (currentUser.role === 'admin' ? store.getCreditRequests().filter((r) => r.status === 'pending').length : 0)
     : 0;
 
   return (
@@ -363,7 +377,7 @@ export default function App() {
         )}
 
         {activeTab === 'admin' && isStaff(currentUser.role) && (
-          <AdminPanel currentUser={currentUser} />
+          <AdminPanel currentUser={currentUser} requestsNonce={adminRequestsNonce} />
         )}
 
         {activeTab === 'profile' && (
@@ -467,6 +481,14 @@ export default function App() {
           setSelectedSailId(id);
           setActiveTab('sails');
         }}
+        onOpenRequests={
+          isStaff(currentUser.role)
+            ? () => {
+                setActiveTab('admin');
+                setAdminRequestsNonce((n) => n + 1);
+              }
+            : undefined
+        }
       />
 
       <AuthModal

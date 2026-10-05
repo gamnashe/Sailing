@@ -384,6 +384,48 @@ async function run() {
   const pin = await as(dana, (tx) => tx.query('UPDATE posts SET is_pinned = TRUE WHERE id = $1', [postId]));
   assert(pin.affectedRows === 0, 'members cannot pin posts');
 
+  // --- Invite link (state: tomer is the admin, rina an assistant, dana a member) ---
+  const inviteForStaff = await as(rina, (tx) => tx.query<any>('SELECT code FROM club_invite'));
+  assert(inviteForStaff.rows.length === 1 && inviteForStaff.rows[0].code.length >= 16, 'staff can read the invite code');
+  const inviteForMember = await as(dana, (tx) => tx.query<any>('SELECT code FROM club_invite'));
+  assert(inviteForMember.rows.length === 0, 'members cannot read the invite code');
+  const newCode = await rpc(rina, 'regenerate_invite_code()');
+  assert(newCode.success && newCode.code !== inviteForStaff.rows[0].code, 'staff can replace the invite link');
+  assert((await rpc(dana, 'regenerate_invite_code()')).success === false, 'members cannot replace the invite link');
+  const lior = await signUp('lior@club.co.il', { full_name: 'ליאור' });
+  assert((await notificationCount(rina, 'member_request')) >= 1, 'assistants are notified about new sign-ups too');
+  await rpc(tomer, 'reject_member($1)', [lior]);
+
+  // --- Credit requests ---
+  const danaCreditsBefore = await credits(dana);
+  const req = await rpc(dana, 'request_credits($1, $2)', [5, 'לקראת הקיץ']);
+  assert(req.success, 'member requests more credits');
+  assert((await notificationCount(tomer, 'credit_request')) === 1, 'the admin is notified about the credit request');
+  assert((await notificationCount(rina, 'credit_request')) === 0, 'assistants are not asked to grant credits');
+  assert((await rpc(dana, 'request_credits($1)', [3])).success === false, 'only one pending request per member');
+  assert((await rpc(dana, 'request_credits($1)', [500])).success === false, 'request amount is bounded');
+  const otherSees = await as(guy, (tx) => tx.query<any>('SELECT id FROM credit_requests'));
+  assert(otherSees.rows.length === 0, "members cannot see others' credit requests");
+  assert(
+    await fails(dana, `INSERT INTO credit_requests (user_id, amount) VALUES ($1, 50)`, [dana]) ||
+      (await as(dana, (tx) => tx.query<any>(`SELECT count(*)::int AS n FROM credit_requests WHERE amount = 50`))).rows[0].n === 0,
+    'members cannot insert credit requests directly'
+  );
+  assert(
+    (await rpc(rina, 'resolve_credit_request($1, true)', [req.request_id])).success === false,
+    'assistants cannot approve credit requests'
+  );
+  const approved = await rpc(tomer, 'resolve_credit_request($1, true, $2)', [req.request_id, 4]);
+  assert(approved.success && (await credits(dana)) === danaCreditsBefore + 4, 'admin approves with an adjusted amount');
+  assert(
+    (await rpc(tomer, 'resolve_credit_request($1, true)', [req.request_id])).success === false,
+    'a handled request cannot be approved twice'
+  );
+  const req2 = await rpc(dana, 'request_credits($1)', [2]);
+  assert(req2.success, 'a new request is possible once the previous one was handled');
+  await rpc(tomer, 'resolve_credit_request($1, false)', [req2.request_id]);
+  assert((await credits(dana)) === danaCreditsBefore + 4, 'a rejected request adds nothing');
+
   // --- Notifications privacy ---
   const visible = await as(dana, (tx) => tx.query<any>('SELECT user_id FROM notifications'));
   assert(

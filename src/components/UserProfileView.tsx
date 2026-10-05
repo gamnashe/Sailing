@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { store } from '../services/store';
 import { UserProfile, ExperienceLevel, levelOptions, ROLE_LABELS, isStaff } from '../types';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { CreditRequestCard } from './CreditRequestCard';
 import {
   User,
   Phone,
@@ -139,6 +140,8 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
           <span className="text-[0.625rem] font-bold block text-amber-900">קרדיטים</span>
         </div>
       </div>
+
+      {user.role !== 'admin' && <CreditRequestCard />}
 
       {/* Edit Details Form */}
       <form onSubmit={handleSaveProfile} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">

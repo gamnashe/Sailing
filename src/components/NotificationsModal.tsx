@@ -1,16 +1,18 @@
 import React from 'react';
 import { store } from '../services/store';
-import { AppNotification } from '../types';
-import { Bell, CheckCheck, X, Sailboat, AlertTriangle, Sparkles, UserCheck } from 'lucide-react';
+import { AppNotification, STAFF_NOTIFICATION_TYPES } from '../types';
+import { Bell, CheckCheck, X, Sailboat, AlertTriangle, Sparkles, UserCheck, UserPlus, Coins, KeyRound } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
   userId: string;
   onClose: () => void;
   onSelectSail?: (sailId: string) => void;
+  /** Staff: opens the management requests (sign-ups, credit and password requests). */
+  onOpenRequests?: () => void;
 }
 
-export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, onSelectSail }) => {
+export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, onSelectSail, onOpenRequests }) => {
   if (!isOpen) return null;
 
   const notifications = store.getNotifications(userId);
@@ -22,6 +24,13 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
 
   const handleNotificationClick = async (n: AppNotification) => {
     await store.markNotificationAsRead(n.id);
+    if (STAFF_NOTIFICATION_TYPES.includes(n.type)) {
+      if (onOpenRequests) {
+        onOpenRequests();
+        onClose();
+      }
+      return;
+    }
     if (n.targetId && onSelectSail) {
       onSelectSail(n.targetId);
       onClose();
@@ -38,6 +47,13 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
         return <AlertTriangle className="w-4 h-4 text-rose-500" />;
       case 'member_approved':
         return <UserCheck className="w-4 h-4 text-emerald-600" />;
+      case 'member_request':
+        return <UserPlus className="w-4 h-4 text-amber-600" />;
+      case 'credit_request':
+      case 'credit_update':
+        return <Coins className="w-4 h-4 text-amber-600" />;
+      case 'password_help':
+        return <KeyRound className="w-4 h-4 text-sky-700" />;
       default:
         return <Bell className="w-4 h-4 text-sky-600" />;
     }
