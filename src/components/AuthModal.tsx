@@ -24,6 +24,8 @@ interface Props {
   isOpen: boolean;
   onSuccess: (user: UserProfile) => void;
   onClose?: () => void;
+  /** Opens directly on a given step, e.g. 'enter_new_password' after following a password-recovery link. */
+  initialMode?: 'login' | 'enter_new_password';
 }
 
 const EXPERIENCE_OPTIONS: ExperienceLevel[] = [
@@ -35,8 +37,12 @@ const EXPERIENCE_OPTIONS: ExperienceLevel[] = [
   'חובב / מתחיל',
 ];
 
-export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot_password' | 'enter_new_password'>('login');
+export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initialMode }) => {
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot_password' | 'enter_new_password'>(initialMode ?? 'login');
+  const [busy, setBusy] = useState(false);
+  const isDemo = store.mode === 'local';
+  // Arrived via the emailed recovery link: Supabase already verified it, so no code is needed.
+  const viaRecoveryLink = store.isPasswordRecovery();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -60,13 +66,22 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
   const pwHasDigit = /[0-9]/.test(password);
   const isComplex = pwLength && pwHasLetter && pwHasDigit;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     setError(null);
     setSuccessNotice(null);
+    setBusy(true);
+    try {
+      await submitLoginOrRegister();
+    } finally {
+      setBusy(false);
+    }
+  };
 
+  const submitLoginOrRegister = async () => {
     if (mode === 'login') {
-      const res = store.login(email, password);
+      const res = await store.login(email, password);
       if (res.success && res.user) {
         onSuccess(res.user);
       } else {
@@ -84,8 +99,13 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
         return;
       }
 
-      const res = store.register(email, password, fullName, phone, experienceLevel);
-      if (res.success && res.user) {
+      const res = await store.register(email, password, fullName, phone, experienceLevel);
+      if (res.success && res.needsEmailConfirmation) {
+        setSuccessNotice(`נשלח מייל אימות אל ${email.trim()}. לחץ על הקישור שבמייל ולאחר מכן התחבר כאן.`);
+        setMode('login');
+        setPassword('');
+        setConfirmPassword('');
+      } else if (res.success && res.user) {
         onSuccess(res.user);
       } else {
         setError(res.error || 'שגיאה בהרשמה');
@@ -93,7 +113,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
     }
   };
 
-  const handleRequestReset = (e: React.FormEvent) => {
+  const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessNotice(null);
@@ -103,8 +123,14 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
       return;
     }
 
-    const res = store.requestPasswordReset(resetEmail);
-    if (res.success && res.resetCode && res.resetLink) {
+    if (busy) return;
+    setBusy(true);
+    const res = await store.requestPasswordReset(resetEmail).finally(() => setBusy(false));
+    if (res.success && !isDemo) {
+      setSuccessNotice(`אם הכתובת ${resetEmail} רשומה במועדון, נשלח אליה מייל עם קישור וקוד לאיפוס הסיסמה.`);
+      setResetTokenOrCode('');
+      setMode('enter_new_password');
+    } else if (res.success && res.resetCode && res.resetLink) {
       setSimulatedEmail({
         code: res.resetCode,
         link: res.resetLink,
@@ -118,7 +144,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
     }
   };
 
-  const handleConfirmReset = (e: React.FormEvent) => {
+  const handleConfirmReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -128,12 +154,16 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
       return;
     }
 
-    const res = store.resetPassword(resetTokenOrCode.trim(), newPassword);
+    if (busy) return;
+    setBusy(true);
+    const res = await store
+      .resetPassword(resetEmail, resetTokenOrCode.trim(), newPassword)
+      .finally(() => setBusy(false));
     if (res.success) {
       setSuccessNotice('הסיסמה אופסה בהצלחה! כעת תוכל להתחבר עם הסיסמה החדשה.');
       setMode('login');
       setPassword(newPassword);
-      setEmail(simulatedEmail?.email || '');
+      setEmail(simulatedEmail?.email || resetEmail);
       setSimulatedEmail(null);
     } else {
       setError(res.error || 'קוד האיפוס אינו תקין או שפג תוקפו');
@@ -299,6 +329,12 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
           {/* MODE: ENTER NEW PASSWORD */}
           {mode === 'enter_new_password' && (
             <form onSubmit={handleConfirmReset} className="space-y-4">
+              {!isDemo && !viaRecoveryLink && (
+                <p className="text-xs text-slate-600">
+                  ניתן ללחוץ על הקישור שבמייל, או להזין כאן את הקוד בן 6 הספרות שקיבלת.
+                </p>
+              )}
+              {!viaRecoveryLink && (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   קוד אימות מהמייל (או מזהה הקישור) *
@@ -312,6 +348,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono tracking-widest text-center focus:ring-2 focus:ring-sky-500"
                 />
               </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -504,7 +541,8 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
             </form>
           )}
 
-          {/* Clean Admin Credentials Quick Login for easy testing */}
+          {/* Clean Admin Credentials Quick Login for easy testing (demo mode only) */}
+          {isDemo && (
           <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-600 flex items-center justify-between">
             <div>
               <p className="font-bold text-slate-900">כניסת מנהל ראשי (ברירת מחדל נקייה):</p>
@@ -512,10 +550,10 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
             </div>
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 setEmail('admin@sailingclub.co.il');
                 setPassword('Admin1234!');
-                const res = store.login('admin@sailingclub.co.il', 'Admin1234!');
+                const res = await store.login('admin@sailingclub.co.il', 'Admin1234!');
                 if (res.success && res.user) {
                   onSuccess(res.user);
                 }
@@ -525,6 +563,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose }) => {
               כניסה כמנהל
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>

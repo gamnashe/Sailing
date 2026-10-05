@@ -11,12 +11,14 @@
  * Run via: npx tsx src/tests/sailLogic.test.ts
  */
 
+import { LocalStore } from '../services/localStore';
 import {
-  store,
   validatePasswordComplexity,
   calculateDurationHours,
   calculatePrivateSailCredits
-} from '../services/store';
+} from '../services/sailRules';
+
+const store = new LocalStore();
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -31,7 +33,7 @@ async function runTests() {
   console.log('\n--- 🧪 מתחיל הרצת בדיקות מקיפות למערכת מועדון השייט ---\n');
 
   // Test 0: Reset store to clean state
-  store.resetToSeed();
+  await store.resetToSeed();
   assert(store.getUsers().length === 1, 'אתחול מסד נתונים נקי: מנהל ראשי יחיד בלבד במערכת');
   assert(store.getSails().length === 0, 'אתחול מסד נתונים נקי: 0 הפלגות טסט ישנות');
 
@@ -49,7 +51,7 @@ async function runTests() {
   assert(strong.valid, 'אישור סיסמה מורכבת בת 8+ תווים המשלבת אותיות וספרות');
 
   // Test 2: Member Registration with Email & Complex Password
-  const regRes = store.register(
+  const regRes = await store.register(
     'sailor.david@example.com',
     'Yacht1234!',
     'דוד שחר',
@@ -63,32 +65,32 @@ async function runTests() {
   const davidId = regRes.user!.id;
 
   // Test 3: Password Reset via Email
-  const resetReq = store.requestPasswordReset('sailor.david@example.com');
+  const resetReq = await store.requestPasswordReset('sailor.david@example.com');
   assert(resetReq.success === true, 'בקשת איפוס סיסמה למייל נוצרה בהצלחה');
   assert(Boolean(resetReq.resetCode && resetReq.resetLink), 'הופק קוד אימות בן 6 ספרות וקישור איפוס');
 
-  const resetAction = store.resetPassword(resetReq.resetCode!, 'NewYacht5678!');
+  const resetAction = await store.resetPassword('sailor.david@example.com', resetReq.resetCode!, 'NewYacht5678!');
   assert(resetAction.success === true, 'איפוס סיסמה באמצעות קוד מהמייל בוצע בהצלחה');
 
-  const loginWithNewPw = store.login('sailor.david@example.com', 'NewYacht5678!');
+  const loginWithNewPw = await store.login('sailor.david@example.com', 'NewYacht5678!');
   assert(loginWithNewPw.success === true, 'התחברות עם הסיסמה החדשה הצליחה');
 
   // Test 4: Admin Approves Member & Updates Qualification
-  store.approveMember(davidId);
+  await store.approveMember(davidId);
   assert(store.getUserById(davidId)?.status === 'approved', 'חבר אושר בהצלחה ע״י מנהל');
 
-  store.updateUserQualification(davidId, 'משיט 60 (סקיפר בינלאומי)');
+  await store.updateUserQualification(davidId, 'משיט 60 (סקיפר בינלאומי)');
   assert(
     store.getUserById(davidId)?.experienceLevel === 'משיט 60 (סקיפר בינלאומי)',
     'רמת הסמכת המשיט עודכנה בהצלחה למשיט 60'
   );
 
   // Test 5: Member Credits Adjustment
-  store.updateMemberCredits(davidId, 10, 'הטענת קרדיטים ראשונית', 'מנהל');
+  await store.updateMemberCredits(davidId, 10, 'הטענת קרדיטים ראשונית', 'מנהל');
   assert(store.getUserById(davidId)?.credits === 15, 'מאזן קרדיטים עודכן כראוי (5 בסיס + 10 = 15)');
 
   // Test 6: Club Sail Logic (Min 3, Max 6, 1 Credit per member)
-  const clubSail = store.createSail({
+  const clubSail = await store.createSail({
     title: 'הפלגת מועדון שישי',
     sailType: 'club',
     date: '2026-10-20',
@@ -112,12 +114,12 @@ async function runTests() {
 
   // David joins club sail -> 1 credit deducted
   const davidCreditsBefore = store.getUserById(davidId)!.credits;
-  const joinClub = store.joinSail(clubSail.id, davidId);
+  const joinClub = await store.joinSail(clubSail.id, davidId);
   assert(joinClub.success && joinClub.status === 'confirmed', 'דוד הצטרף להפלגת המועדון');
   assert(store.getUserById(davidId)!.credits === davidCreditsBefore - 1, 'להפלגת מועדון ירד בדיוק 1 קרדיט');
 
   // Cancel club sail registration -> credit refunded
-  store.cancelRegistration(clubSail.id, davidId, true);
+  await store.cancelRegistration(clubSail.id, davidId, true);
   assert(store.getUserById(davidId)!.credits === davidCreditsBefore, 'ביטול השתתפות החזיר את הקרדיט במלואו');
 
   // Test 7: Private Sail Calculations (Min 3 hours = 3 credits, +1 per extra hour)
@@ -125,7 +127,7 @@ async function runTests() {
   assert(calculatePrivateSailCredits(4) === 4, 'הפלגה פרטית בת 4 שעות עולה בדיוק 4 קרדיטים (3+1)');
   assert(calculatePrivateSailCredits(5.5) === 6, 'הפלגה פרטית בת 5.5 שעות עולה 6 קרדיטים');
 
-  const privateSail = store.createSail({
+  const privateSail = await store.createSail({
     title: 'הפלגה פרטית לחגיגת יום הולדת',
     sailType: 'private',
     date: '2026-10-22',
@@ -148,15 +150,15 @@ async function runTests() {
   assert(store.getUserById(davidId)!.credits === davidCreditsBefore - 4, 'עבור הפלגה פרטית של 4 שעות ירדו 4 קרדיטים');
 
   // Test 8: Admin cancels sail -> full credit refund to creator
-  store.cancelSail(privateSail.id, 'תנאי ים סוערים', 'יוסי כהן');
+  await store.cancelSail(privateSail.id, 'תנאי ים סוערים', 'יוסי כהן');
   assert(store.getUserById(davidId)!.credits === davidCreditsBefore, 'ביטול הפלגה פרטית ע״י מנהל החזיר 4 קרדיטים במלואם');
 
   // Test 9: User Deletion & Last Admin Demotion Safeguard
-  const deleteMemberRes = store.deleteUser(davidId);
+  const deleteMemberRes = await store.deleteUser(davidId);
   assert(deleteMemberRes.success === true, 'מחיקת משתמש רגיל עברה בהצלחה');
   assert(store.getUserById(davidId) === undefined, 'המשתמש שנמחק אינו מופיע יותר ברשימת המשתמשים');
 
-  const deleteAdminRes = store.deleteUser('u1');
+  const deleteAdminRes = await store.deleteUser('u1');
   assert(!deleteAdminRes.success, 'חסימת מחיקת המנהל האחרון במערכת עובדת בהצלחה');
 
   console.log('\n🎉 כל הבדיקות המקיפות עברו בהצלחה מושלמת!\n');

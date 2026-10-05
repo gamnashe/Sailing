@@ -16,12 +16,12 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
   const notifications = store.getNotifications(userId);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleMarkAllRead = () => {
-    store.markAllNotificationsAsRead(userId);
+  const handleMarkAllRead = async () => {
+    await store.markAllNotificationsAsRead(userId);
   };
 
-  const handleNotificationClick = (n: AppNotification) => {
-    store.markNotificationAsRead(n.id);
+  const handleNotificationClick = async (n: AppNotification) => {
+    await store.markNotificationAsRead(n.id);
     if (n.targetId && onSelectSail) {
       onSelectSail(n.targetId);
       onClose();

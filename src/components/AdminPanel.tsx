@@ -25,8 +25,7 @@ import {
   Clock,
   Compass,
   RotateCcw,
-  MapPin,
-  Download
+  MapPin
 } from 'lucide-react';
 
 interface Props {
@@ -73,20 +72,20 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
   const [whoCanCreateSails, setWhoCanCreateSails] = useState(clubSettings.whoCanCreateSails);
   const [cancellationDeadlineHours, setCancellationDeadlineHours] = useState(clubSettings.cancellationDeadlineHours);
 
-  const handleApprove = (userId: string) => {
-    store.approveMember(userId);
+  const handleApprove = async (userId: string) => {
+    await store.approveMember(userId);
     setFeedbackMessage({ text: 'החבר אושר בהצלחה וקיבל הודעת ברוך הבא!', type: 'success' });
   };
 
-  const handleReject = (userId: string) => {
+  const handleReject = async (userId: string) => {
     if (confirm('האם לדחות בקשת הצטרפות זו?')) {
-      store.rejectMember(userId);
+      await store.rejectMember(userId);
       setFeedbackMessage({ text: 'בקשת ההצטרפות נדחתה', type: 'success' });
     }
   };
 
-  const handleToggleRole = (userId: string, newRole: UserRole) => {
-    const res = store.toggleMemberRole(userId, newRole);
+  const handleToggleRole = async (userId: string, newRole: UserRole) => {
+    const res = await store.toggleMemberRole(userId, newRole);
     if (res.success) {
       setFeedbackMessage({
         text: newRole === 'admin' ? 'החבר קודם לתפקיד מנהל בהצלחה' : 'התפקיד עודכן לחבר מועדון',
@@ -97,9 +96,9 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
-  const handleDeleteUser = (userId: string, userName: string) => {
+  const handleDeleteUser = async (userId: string, userName: string) => {
     if (confirm(`האם אתה בטוח שברצונך למחוק לצמיתות את המשתמש "${userName}" מהמערכת?`)) {
-      const res = store.deleteUser(userId);
+      const res = await store.deleteUser(userId);
       if (res.success) {
         setFeedbackMessage({ text: `המשתמש ${userName} נמחק בהצלחה מהמועדון.`, type: 'success' });
       } else {
@@ -108,27 +107,27 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
-  const handleUpdateQualification = (userId: string, newLevel: ExperienceLevel, userName: string) => {
-    store.updateUserQualification(userId, newLevel);
+  const handleUpdateQualification = async (userId: string, newLevel: ExperienceLevel, userName: string) => {
+    await store.updateUserQualification(userId, newLevel);
     setFeedbackMessage({ text: `רמת ההסמכה של ${userName} עודכנה ל: ${newLevel}`, type: 'success' });
   };
 
-  const handleResetDatabase = () => {
+  const handleResetDatabase = async () => {
     if (
       confirm(
         '⚠️ אזהרה: פעולה זו תמחק את כל נתוני הטסט (הפלגות, הרשמות, פוסטים, דיווחי תקלות) ותאפס את המערכת לבסיס נתונים נקי לחלוטין. האם להמשיך?'
       )
     ) {
-      store.resetToSeed();
+      await store.resetToSeed();
       setFeedbackMessage({ text: 'כל נתוני הטסט נמחקו בהצלחה! בסיס הנתונים כעת נקי לחלוטין.', type: 'success' });
     }
   };
 
-  const handleApplyCredits = (e: React.FormEvent) => {
+  const handleApplyCredits = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!creditModalUser) return;
 
-    const res = store.updateMemberCredits(
+    const res = await store.updateMemberCredits(
       creditModalUser.id,
       Number(creditAmount),
       creditReason.trim(),
@@ -144,8 +143,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
-  const handleQuickAddCredit = (user: UserProfile, delta: number) => {
-    const res = store.updateMemberCredits(
+  const handleQuickAddCredit = async (user: UserProfile, delta: number) => {
+    const res = await store.updateMemberCredits(
       user.id,
       delta,
       delta > 0 ? 'הוספת קרדיט מהירה ע״י מנהל' : 'הפחתת קרדיט ע״י מנהל',
@@ -159,11 +158,11 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
-  const handleConfirmCancelSail = (e: React.FormEvent) => {
+  const handleConfirmCancelSail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cancellingSail) return;
 
-    store.cancelSail(cancellingSail.id, cancelSailReason.trim(), currentUser.fullName);
+    await store.cancelSail(cancellingSail.id, cancelSailReason.trim(), currentUser.fullName);
     setFeedbackMessage({
       text: `ההפלגה "${cancellingSail.title}" בוטלה בהצלחה. כל חברי הצוות קיבלו התראה והקרדיטים הוחזרו לחשבונם!`,
       type: 'success',
@@ -172,9 +171,9 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     setCancelSailReason('');
   };
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    store.updateSettings({
+    await store.updateSettings({
       clubName: clubName.trim(),
       defaultMaxParticipants: Number(defaultMaxParticipants) || 6,
       whoCanCreateSails,
@@ -183,11 +182,11 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     setFeedbackMessage({ text: 'הגדרות המועדון עודכנו בהצלחה!', type: 'success' });
   };
 
-  const handleAddBoat = (e: React.FormEvent) => {
+  const handleAddBoat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBoatName.trim()) return;
 
-    store.createBoat({
+    await store.createBoat({
       name: newBoatName.trim(),
       model: newBoatModel.trim() || 'סירת מפרש',
       status: newBoatStatus,
@@ -203,11 +202,11 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     setShowAddBoatModal(false);
   };
 
-  const handleUpdateBoat = (e: React.FormEvent) => {
+  const handleUpdateBoat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBoat) return;
 
-    store.updateBoat(editingBoat.id, {
+    await store.updateBoat(editingBoat.id, {
       name: editingBoat.name,
       model: editingBoat.model,
       status: editingBoat.status,
@@ -593,9 +592,9 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
 
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       if (confirm(`האם למחוק את כלי השייט ${b.name}?`)) {
-                        store.deleteBoat(b.id);
+                        await store.deleteBoat(b.id);
                         setFeedbackMessage({ text: `כלי השייט ${b.name} הוסר מהמערכת`, type: 'success' });
                       }
                     }}
@@ -811,16 +810,6 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                 <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
                 מחק נתוני טסט (דטה בייס נקי)
               </button>
-
-              <a
-                href="/sailing-club-project.zip"
-                download="sailing-club-project.zip"
-                className="bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                title="הורד קובץ ZIP של כל קוד המקור מוכן לחיבור ל-Git"
-              >
-                <Download className="w-3.5 h-3.5 text-sky-600" />
-                הורד פרויקט מלא (ZIP ל-Git)
-              </a>
             </div>
 
             <button

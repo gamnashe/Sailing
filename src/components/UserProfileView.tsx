@@ -46,9 +46,9 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
     return false;
   });
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    store.updateUserProfile(user.id, {
+    await store.updateUserProfile(user.id, {
       fullName: fullName.trim(),
       phone: phone.trim(),
       experienceLevel,
@@ -75,9 +75,9 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
     }
   };
 
-  const handleResetData = () => {
+  const handleResetData = async () => {
     if (confirm('האם לאפס את נתוני המערכת לנתוני ההדגמה הראשוניים?')) {
-      store.resetToSeed();
+      await store.resetToSeed();
       onUpdate();
     }
   };
@@ -267,6 +267,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
 
       {/* Developer demo reset & Log out */}
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
+        {store.mode === 'local' && (
         <button
           onClick={handleResetData}
           className="flex-1 py-3 px-4 rounded-2xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer"
@@ -274,6 +275,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
           <RotateCcw className="w-4 h-4 text-slate-400" />
           איפוס לנתוני הדגמה ראשוניים
         </button>
+        )}
 
         <button
           onClick={onLogout}

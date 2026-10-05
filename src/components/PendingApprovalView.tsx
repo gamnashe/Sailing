@@ -54,10 +54,11 @@ export const PendingApprovalView: React.FC<Props> = ({ user, onLogout, onRefresh
             בדוק סטטוס אישור
           </button>
 
-          {/* Helper button for testing */}
+          {/* Helper button for testing (demo mode only) */}
+          {store.mode === 'local' && (
           <button
-            onClick={() => {
-              store.approveMember(user.id);
+            onClick={async () => {
+              await store.approveMember(user.id);
               onRefresh();
             }}
             className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-medium py-2.5 rounded-xl transition text-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -65,6 +66,7 @@ export const PendingApprovalView: React.FC<Props> = ({ user, onLogout, onRefresh
             <CheckCircle2 className="w-3.5 h-3.5" />
             (בדיקת פיתוח: אשר את עצמי כמנהל כעת)
           </button>
+          )}
 
           <button
             onClick={onLogout}

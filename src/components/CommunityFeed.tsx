@@ -61,7 +61,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleCreatePost = (e: React.FormEvent) => {
+  const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() && images.length === 0 && !linkInput.trim()) return;
 
@@ -84,7 +84,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
       }
     }
 
-    store.createPost(
+    await store.createPost(
       currentUser.id,
       content.trim(),
       images,
@@ -100,24 +100,24 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
     setShowLinkInput(false);
   };
 
-  const handleToggleLike = (postId: string) => {
-    store.togglePostLike(postId, currentUser.id);
+  const handleToggleLike = async (postId: string) => {
+    await store.togglePostLike(postId, currentUser.id);
   };
 
-  const handleAddComment = (postId: string, e: React.FormEvent) => {
+  const handleAddComment = async (postId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!commentContent.trim()) return;
-    store.addPostComment(postId, currentUser.id, commentContent.trim());
+    await store.addPostComment(postId, currentUser.id, commentContent.trim());
     setCommentContent('');
   };
 
-  const handleTogglePin = (postId: string) => {
-    store.togglePinPost(postId);
+  const handleTogglePin = async (postId: string) => {
+    await store.togglePinPost(postId);
   };
 
-  const handleDeletePost = (postId: string) => {
+  const handleDeletePost = async (postId: string) => {
     if (confirm('האם למחוק פוסט זה מהפיד?')) {
-      store.deletePost(postId);
+      await store.deletePost(postId);
     }
   };
 

@@ -69,14 +69,14 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
-  const handleReportSubmit = (e: React.FormEvent) => {
+  const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!issueTitle.trim() || !selectedBoatId) return;
 
     const boat = store.getBoatById(selectedBoatId);
     if (!boat) return;
 
-    store.reportBoatIssue({
+    await store.reportBoatIssue({
       boatId: boat.id,
       boatName: boat.name,
       reporterId: currentUser.id,
@@ -102,11 +102,11 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
     setActiveTab('issues');
   };
 
-  const handleAddBoatSubmit = (e: React.FormEvent) => {
+  const handleAddBoatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBoatName.trim()) return;
 
-    store.createBoat({
+    await store.createBoat({
       name: newBoatName.trim(),
       model: newBoatModel.trim() || 'סירת מפרש',
       status: newBoatStatus,
@@ -122,8 +122,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
     setShowAddBoatModal(false);
   };
 
-  const handleUpdateBoatStatus = (boat: Boat, newStatus: BoatStatus, notes?: string) => {
-    store.updateBoat(boat.id, {
+  const handleUpdateBoatStatus = async (boat: Boat, newStatus: BoatStatus, notes?: string) => {
+    await store.updateBoat(boat.id, {
       status: newStatus,
       statusNotes: notes !== undefined ? notes : boat.statusNotes,
     });
@@ -131,9 +131,9 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
     setFeedbackMsg({ text: `סטטוס הסירה "${boat.name}" עודכן בהצלחה.`, type: 'success' });
   };
 
-  const handleResolveIssue = (issueId: string) => {
+  const handleResolveIssue = async (issueId: string) => {
     const adminNote = prompt('הערת סגירה / פירוט התיקון שבוצע (אופציונלי):') || 'התקלה טופלה ותוקנה';
-    store.updateBoatIssueStatus(issueId, 'resolved', adminNote, currentUser.fullName);
+    await store.updateBoatIssueStatus(issueId, 'resolved', adminNote, currentUser.fullName);
     setFeedbackMsg({ text: 'התקלה סומנה כתוקנה!', type: 'success' });
   };
 

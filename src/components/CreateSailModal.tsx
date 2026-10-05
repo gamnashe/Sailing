@@ -61,7 +61,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
   const userCredits = currentUser.credits ?? 5;
   const canAffordPrivate = userCredits >= privateCreditCost;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
@@ -95,7 +95,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
     }
 
     try {
-      const created = store.createSail({
+      const created = await store.createSail({
         title: title.trim(),
         sailType,
         date,

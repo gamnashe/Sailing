@@ -60,9 +60,9 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
       !waitlistMembers.some((w) => w.user.id === u.id)
   );
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     setActionMessage(null);
-    const res = store.joinSail(sail.id, currentUser.id);
+    const res = await store.joinSail(sail.id, currentUser.id);
     setActionMessage({
       text: res.message,
       type: res.success ? 'success' : 'error',
@@ -70,9 +70,9 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
     onUpdate();
   };
 
-  const handleCancelRegistration = () => {
+  const handleCancelRegistration = async () => {
     setActionMessage(null);
-    const res = store.cancelRegistration(sail.id, currentUser.id, isAdmin);
+    const res = await store.cancelRegistration(sail.id, currentUser.id, isAdmin);
     setActionMessage({
       text: res.message,
       type: res.success ? 'success' : 'error',
@@ -81,10 +81,10 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
     onUpdate();
   };
 
-  const handleManualAdd = (e: React.FormEvent) => {
+  const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMemberToAdd) return;
-    const res = store.addParticipantManually(sail.id, selectedMemberToAdd);
+    const res = await store.addParticipantManually(sail.id, selectedMemberToAdd);
     setActionMessage({
       text: res.message,
       type: res.success ? 'success' : 'error',
@@ -94,9 +94,9 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
     onUpdate();
   };
 
-  const handleManualRemove = (userId: string, memberName: string) => {
+  const handleManualRemove = async (userId: string, memberName: string) => {
     if (!confirm(`האם להסיר את ${memberName} מההפלגה?`)) return;
-    const res = store.removeParticipantManually(sail.id, userId);
+    const res = await store.removeParticipantManually(sail.id, userId);
     setActionMessage({
       text: res.message,
       type: res.success ? 'success' : 'error',
@@ -104,9 +104,9 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
     onUpdate();
   };
 
-  const handleToggleSailStatus = () => {
+  const handleToggleSailStatus = async () => {
     const newStatus = sail.status === 'open' ? 'closed' : 'open';
-    store.editSail(sail.id, { status: newStatus });
+    await store.editSail(sail.id, { status: newStatus });
     setActionMessage({
       text: newStatus === 'open' ? 'ההרשמה נפתחה מחדש' : 'ההרשמה ננעלה',
       type: 'success',
@@ -114,9 +114,9 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
     onUpdate();
   };
 
-  const handleCancelSailByAdmin = (e: React.FormEvent) => {
+  const handleCancelSailByAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    store.cancelSail(sail.id, cancelSailReason.trim(), currentUser.fullName);
+    await store.cancelSail(sail.id, cancelSailReason.trim(), currentUser.fullName);
     setShowCancelSailModal(false);
     setActionMessage({
       text: 'ההפלגה בוטלה בהצלחה וכל המשתתפים קיבלו התראה',
@@ -133,7 +133,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
     try {
       for (let i = 0; i < files.length; i++) {
         const compressed = await compressImage(files[i]);
-        store.addSailPhoto(sail.id, compressed, photoCaption, currentUser.id);
+        await store.addSailPhoto(sail.id, compressed, photoCaption, currentUser.id);
       }
       setPhotoCaption('');
       setActionMessage({ text: 'התמונות הועלו בהצלחה!', type: 'success' });

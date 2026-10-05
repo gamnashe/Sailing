@@ -23,7 +23,10 @@ import {
   Users,
   ChevronDown,
   Coins,
-  Wrench
+  Wrench,
+  LogOut,
+  AlertCircle,
+  X
 } from 'lucide-react';
 
 export default function App() {
@@ -50,6 +53,32 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserSwitcher, setShowUserSwitcher] = useState(false);
 
+  const isDemo = store.mode === 'local';
+  const lastError = store.getLastError();
+  const handleLogout = async () => {
+    setShowUserSwitcher(false);
+    setActiveTab('sails');
+    await store.logout();
+  };
+
+  if (store.isLoading()) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 text-sky-100">
+        <Anchor className="w-10 h-10 text-sky-400 animate-pulse" />
+        <p className="text-sm font-semibold">טוען את נתוני המועדון...</p>
+      </div>
+    );
+  }
+
+  // Arrived from a password-recovery email link: choose a new password first
+  if (store.isPasswordRecovery()) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <AuthModal isOpen={true} initialMode="enter_new_password" onSuccess={() => setTick((t) => t + 1)} />
+      </div>
+    );
+  }
+
   // If no user is logged in
   if (!currentUser) {
     return (
@@ -67,11 +96,8 @@ export default function App() {
     return (
       <PendingApprovalView
         user={currentUser}
-        onRefresh={() => setTick((t) => t + 1)}
-        onLogout={() => {
-          store.setCurrentUser('u1');
-          setTick((t) => t + 1);
-        }}
+        onRefresh={() => void store.refresh()}
+        onLogout={handleLogout}
       />
     );
   }
@@ -83,6 +109,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans pb-20 sm:pb-8">
+      {/* Background error toast (failed server writes / loads) */}
+      {lastError && (
+        <div className="fixed bottom-20 sm:bottom-6 inset-x-4 sm:inset-x-auto sm:left-6 sm:max-w-sm z-50 bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-2xl p-3 shadow-lg flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <span className="flex-1">{lastError}</span>
+          <button onClick={() => store.clearLastError()} className="text-rose-500 hover:text-rose-800 cursor-pointer" title="סגור">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* PWA In-App Install Prompt Banner */}
       <PWAInstallBanner />
 
@@ -148,7 +185,22 @@ export default function App() {
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
 
-              {showUserSwitcher && (
+              {showUserSwitcher && !isDemo && (
+                <div className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 text-right text-xs">
+                  <div className="px-3 py-1.5 border-b border-slate-100 text-[11px] text-slate-400 font-semibold truncate">
+                    {currentUser.email}
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full px-3 py-2 flex items-center gap-2 text-rose-700 hover:bg-rose-50 font-semibold cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    התנתקות
+                  </button>
+                </div>
+              )}
+
+              {showUserSwitcher && isDemo && (
                 <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 text-right text-xs">
                   <div className="px-3 py-1.5 border-b border-slate-100 text-[11px] text-slate-400 font-semibold">
                     החלף משתמש לבדיקה מהירה:
@@ -300,10 +352,7 @@ export default function App() {
         {activeTab === 'profile' && (
           <UserProfileView
             user={currentUser}
-            onLogout={() => {
-              store.setCurrentUser('u1');
-              setTick((t) => t + 1);
-            }}
+            onLogout={handleLogout}
             onUpdate={() => setTick((t) => t + 1)}
           />
         )}
@@ -398,7 +447,7 @@ export default function App() {
       />
 
       <AuthModal
-        isOpen={showAuthModal}
+        isOpen={isDemo && showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onSuccess={() => {
           setShowAuthModal(false);
