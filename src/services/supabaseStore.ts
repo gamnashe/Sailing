@@ -12,8 +12,9 @@ import type {
   IssueStatus,
   ExperienceLevel,
   NotificationType,
+  CreditRequest,
 } from '../types';
-import type { DataStore, MessageResult, NewMember, Result } from './dataStore';
+import type { DataStore, JoinDetails, MessageResult, NewMember, Result } from './dataStore';
 import { DEFAULT_EXPERIENCE_LEVELS } from '../types';
 import { validatePasswordComplexity } from './sailRules';
 
@@ -28,6 +29,9 @@ interface Snapshot {
   notifications: AppNotification[];
   boats: Boat[];
   boatIssues: BoatIssue[];
+  creditRequests: CreditRequest[];
+  /** Staff only. */
+  inviteCode: string | null;
 }
 
 const DEFAULT_SETTINGS: ClubSettings = {
@@ -48,6 +52,8 @@ const emptySnapshot = (settings: ClubSettings = DEFAULT_SETTINGS): Snapshot => (
   notifications: [],
   boats: [],
   boatIssues: [],
+  creditRequests: [],
+  inviteCode: null,
 });
 
 /** Translates the Supabase Auth errors users are likely to hit into Hebrew. */
@@ -277,7 +283,8 @@ export class SupabaseStore implements DataStore {
         return;
       }
 
-      const [profiles, boats, issues, sails, regs, photos, posts, likes, comments, notifs] = await Promise.all([
+      const staff = me.role === 'admin' || me.role === 'assistant';
+      const [profiles, boats, issues, sails, regs, photos, posts, likes, comments, notifs, creditReqs, invite] = await Promise.all([
         this.sb.from('profiles').select('*').order('created_at'),
         this.sb.from('boats').select('*').order('created_at'),
         this.sb.from('boat_issues').select('*'),
@@ -288,8 +295,12 @@ export class SupabaseStore implements DataStore {
         this.sb.from('post_likes').select('post_id, user_id'),
         this.sb.from('post_comments').select('*').order('created_at'),
         this.sb.from('notifications').select('*').order('created_at', { ascending: false }).limit(200),
+        this.sb.from('credit_requests').select('*').order('created_at', { ascending: false }).limit(200),
+        staff
+          ? this.sb.from('club_invite').select('code').eq('id', 1).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
-      for (const res of [profiles, boats, issues, sails, regs, photos, posts, likes, comments, notifs]) {
+      for (const res of [profiles, boats, issues, sails, regs, photos, posts, likes, comments, notifs, creditReqs, invite]) {
         if (res.error) throw res.error;
       }
 
@@ -415,6 +426,17 @@ export class SupabaseStore implements DataStore {
           };
         }),
         notifications: (notifs.data ?? []).map(this.mapNotification),
+        creditRequests: (creditReqs.data ?? []).map((r) => ({
+          id: r.id,
+          userId: r.user_id,
+          amount: r.amount,
+          note: r.note ?? '',
+          status: r.status,
+          granted: r.granted ?? undefined,
+          createdAt: r.created_at,
+          handledAt: r.handled_at ?? undefined,
+        })),
+        inviteCode: (invite.data as Row | null)?.code ?? null,
       };
       this.startRealtime();
     } catch (err: any) {
@@ -544,6 +566,35 @@ export class SupabaseStore implements DataStore {
     return { success: true, user: this.getCurrentUser() ?? undefined };
   }
 
+  public async joinWithInvite(inviteCode: string, details: JoinDetails) {
+    const email = details.email.trim().toLowerCase();
+    if (!email.includes('@')) return { success: false, error: 'יש להזין כתובת מייל תקינה' };
+    const pwCheck = validatePasswordComplexity(details.password);
+    if (!pwCheck.valid) return { success: false, error: pwCheck.error };
+    if (!details.fullName.trim()) return { success: false, error: 'יש להזין שם מלא' };
+    if (!details.phone.trim()) return { success: false, error: 'יש להזין מספר טלפון' };
+
+    const r = await this.callFunction({ action: 'join_with_invite', code: inviteCode, ...details, email });
+    if (!r.success) return { success: false, error: (r.message as string) || 'ההרשמה נכשלה' };
+    return this.login(email, details.password);
+  }
+
+  public getInviteCode() {
+    return this.snapshot.inviteCode;
+  }
+
+  public async regenerateInviteCode(): Promise<Result> {
+    const r = await this.rpc('regenerate_invite_code', {});
+    return { success: Boolean(r.success), error: r.message };
+  }
+
+  public async requestPasswordHelp(email: string): Promise<Result> {
+    const clean = email.trim().toLowerCase();
+    if (!clean.includes('@')) return { success: false, error: 'יש להזין כתובת מייל תקינה' };
+    const r = await this.callFunction({ action: 'request_password_help', email: clean });
+    return r.success ? { success: true } : { success: false, error: (r.message as string) || 'שליחת הבקשה נכשלה' };
+  }
+
   public async login(identifier: string, password: string) {
     const email = identifier.trim().toLowerCase();
     if (!email.includes('@')) {
@@ -592,16 +643,22 @@ export class SupabaseStore implements DataStore {
     return { success: true };
   }
 
-  /** Calls the admin-actions Edge Function (service-role operations guarded by an admin check). */
-  private async adminAction(body: Row): Promise<Row> {
+  /** Calls the admin-actions Edge Function without reloading (also used signed out). */
+  private async callFunction(body: Row): Promise<Row> {
     const { data, error } = await this.sb.functions.invoke('admin-actions', { body });
     if (error) {
       // Non-2xx responses still carry our { success, message } JSON in the response body.
       const payload = await (error as any).context?.json?.().catch(() => null);
       return payload ?? { success: false, message: error.message };
     }
-    await this.refresh();
     return (data as Row) ?? { success: false, message: 'תשובה ריקה מהשרת' };
+  }
+
+  /** Calls the admin-actions Edge Function (service-role operations guarded by a staff check). */
+  private async adminAction(body: Row): Promise<Row> {
+    const r = await this.callFunction(body);
+    await this.refresh();
+    return r;
   }
 
   public async changePassword(newPassword: string): Promise<Result> {
@@ -660,6 +717,26 @@ export class SupabaseStore implements DataStore {
   public async updateMemberCredits(userId: string, changeAmount: number, reason: string) {
     const r = await this.rpc('update_member_credits', { p_user_id: userId, p_delta: changeAmount, p_reason: reason });
     return { success: r.success, newCredits: r.new_credits ?? 0 };
+  }
+
+  // --- Credit requests ---
+
+  public getCreditRequests() {
+    return [...this.snapshot.creditRequests];
+  }
+
+  public async requestCredits(amount: number, note: string): Promise<Result> {
+    const r = await this.rpc('request_credits', { p_amount: Math.floor(amount), p_note: note });
+    return { success: Boolean(r.success), error: r.message };
+  }
+
+  public async resolveCreditRequest(requestId: string, approve: boolean, amount?: number): Promise<Result> {
+    const r = await this.rpc('resolve_credit_request', {
+      p_request_id: requestId,
+      p_approve: approve,
+      p_amount: approve && amount !== undefined ? Math.floor(amount) : null,
+    });
+    return { success: Boolean(r.success), error: r.message };
   }
 
   // --- Sails & registrations ---

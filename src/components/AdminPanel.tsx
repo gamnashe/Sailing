@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { store } from '../services/store';
+import { InviteLinkCard } from './InviteLinkCard';
+import { CreditRequestsList } from './CreditRequestsList';
 import { QualificationLevelsEditor } from './QualificationLevelsEditor';
 import { BoatPermissionsEditor } from './BoatPermissionsEditor';
 import { UserProfile, UserRole, ClubSettings, Boat, BoatStatus, Sail, ExperienceLevel, levelOptions, ROLE_LABELS } from '../types';
@@ -36,10 +38,17 @@ import {
 
 interface Props {
   currentUser: UserProfile;
+  /** Changes when a notification asks to show the requests tab. */
+  requestsNonce?: number;
 }
 
-export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'pending' | 'members' | 'fleet' | 'sails' | 'settings' | 'stats'>('members');
+export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0 }) => {
+  const [activeTab, setActiveTab] = useState<'pending' | 'members' | 'fleet' | 'sails' | 'settings' | 'stats'>(
+    requestsNonce > 0 ? 'pending' : 'members'
+  );
+  useEffect(() => {
+    if (requestsNonce > 0) setActiveTab('pending');
+  }, [requestsNonce]);
   const [searchMember, setSearchMember] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -94,6 +103,18 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
   const canManageAccount = (member: UserProfile) => isAdminUser || member.role === 'member';
 
   const pendingUsers = users.filter((u) => u.status === 'pending');
+  const pendingCreditRequests = isAdminUser ? store.getCreditRequests().filter((r) => r.status === 'pending') : [];
+  // "Forgot my password" requests addressed to me, one per member
+  const passwordHelpNotifs = store
+    .getNotifications(currentUser.id)
+    .filter((n) => n.type === 'password_help' && !n.read && n.targetId);
+  const passwordHelpMembers = [...new Set(passwordHelpNotifs.map((n) => n.targetId!))]
+    .map((id) => users.find((u) => u.id === id))
+    .filter((u): u is UserProfile => Boolean(u) && canManageAccount(u!));
+  const dismissPasswordHelp = async (memberId: string) => {
+    for (const n of passwordHelpNotifs.filter((n) => n.targetId === memberId)) await store.markNotificationAsRead(n.id);
+  };
+  const requestsCount = pendingUsers.length + pendingCreditRequests.length + passwordHelpMembers.length;
   const approvedUsers = users.filter((u) => u.status === 'approved');
   const upcomingSails = sails.filter((s) => s.status === 'open' || s.status === 'closed');
 
@@ -150,6 +171,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
     if (!confirm(`להנפיק ל${member.fullName} סיסמה זמנית חדשה ולשלוח לו את פרטי הכניסה? הסיסמה הקודמת שלו תפסיק לעבוד.`)) return;
     const res = await store.resetMemberPassword(member.id);
     if (res.success && res.email && res.temporaryPassword) {
+      await dismissPasswordHelp(member.id);
       setCreatedMember({ fullName: member.fullName, phone: member.phone, email: res.email, password: res.temporaryPassword, isResend: true });
       setShowAddMember(true);
     } else {
@@ -397,7 +419,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
             }`}
           >
             <UserCheck className="w-3.5 h-3.5" />
-            ממתינים ({pendingUsers.length})
+            בקשות והצטרפות ({requestsCount})
           </button>
 
           <button
@@ -790,7 +812,9 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
         </div>
       )}
 
-      {/* TAB 4: Pending Approvals */}
+      {/* TAB 4: Requests — invite link, sign-ups to approve, password and credit requests */}
+      {activeTab === 'pending' && <InviteLinkCard />}
+
       {activeTab === 'pending' && (
         <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -858,6 +882,52 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === 'pending' && passwordHelpMembers.length > 0 && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
+          <div className="border-b border-slate-100 pb-3">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-sky-700" aria-hidden="true" />
+              בקשות לאיפוס סיסמה
+            </h2>
+            <p className="text-xs text-slate-500">
+              הנפק סיסמה זמנית ושלח אותה לחבר בוואטסאפ או במייל. אחרי הכניסה הוא יוכל לבחור סיסמה משלו בפרופיל.
+            </p>
+          </div>
+          {passwordHelpMembers.map((member) => (
+            <div
+              key={member.id}
+              className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-sky-50/50 border border-sky-200 rounded-2xl gap-3 text-xs"
+            >
+              <div>
+                <p className="font-bold text-slate-900 text-sm">{member.fullName}</p>
+                <p className="text-slate-500" dir="ltr">
+                  {member.email}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <button
+                  onClick={() => handleResendLogin(member)}
+                  className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                >
+                  <KeyRound className="w-4 h-4" aria-hidden="true" />
+                  הנפק סיסמה זמנית ושלח
+                </button>
+                <button
+                  onClick={() => dismissPasswordHelp(member.id)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl cursor-pointer"
+                >
+                  התעלם
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'pending' && isAdminUser && (
+        <CreditRequestsList onDone={(text, ok) => setFeedbackMessage({ text, type: ok ? 'success' : 'error' })} />
       )}
 
       {/* TAB 5: Club Settings */}

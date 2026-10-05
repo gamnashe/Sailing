@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { UserProfile } from '../types';
 import { store } from '../services/store';
 import { Clock, ShieldAlert, LogOut, CheckCircle2, RefreshCw } from 'lucide-react';
@@ -10,6 +10,12 @@ interface Props {
 }
 
 export const PendingApprovalView: React.FC<Props> = ({ user, onLogout, onRefresh }) => {
+  // Check every 30 seconds, so the app opens by itself once a manager approves
+  useEffect(() => {
+    const id = setInterval(onRefresh, 30_000);
+    return () => clearInterval(id);
+  }, [onRefresh]);
+
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
       <div className="w-full max-w-md bg-slate-800/90 border border-slate-700/80 rounded-3xl p-8 shadow-2xl backdrop-blur-md relative overflow-hidden">

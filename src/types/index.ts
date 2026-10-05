@@ -178,7 +178,30 @@ export type NotificationType =
   | 'member_approved'
   | 'boat_issue'
   | 'credit_update'
-  | 'password_reset';
+  | 'password_reset'
+  /** Staff: someone signed up and waits for approval. */
+  | 'member_request'
+  /** Admins: a member asked for more credits (targetId = request id). */
+  | 'credit_request'
+  /** Staff: a member forgot their password and asked for a new one (targetId = member id). */
+  | 'password_help';
+
+/** Notification types that lead to the management screen rather than a sail. */
+export const STAFF_NOTIFICATION_TYPES: NotificationType[] = ['member_request', 'credit_request', 'password_help'];
+
+export type CreditRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CreditRequest {
+  id: string;
+  userId: string;
+  amount: number;
+  note: string;
+  status: CreditRequestStatus;
+  /** Credits actually added when approved (the admin may adjust the amount). */
+  granted?: number;
+  createdAt: string;
+  handledAt?: string;
+}
 
 export interface AppNotification {
   id: string;
