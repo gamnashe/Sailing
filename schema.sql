@@ -863,6 +863,26 @@ REVOKE EXECUTE ON FUNCTION _notify(UUID, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, an
 REVOKE EXECUTE ON FUNCTION _active_admin_count() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION handle_new_user() FROM PUBLIC, anon, authenticated;
 
+-- פונקציות ה-RPC זמינות רק למשתמשים מחוברים (כל אחת בודקת בעצמה את הרשאות הקורא)
+DO $$
+DECLARE
+  f TEXT;
+BEGIN
+  FOREACH f IN ARRAY ARRAY[
+    'is_admin()', 'is_approved_member()',
+    'join_sail(uuid)', 'cancel_registration(uuid, uuid)', 'create_sail(jsonb)', 'cancel_sail(uuid, text)',
+    'add_participant(uuid, uuid)', 'approve_member(uuid)', 'reject_member(uuid)',
+    'set_member_role(uuid, user_role)', 'set_member_qualification(uuid, text)',
+    'update_member_credits(uuid, integer, text)',
+    'report_boat_issue(uuid, text, text, text, issue_severity, text)',
+    'update_boat_issue_status(uuid, issue_status, text)'
+  ] LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM PUBLIC, anon', f);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', f);
+  END LOOP;
+END;
+$$;
+
 -- ==============================================================================
 -- 8. Row Level Security
 -- ==============================================================================
