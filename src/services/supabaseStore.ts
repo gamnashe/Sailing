@@ -566,9 +566,21 @@ export class SupabaseStore implements DataStore {
     return { success: true };
   }
 
+  /** Calls the admin-actions Edge Function (service-role operations guarded by an admin check). */
+  private async adminAction(body: Row): Promise<Row> {
+    const { data, error } = await this.sb.functions.invoke('admin-actions', { body });
+    if (error) {
+      // Non-2xx responses still carry our { success, message } JSON in the response body.
+      const payload = await (error as any).context?.json?.().catch(() => null);
+      return payload ?? { success: false, message: error.message };
+    }
+    await this.refresh();
+    return (data as Row) ?? { success: false, message: 'תשובה ריקה מהשרת' };
+  }
+
   public async deleteUser(userId: string): Promise<Result> {
-    const r = await this.rpc('delete_member', { p_user_id: userId });
-    return { success: r.success, error: r.message };
+    const r = await this.adminAction({ action: 'delete_member', userId });
+    return { success: Boolean(r.success), error: r.message };
   }
 
   public async updateUserQualification(userId: string, newLevel: ExperienceLevel) {
@@ -823,6 +835,7 @@ export class SupabaseStore implements DataStore {
   }
 
   public async resetToSeed() {
-    await this.rpcOk('reset_club_activity', {});
+    const r = await this.adminAction({ action: 'reset_club_activity' });
+    if (!r.success) this.reportError(r.message || 'האיפוס נכשל');
   }
 }

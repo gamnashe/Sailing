@@ -774,29 +774,8 @@ BEGIN
 END;
 $$;
 
--- מחיקת משתמש לצמיתות (כולל חשבון ההתחברות). מוגן מפני מחיקת המנהל האחרון.
-CREATE OR REPLACE FUNCTION delete_member(p_user_id UUID)
-RETURNS JSONB
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth
-AS $$
-DECLARE
-  v_role user_role;
-  v_status user_status;
-BEGIN
-  IF NOT is_admin() THEN
-    RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
-  END IF;
-  SELECT role, status INTO v_role, v_status FROM profiles WHERE id = p_user_id;
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('success', false, 'message', 'משתמש לא נמצא');
-  END IF;
-  IF v_role = 'admin' AND v_status = 'approved' AND _active_admin_count() <= 1 THEN
-    RETURN jsonb_build_object('success', false, 'message', 'לא ניתן למחוק את המנהל האחרון במערכת!');
-  END IF;
-  DELETE FROM auth.users WHERE id = p_user_id; -- מוחק גם את הפרופיל ואת כל הנתונים המקושרים (CASCADE)
-  RETURN jsonb_build_object('success', true);
-END;
-$$;
+-- מחיקת חבר מתבצעת ב-Edge Function בשם admin-actions (supabase/functions/admin-actions),
+-- דרך ה-Admin API הרשמי של Supabase (auth.admin.deleteUser) ולא ב-SQL.
 
 -- ==============================================================================
 -- 7. פונקציות RPC - כלי שייט ותקלות
@@ -877,22 +856,7 @@ BEGIN
 END;
 $$;
 
--- איפוס נתוני פעילות (הפלגות, פוסטים, תקלות, התראות). משתמשים, סירות והגדרות נשמרים.
-CREATE OR REPLACE FUNCTION reset_club_activity()
-RETURNS JSONB
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-  IF NOT is_admin() THEN
-    RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
-  END IF;
-  DELETE FROM posts WHERE TRUE;
-  DELETE FROM sails WHERE TRUE;
-  DELETE FROM boat_issues WHERE TRUE;
-  DELETE FROM notifications WHERE TRUE;
-  RETURN jsonb_build_object('success', true);
-END;
-$$;
+-- איפוס נתוני פעילות (הפלגות, פוסטים, תקלות, התראות) מתבצע גם הוא ב-Edge Function admin-actions.
 
 -- פונקציות פנימיות - לא נגישות מהדפדפן
 REVOKE EXECUTE ON FUNCTION _notify(UUID, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
