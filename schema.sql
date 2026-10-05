@@ -295,7 +295,7 @@ CREATE TRIGGER on_auth_user_created
 -- מותר רק למנהל. פונקציות ה-RPC רצות כבעלי הסכמה ולכן אינן נחסמות.
 CREATE OR REPLACE FUNCTION protect_profile_columns()
 RETURNS TRIGGER
-LANGUAGE plpgsql
+LANGUAGE plpgsql SET search_path = public
 AS $$
 BEGIN
   IF current_user IN ('authenticated', 'anon') AND NOT is_admin() THEN
@@ -963,6 +963,11 @@ CREATE POLICY "comments_delete" ON post_comments FOR DELETE USING (is_admin() OR
 CREATE POLICY "notifications_select_own" ON notifications FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "notifications_update_own" ON notifications FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE POLICY "notifications_delete_own" ON notifications FOR DELETE USING (user_id = auth.uid());
+
+-- הרשאות גישה ל-API (ה-RLS שלמעלה קובע אילו שורות; כאן רק אילו פעולות בכלל אפשריות)
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT SELECT ON club_settings TO anon;
 
 -- ==============================================================================
 -- 9. Realtime - עדכונים חיים לכל המכשירים המחוברים
