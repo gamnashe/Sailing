@@ -3,6 +3,7 @@ import { store } from '../services/store';
 import { UserProfile, ExperienceLevel, levelOptions, ROLE_LABELS, isStaff } from '../types';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { CreditRequestCard } from './CreditRequestCard';
+import { AvatarPicker } from './AvatarPicker';
 import {
   User,
   Phone,
@@ -93,10 +94,11 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
     <div className="max-w-2xl mx-auto space-y-5 text-right">
       {/* Profile Card Header */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center gap-5 text-center sm:text-right">
-        <img
+        <AvatarPicker
           src={user.avatar}
-          alt={user.fullName}
-          className="w-20 h-20 rounded-full object-cover border-4 border-sky-100 shadow-sm"
+          name={user.fullName}
+          canRemove={!user.avatar.includes('dicebear.com')}
+          onChange={(img) => store.setMyAvatar(img)}
         />
         <div className="flex-1">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">

@@ -610,6 +610,14 @@ export class LocalStore implements DataStore {
     return { success: true };
   }
 
+  public async setMyAvatar(imageDataUrl: string | null): Promise<Result> {
+    const me = this.getCurrentUser();
+    if (!me) return { success: false, error: 'יש להתחבר תחילה' };
+    const avatar = imageDataUrl ?? `https://api.dicebear.com/7.x/bottts/svg?seed=${me.username}`;
+    this.saveData({ ...this.data, users: this.data.users.map(u => (u.id === me.id ? { ...u, avatar } : u)) });
+    return { success: true };
+  }
+
   public async updateMemberCredits(
     userId: string,
     changeAmount: number,

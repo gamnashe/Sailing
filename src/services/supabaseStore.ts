@@ -714,6 +714,24 @@ export class SupabaseStore implements DataStore {
     return ok ? { success: true } : { success: false, error: this.lastError ?? undefined };
   }
 
+  public async setMyAvatar(imageDataUrl: string | null): Promise<Result> {
+    const uid = this.currentUserId;
+    if (!uid) return { success: false, error: 'יש להתחבר תחילה' };
+    let avatarUrl: string | null = null;
+    if (imageDataUrl) {
+      const blob = await (await fetch(imageDataUrl)).blob();
+      const path = `${uid}/avatar.jpg`;
+      const { error } = await this.sb.storage
+        .from('avatars')
+        .upload(path, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '3600' });
+      if (error) return { success: false, error: `העלאת התמונה נכשלה: ${error.message}` };
+      // The version parameter makes every device fetch the new photo instead of a cached one
+      avatarUrl = `${this.sb.storage.from('avatars').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
+    }
+    const ok = await this.write(this.sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', uid));
+    return ok ? { success: true } : { success: false, error: this.lastError ?? undefined };
+  }
+
   public async updateMemberCredits(userId: string, changeAmount: number, reason: string) {
     const r = await this.rpc('update_member_credits', { p_user_id: userId, p_delta: changeAmount, p_reason: reason });
     return { success: r.success, newCredits: r.new_credits ?? 0 };
