@@ -420,6 +420,14 @@ export class LocalStore implements DataStore {
     return { success: true, email: res.user.email, temporaryPassword };
   }
 
+  public async resetMemberPassword(userId: string) {
+    const user = this.data.users.find(u => u.id === userId);
+    if (!user) return { success: false, error: 'משתמש לא נמצא' };
+    const temporaryPassword = 'Sail' + Math.floor(100000 + Math.random() * 900000);
+    this.saveData({ ...this.data, passwords: { ...this.data.passwords, [userId]: temporaryPassword } });
+    return { success: true, email: user.email, temporaryPassword };
+  }
+
   public async deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
     const user = this.data.users.find(u => u.id === userId);
     if (!user) return { success: false, error: 'משתמש לא נמצא' };

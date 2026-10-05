@@ -73,6 +73,8 @@ export interface DataStore {
    * No email is involved.
    */
   createMember(member: NewMember): Promise<{ success: boolean; error?: string; email?: string; temporaryPassword?: string }>;
+  /** Admin issues a member a new temporary password, to resend their login details. */
+  resetMemberPassword(userId: string): Promise<{ success: boolean; error?: string; email?: string; temporaryPassword?: string }>;
   deleteUser(userId: string): Promise<Result>;
   updateUserQualification(userId: string, newLevel: ExperienceLevel): Promise<boolean>;
   approveMember(userId: string): Promise<boolean>;
