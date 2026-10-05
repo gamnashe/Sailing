@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
 import { Sail, UserProfile } from '../types';
+import { useForecast, weatherLabel, windFrom, sailingConditions, CLUB_LOCATION } from '../services/weather';
 import {
   ChevronRight,
   ChevronLeft,
@@ -45,6 +46,27 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
 
   const allSails = store.getSails();
+  const forecast = useForecast();
+
+  /** Occupancy of a sail, for its colour in the grid. */
+  const occupancy = (sail: Sail) => {
+    if (sail.status === 'cancelled') return 'cancelled' as const;
+    if (sail.sailType === 'private') return 'private' as const;
+    const confirmed = store.getConfirmedParticipants(sail.id).length;
+    if (confirmed >= sail.maxParticipants) return 'full' as const;
+    if (confirmed >= sail.minParticipants) return 'guaranteed' as const;
+    return 'waiting' as const;
+  };
+
+  const OCCUPANCY_STYLE = {
+    cancelled: 'bg-slate-100 text-slate-400 border-slate-200 line-through',
+    private: 'bg-indigo-100 hover:bg-indigo-200 text-indigo-900 border-indigo-200',
+    full: 'bg-rose-100 hover:bg-rose-200 text-rose-900 border-rose-300',
+    guaranteed: 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-300',
+    waiting: 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200',
+  } as const;
+
+  const WIND_TEXT = { good: 'text-emerald-700', caution: 'text-amber-700', rough: 'text-rose-700 font-black' } as const;
 
   // Filter sails by type
   const sails = allSails.filter((s) => {
@@ -237,12 +259,29 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                 )}
               </div>
 
+              {/* Forecast for the day (Open-Meteo, up to 16 days ahead) */}
+              {forecast?.days[dateKey] && (() => {
+                const day = forecast.days[dateKey];
+                const cond = sailingConditions(day.windMax, day.gustMax, day.waveMax);
+                return (
+                  <div
+                    className="flex items-center gap-1 text-[9px] sm:text-[10px] leading-tight mt-0.5"
+                    title={`${weatherLabel(day.weatherCode).label} · רוח ${Math.round(day.windMax)} קשר (משבים ${Math.round(day.gustMax)}) מ${windFrom(day.windDir)}${day.waveMax !== null ? ` · גלים עד ${day.waveMax.toFixed(1)} מ'` : ''}`}
+                  >
+                    <span>{weatherLabel(day.weatherCode).icon}</span>
+                    <span className={WIND_TEXT[cond]}>{Math.round(day.windMax)}kn</span>
+                    {day.waveMax !== null && <span className="text-sky-700 hidden sm:inline">🌊{day.waveMax.toFixed(1)}</span>}
+                  </div>
+                );
+              })()}
+
               {/* Sails inside day box */}
               <div className="space-y-1 my-1 overflow-hidden flex-1">
                 {daySails.slice(0, 2).map((sail) => {
                   const confirmed = store.getConfirmedParticipants(sail.id);
                   const isFull = confirmed.length >= sail.maxParticipants;
                   const isClub = sail.sailType === 'club';
+                  const occ = occupancy(sail);
 
                   return (
                     <button
@@ -251,13 +290,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                         e.stopPropagation();
                         onSelectSail(sail.id);
                       }}
-                      className={`w-full text-right p-1 rounded-lg text-[10px] sm:text-xs font-semibold truncate block transition cursor-pointer border ${
-                        sail.status === 'cancelled'
-                          ? 'bg-slate-100 text-slate-400 border-slate-200 line-through'
-                          : isClub
-                          ? 'bg-sky-100 hover:bg-sky-200 text-sky-900 border-sky-200'
-                          : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-900 border-indigo-200'
-                      }`}
+                      className={`w-full text-right p-1 rounded-lg text-[10px] sm:text-xs font-semibold truncate block transition cursor-pointer border ${OCCUPANCY_STYLE[occ]}`}
                       title={`${sail.title} (${sail.departureTime}) - סקיפר: ${sail.skipperName}`}
                     >
                       <div className="flex items-center gap-1 truncate">
@@ -267,8 +300,8 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                       <div className="flex items-center justify-between text-[9px] text-slate-500 font-normal mt-0.5">
                         <span className="truncate">{sail.boatName.split(' ')[0]}</span>
                         {isClub && (
-                          <span className={isFull ? 'text-rose-600 font-bold' : 'text-slate-600'}>
-                            {confirmed.length}/{sail.maxParticipants}
+                          <span className={isFull ? 'text-rose-700 font-black' : 'text-slate-600'}>
+                            {isFull ? 'מלא' : `${confirmed.length}/${sail.maxParticipants}`}
                           </span>
                         )}
                       </div>
@@ -299,6 +332,19 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
               {selectedDateSails.length} הפלגות מתוכננות
             </span>
           </div>
+
+          {forecast?.days[selectedDateStr] && (() => {
+            const day = forecast.days[selectedDateStr];
+            const w = weatherLabel(day.weatherCode);
+            return (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-700 bg-white rounded-xl border border-slate-200 p-2.5">
+                <span className="font-bold">{w.icon} {w.label}, עד {Math.round(day.tempMax)}°</span>
+                <span>💨 רוח עד {Math.round(day.windMax)} קשר, משבים {Math.round(day.gustMax)} (מ{windFrom(day.windDir)})</span>
+                {day.waveMax !== null && <span>🌊 גלים עד {day.waveMax.toFixed(1)} מ'</span>}
+                <span className="text-[10px] text-slate-400">תחזית ל{CLUB_LOCATION.name}</span>
+              </div>
+            );
+          })()}
 
           {selectedDateSails.length === 0 ? (
             <p className="text-xs text-slate-400 py-2">אין הפלגות מתוזמנות בתאריך זה.</p>
@@ -367,16 +413,31 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
       <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-slate-100 flex-wrap">
         <span className="font-bold text-slate-700">מקרא צבעים:</span>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-sky-500"></span>
-          <span>הפלגת מועדון (1 קרדיט, 3-6 משתתפים)</span>
+          <span className="w-3 h-3 rounded-full bg-amber-300"></span>
+          <span>ממתינה למשתתפים</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+          <span>יציאה מובטחת (יש מקום)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-rose-500"></span>
+          <span>מלאה (רשימת המתנה)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-indigo-500"></span>
-          <span>הפלגה פרטית (3 קרדיטים ל-3 שעות + 1 לכל שעה נוספת)</span>
+          <span>הפלגה פרטית (הסירה תפוסה)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-slate-300"></span>
           <span>הפלגה מבוטלת / הושלמה</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span>💨 רוח בקשר:</span>
+          <span className="text-emerald-700 font-bold">עד 17</span>
+          <span className="text-amber-700 font-bold">18-24</span>
+          <span className="text-rose-700 font-black">25+</span>
+          <span>· 🌊 גובה גלים במטרים</span>
         </div>
       </div>
     </div>

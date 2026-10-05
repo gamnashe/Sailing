@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { store } from '../services/store';
 import { Sail, UserProfile } from '../types';
 import { compressImage } from '../utils/imageCompression';
+import { useForecast, forecastAt, weatherLabel, windFrom, sailingConditions, CONDITIONS_STYLE } from '../services/weather';
 import {
   X,
   Calendar,
@@ -43,6 +44,10 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
   const isConfirmed = userRegistration?.status === 'confirmed';
   const isWaitlisted = userRegistration?.status === 'waitlist';
   const isAdmin = currentUser.role === 'admin';
+
+  const forecast = useForecast();
+  const departureForecast = forecastAt(forecast, sail.date, sail.departureTime);
+  const returnForecast = forecastAt(forecast, sail.date, sail.estimatedReturnTime);
 
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoCaption, setPhotoCaption] = useState('');
@@ -233,6 +238,50 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
               <p className="font-bold text-slate-900 text-sm truncate">{sail.departurePoint}</p>
             </div>
           </div>
+
+          {/* Sea & wind forecast for the sail window */}
+          {departureForecast && (() => {
+            const peakWind = Math.max(departureForecast.wind, returnForecast?.wind ?? 0);
+            const peakGust = Math.max(departureForecast.gust, returnForecast?.gust ?? 0);
+            const peakWave = Math.max(departureForecast.wave ?? 0, returnForecast?.wave ?? 0) || departureForecast.wave;
+            const cond = CONDITIONS_STYLE[sailingConditions(peakWind, peakGust, peakWave)];
+            const w = weatherLabel(departureForecast.weatherCode);
+            return (
+              <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-xs space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="font-bold text-slate-900 text-sm">תחזית ים ורוח בזמן ההפלגה</span>
+                  <span className={`px-2 py-0.5 rounded-md border font-bold text-[11px] ${cond.className}`}>{cond.label}</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="bg-slate-50 rounded-xl p-2">
+                    <div className="text-slate-500">מזג אוויר</div>
+                    <div className="font-bold text-slate-900">{w.icon} {w.label}, {Math.round(departureForecast.temp)}°</div>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-2">
+                    <div className="text-slate-500">רוח</div>
+                    <div className="font-bold text-slate-900">
+                      {Math.round(departureForecast.wind)}
+                      {returnForecast && returnForecast.time !== departureForecast.time ? `→${Math.round(returnForecast.wind)}` : ''} קשר מ{windFrom(departureForecast.windDir)}
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-2">
+                    <div className="text-slate-500">משבים</div>
+                    <div className="font-bold text-slate-900">עד {Math.round(peakGust)} קשר</div>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-2">
+                    <div className="text-slate-500">גובה גלים</div>
+                    <div className="font-bold text-slate-900">
+                      {departureForecast.wave !== null ? `${departureForecast.wave.toFixed(1)} מ'` : 'אין עדיין תחזית'}
+                      {departureForecast.wavePeriod ? <span className="text-slate-500 font-normal"> · מחזור {Math.round(departureForecast.wavePeriod)} ש'</span> : null}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  לפי Open-Meteo לשעות {sail.departureTime}–{sail.estimatedReturnTime}. התחזית מתעדכנת כל שעה; החלטת יציאה נשארת בידי הסקיפר.
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Sail Type, Credit Rule & Readiness Status Banner */}
           {sail.sailType === 'club' ? (

@@ -18,7 +18,7 @@ import {
   ExperienceLevel,
   PasswordResetToken
 } from '../types';
-import type { DataStore, Result } from './dataStore';
+import type { DataStore, NewMember, Result } from './dataStore';
 import { validatePasswordComplexity } from './sailRules';
 
 // Using v2 clean storage key to clear out old test mock clutter
@@ -126,6 +126,8 @@ export class LocalStore implements DataStore {
   private data: AppData;
   private listeners: Set<() => void> = new Set();
   private currentUserId: string | null = null;
+  /** Set while an admin adds a member, so register() does not sign the new member in. */
+  private addingMember = false;
 
   constructor() {
     this.data = this.loadData();
@@ -315,7 +317,7 @@ export class LocalStore implements DataStore {
       notifications: newNotifications,
     });
 
-    this.setCurrentUser(newUser.id);
+    if (!this.addingMember) this.setCurrentUser(newUser.id);
     return { success: true, user: newUser };
   }
 
@@ -394,6 +396,28 @@ export class LocalStore implements DataStore {
     });
 
     return { success: true };
+  }
+
+  public async changePassword(newPassword: string): Promise<Result> {
+    const pwCheck = validatePasswordComplexity(newPassword);
+    if (!pwCheck.valid) return { success: false, error: pwCheck.error };
+    if (!this.currentUserId) return { success: false, error: 'יש להתחבר תחילה' };
+    this.saveData({ ...this.data, passwords: { ...this.data.passwords, [this.currentUserId]: newPassword } });
+    return { success: true };
+  }
+
+  public async createMember(member: NewMember) {
+    const temporaryPassword = 'Sail' + Math.floor(100000 + Math.random() * 900000);
+    this.addingMember = true;
+    const res = await this.register(member.email, temporaryPassword, member.fullName, member.phone || '-', member.experienceLevel).finally(() => {
+      this.addingMember = false;
+    });
+    if (!res.success || !res.user) return { success: false, error: res.error };
+    const users = this.data.users.map(u =>
+      u.id === res.user!.id ? { ...u, status: 'approved' as UserStatus, credits: Math.max(0, member.credits) } : u
+    );
+    this.saveData({ ...this.data, users });
+    return { success: true, email: res.user.email, temporaryPassword };
   }
 
   public async deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {

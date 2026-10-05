@@ -13,7 +13,7 @@ import type {
   ExperienceLevel,
   NotificationType,
 } from '../types';
-import type { DataStore, MessageResult, Result } from './dataStore';
+import type { DataStore, MessageResult, NewMember, Result } from './dataStore';
 import { validatePasswordComplexity } from './sailRules';
 
 type Row = Record<string, any>;
@@ -156,6 +156,7 @@ export class SupabaseStore implements DataStore {
   private followUp: Promise<void> | null = null;
 
   constructor(private readonly sb: SupabaseClient) {
+    this.readAuthLinkError();
     this.sb.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         this.passwordRecovery = true;
@@ -165,6 +166,22 @@ export class SupabaseStore implements DataStore {
         void this.refresh();
       }, 0);
     });
+  }
+
+  /**
+   * An email link that failed (already used, expired) lands here with error_code in the URL.
+   * Typical case: the confirmation link was opened twice; the first click already confirmed the account.
+   */
+  private readAuthLinkError() {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, '') || window.location.search);
+    const code = params.get('error_code');
+    if (!code) return;
+    this.lastError =
+      code === 'otp_expired'
+        ? 'הקישור מהמייל כבר נוצל או שפג תוקפו. אם כבר לחצת עליו פעם אחת — החשבון אושר, פשוט התחבר עם המייל והסיסמה.'
+        : params.get('error_description')?.replace(/\+/g, ' ') || 'הקישור מהמייל אינו תקין';
+    window.history.replaceState(null, '', window.location.pathname);
   }
 
   // --- Infrastructure ---
@@ -576,6 +593,20 @@ export class SupabaseStore implements DataStore {
     }
     await this.refresh();
     return (data as Row) ?? { success: false, message: 'תשובה ריקה מהשרת' };
+  }
+
+  public async changePassword(newPassword: string): Promise<Result> {
+    const pwCheck = validatePasswordComplexity(newPassword);
+    if (!pwCheck.valid) return { success: false, error: pwCheck.error };
+    const { error } = await this.sb.auth.updateUser({ password: newPassword });
+    return error ? { success: false, error: authErrorMessage(error.message) } : { success: true };
+  }
+
+  public async createMember(member: NewMember) {
+    const r = await this.adminAction({ action: 'create_member', ...member });
+    return r.success
+      ? { success: true, email: r.email as string, temporaryPassword: r.temporaryPassword as string }
+      : { success: false, error: (r.message as string) || 'הוספת החבר נכשלה' };
   }
 
   public async deleteUser(userId: string): Promise<Result> {

@@ -12,6 +12,14 @@ import type {
   ExperienceLevel,
 } from '../types';
 
+export type NewMember = {
+  email: string;
+  fullName: string;
+  phone: string;
+  experienceLevel: ExperienceLevel;
+  credits: number;
+};
+
 export type Result = { success: boolean; error?: string };
 export type MessageResult = { success: boolean; message: string };
 
@@ -58,6 +66,13 @@ export interface DataStore {
   /** True after the user opened a password-recovery link and must now choose a new password. */
   isPasswordRecovery(): boolean;
   resetPassword(email: string, tokenOrCode: string, newPassword: string): Promise<Result>;
+  /** The signed-in user changes their own password. */
+  changePassword(newPassword: string): Promise<Result>;
+  /**
+   * Admin adds a member directly: an approved account with a temporary password the admin hands over.
+   * No email is involved.
+   */
+  createMember(member: NewMember): Promise<{ success: boolean; error?: string; email?: string; temporaryPassword?: string }>;
   deleteUser(userId: string): Promise<Result>;
   updateUserQualification(userId: string, newLevel: ExperienceLevel): Promise<boolean>;
   approveMember(userId: string): Promise<boolean>;

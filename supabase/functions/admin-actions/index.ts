@@ -1,6 +1,9 @@
 // Admin-only destructive actions, run with the service role after verifying the caller is an approved admin.
 //   POST { action: 'delete_member', userId }  → deletes the auth account (profile and data cascade)
 //   POST { action: 'reset_club_activity' }    → deletes sails, posts, boat issues and notifications
+//   POST { action: 'create_member', email, fullName, phone, experienceLevel, credits }
+//        → creates a confirmed, approved account with a temporary password the admin hands over
+//          (no email is sent: Supabase's built-in mailer only reaches the project's own team)
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -8,6 +11,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+// 10 characters from an unambiguous alphabet, always with letters and digits (meets the app's password rule).
+function temporaryPassword(): string {
+  const letters = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ'
+  const digits = '23456789'
+  const all = letters + digits
+  const bytes = crypto.getRandomValues(new Uint8Array(10))
+  const chars = Array.from(bytes, (b) => all[b % all.length])
+  chars[0] = letters[bytes[0] % letters.length]
+  chars[9] = digits[bytes[9] % digits.length]
+  return chars.join('')
+}
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -30,7 +45,15 @@ Deno.serve(async (req: Request) => {
   }
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-  let body: { action?: string; userId?: string };
+  let body: {
+    action?: string;
+    userId?: string;
+    email?: string;
+    fullName?: string;
+    phone?: string;
+    experienceLevel?: string;
+    credits?: number;
+  };
   try {
     body = await req.json();
   } catch {
@@ -60,6 +83,39 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ success: false, message: `${table}: ${error.message}` }, 500);
     }
     return json({ success: true });
+  }
+
+  if (body.action === 'create_member') {
+    const email = (body.email ?? '').trim().toLowerCase();
+    const fullName = (body.fullName ?? '').trim();
+    if (!email.includes('@')) return json({ success: false, message: 'יש להזין כתובת מייל תקינה' }, 400);
+    if (!fullName) return json({ success: false, message: 'יש להזין שם מלא' }, 400);
+
+    const password = temporaryPassword();
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        phone: (body.phone ?? '').trim(),
+        experience_level: body.experienceLevel || 'איש צוות מנוסה',
+      },
+    });
+    if (error || !data.user) {
+      const exists = /already|registered|exists/i.test(error?.message ?? '');
+      return json({ success: false, message: exists ? 'כתובת מייל זו כבר רשומה במערכת' : (error?.message ?? 'יצירת החבר נכשלה') });
+    }
+
+    // The sign-up trigger created the profile as pending; an admin-added member starts approved.
+    const credits = Number.isFinite(body.credits) ? Math.max(0, Math.floor(body.credits!)) : 5;
+    const { error: profileError } = await admin
+      .from('profiles')
+      .update({ status: 'approved', credits })
+      .eq('id', data.user.id);
+    if (profileError) return json({ success: false, message: profileError.message }, 500);
+
+    return json({ success: true, userId: data.user.id, email, temporaryPassword: password });
   }
 
   return json({ success: false, message: 'פעולה לא מוכרת' }, 400);

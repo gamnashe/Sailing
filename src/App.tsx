@@ -61,6 +61,17 @@ export default function App() {
     await store.logout();
   };
 
+  // Background error toast (failed server writes / loads, expired email links); shown on every screen
+  const errorToast = lastError && (
+        <div className="fixed bottom-20 sm:bottom-6 inset-x-4 sm:inset-x-auto sm:left-6 sm:max-w-sm z-[60] bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-2xl p-3 shadow-lg flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <span className="flex-1">{lastError}</span>
+          <button onClick={() => store.clearLastError()} className="text-rose-500 hover:text-rose-800 cursor-pointer" title="סגור">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      );
+
   if (store.isLoading()) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 text-sky-100">
@@ -83,6 +94,7 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        {errorToast}
         <AuthModal
           isOpen={true}
           onSuccess={() => setTick((t) => t + 1)}
@@ -109,16 +121,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans pb-20 sm:pb-8">
-      {/* Background error toast (failed server writes / loads) */}
-      {lastError && (
-        <div className="fixed bottom-20 sm:bottom-6 inset-x-4 sm:inset-x-auto sm:left-6 sm:max-w-sm z-50 bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-2xl p-3 shadow-lg flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-          <span className="flex-1">{lastError}</span>
-          <button onClick={() => store.clearLastError()} className="text-rose-500 hover:text-rose-800 cursor-pointer" title="סגור">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {errorToast}
 
       {/* PWA In-App Install Prompt Banner */}
       <PWAInstallBanner />
