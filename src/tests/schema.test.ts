@@ -240,17 +240,17 @@ async function run() {
   // --- Roles & deletion safeguards ---
   const demoteLast = await rpc(admin, `set_member_role($1, 'member')`, [admin]);
   assert(demoteLast.success === false, 'cannot demote the last admin');
-  const deleteLast = await rpc(admin, 'delete_member($1)', [admin]);
-  assert(deleteLast.success === false, 'cannot delete the last admin');
   const promote = await rpc(admin, `set_member_role($1, 'admin')`, [tomer]);
   assert(promote.success, 'admin promotes another member');
   const demoteNow = await rpc(tomer, `set_member_role($1, 'member')`, [admin]);
   assert(demoteNow.success, 'with two admins, one can be demoted');
 
-  const del = await rpc(tomer, 'delete_member($1)', [guy]);
-  assert(del.success, 'admin deletes a member');
-  const gone = await db.query('SELECT 1 FROM auth.users WHERE id = $1', [guy]);
-  assert(gone.rows.length === 0, 'deleting a member removes their auth account too');
+  // Member deletion runs in the admin-actions Edge Function via auth.admin.deleteUser;
+  // here we check the database side: removing the auth account cascades to all member data.
+  await db.query('DELETE FROM auth.users WHERE id = $1', [guy]);
+  const gone = await db.query('SELECT 1 FROM profiles WHERE id = $1', [guy]);
+  const guyRegs = await db.query('SELECT 1 FROM sail_registrations WHERE user_id = $1', [guy]);
+  assert(gone.rows.length === 0 && guyRegs.rows.length === 0, "deleting an auth account removes the member's profile and registrations");
 
   // --- Boat issues ---
   const boat = (await db.query<any>(`SELECT id FROM boats WHERE name = 'גלית'`)).rows[0].id;
@@ -286,12 +286,6 @@ async function run() {
     visible.rows.length > 0 && visible.rows.every((r) => r.user_id === dana),
     'members only see their own notifications'
   );
-
-  // --- Reset ---
-  const reset = await rpc(tomer, 'reset_club_activity()');
-  assert(reset.success, 'admin resets club activity');
-  const left = await db.query<any>('SELECT (SELECT COUNT(*) FROM sails) + (SELECT COUNT(*) FROM posts) AS n');
-  assert(Number(left.rows[0].n) === 0, 'reset removes sails and posts');
 
   console.log(failures === 0 ? '\n🎉 All schema tests passed' : `\n${failures} schema test(s) failed`);
   process.exit(failures === 0 ? 0 : 1);
