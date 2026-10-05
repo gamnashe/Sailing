@@ -1233,3 +1233,26 @@ GRANT EXECUTE ON FUNCTION request_credits(INT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION resolve_credit_request(UUID, BOOLEAN, INT) TO authenticated;
 
 ALTER PUBLICATION supabase_realtime ADD TABLE club_invite, credit_requests;
+
+-- ==============================================================================
+-- 12. תמונות פרופיל (Supabase Storage)
+-- ==============================================================================
+-- קריאה ציבורית דרך הקישור; כל משתמש מעלה/מחליף רק את התמונה בתיקייה שלו (<user id>/avatar.jpg).
+-- מדולג כשאין סכמת storage (למשל בבדיקות המקומיות).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'storage') THEN
+    INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    VALUES ('avatars', 'avatars', TRUE, 1048576, ARRAY['image/jpeg', 'image/png', 'image/webp'])
+    ON CONFLICT (id) DO NOTHING;
+    EXECUTE $p$CREATE POLICY "avatars_insert_own" ON storage.objects FOR INSERT TO authenticated
+      WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::TEXT)$p$;
+    EXECUTE $p$CREATE POLICY "avatars_update_own" ON storage.objects FOR UPDATE TO authenticated
+      USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::TEXT)
+      WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::TEXT)$p$;
+    -- נדרש להחלפת קובץ קיים (upsert)
+    EXECUTE $p$CREATE POLICY "avatars_select_own" ON storage.objects FOR SELECT TO authenticated
+      USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::TEXT)$p$;
+  END IF;
+END;
+$$;

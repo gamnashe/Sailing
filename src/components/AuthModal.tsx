@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { store, validatePasswordComplexity } from '../services/store';
 import { UserProfile, ExperienceLevel } from '../types';
+import { AvatarPicker } from './AvatarPicker';
 import {
   Anchor,
   User,
@@ -50,6 +51,8 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [helpRequested, setHelpRequested] = useState(false);
+  // Optional photo chosen in the join form; saved right after the account is created
+  const [avatarDraft, setAvatarDraft] = useState<string | null>(null);
   // Arrived via the emailed recovery link: Supabase already verified it, so no code is needed.
   const viaRecoveryLink = store.isPasswordRecovery();
   const [email, setEmail] = useState('');
@@ -104,7 +107,9 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
       }
       const res = await store.joinWithInvite(inviteCode, { email, password, fullName, phone, experienceLevel });
       if (res.success && res.user) {
-        onSuccess(res.user);
+        // The account exists either way; a failed photo upload can be retried from the profile screen
+        if (avatarDraft) await store.setMyAvatar(avatarDraft).catch(() => undefined);
+        onSuccess(store.getCurrentUser() ?? res.user);
       } else {
         setError(res.error || 'שגיאה בהרשמה');
       }
@@ -428,6 +433,17 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'register' && (
                 <>
+                  <div className="flex items-center gap-3">
+                    <AvatarPicker
+                      src={avatarDraft ?? undefined}
+                      name={fullName || 'תמונת פרופיל'}
+                      size="md"
+                      canRemove={Boolean(avatarDraft)}
+                      onChange={(img) => setAvatarDraft(img)}
+                    />
+                    <p className="text-[0.6875rem] text-slate-500">תמונת פרופיל (לא חובה) – כדי שחברי המועדון יזהו אותך בהפלגות ובפיד.</p>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">שם מלא *</label>
                     <div className="relative">

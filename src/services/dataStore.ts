@@ -104,6 +104,8 @@ export interface DataStore {
   rejectMember(userId: string): Promise<boolean>;
   toggleMemberRole(userId: string, newRole: UserRole): Promise<Result>;
   updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<Result>;
+  /** The signed-in user's profile photo (a JPEG data URL); null goes back to the default picture. */
+  setMyAvatar(imageDataUrl: string | null): Promise<Result>;
   updateMemberCredits(
     userId: string,
     changeAmount: number,
