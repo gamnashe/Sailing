@@ -49,6 +49,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'sails' | 'boats' | 'feed' | 'admin' | 'profile'>('sails');
   const [selectedSailId, setSelectedSailId] = useState<string | null>(null);
   const [showCreateSailModal, setShowCreateSailModal] = useState(false);
+  const [createSailDate, setCreateSailDate] = useState<string | undefined>(undefined);
+  const openCreateSail = (date?: string) => {
+    setCreateSailDate(date);
+    setShowCreateSailModal(true);
+  };
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserSwitcher, setShowUserSwitcher] = useState(false);
@@ -324,7 +329,7 @@ export default function App() {
           <SailsList
             currentUser={currentUser}
             onSelectSail={(id) => setSelectedSailId(id)}
-            onOpenCreateModal={() => setShowCreateSailModal(true)}
+            onOpenCreateModal={openCreateSail}
           />
         )}
 
@@ -431,6 +436,7 @@ export default function App() {
 
       <CreateSailModal
         isOpen={showCreateSailModal}
+        initialDate={createSailDate}
         currentUser={currentUser}
         onClose={() => setShowCreateSailModal(false)}
         onCreated={(sail) => {

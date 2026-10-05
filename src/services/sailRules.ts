@@ -36,3 +36,80 @@ export function validatePasswordComplexity(password: string): { valid: boolean; 
   }
   return { valid: true };
 }
+
+// --- Boat booking rules (the database enforces the same in create_sail) ---
+
+const toMinutes = (hhmm: string): number => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+/** A sail's time window in minutes since midnight; a return at or before departure runs to midnight. */
+export function sailWindow(departureTime: string, returnTime: string): [number, number] {
+  const start = toMinutes(departureTime);
+  const end = toMinutes(returnTime);
+  return [start, end > start ? end : 24 * 60];
+}
+
+/** True when two same-day windows overlap (touching ends, e.g. 13:00–16:00 and 16:00–19:00, do not). */
+export function windowsOverlap(a: [number, number], b: [number, number]): boolean {
+  return a[0] < b[1] && b[0] < a[1];
+}
+
+type BookableSail = {
+  id: string;
+  title: string;
+  date: string;
+  departureTime: string;
+  estimatedReturnTime: string;
+  status: string;
+  boatId?: string;
+  boatName: string;
+};
+
+type BookableBoat = { id: string; name: string };
+
+/** Whether a sail uses the boat: by id, or for older sails by the boat's name in the sail's boat label. */
+export function sailUsesBoat(sail: BookableSail, boat: BookableBoat): boolean {
+  if (sail.boatId) return sail.boatId === boat.id;
+  return sail.boatName === boat.name || sail.boatName.startsWith(`${boat.name} (`);
+}
+
+/** The first non-cancelled sail that already has the boat in that window, if any. */
+export function findBoatConflict<S extends BookableSail>(
+  sails: S[],
+  boat: BookableBoat,
+  date: string,
+  departureTime: string,
+  returnTime: string,
+  ignoreSailId?: string
+): S | undefined {
+  const window = sailWindow(departureTime, returnTime);
+  return sails.find(
+    (s) =>
+      s.id !== ignoreSailId &&
+      s.status !== 'cancelled' &&
+      s.date === date &&
+      sailUsesBoat(s, boat) &&
+      windowsOverlap(window, sailWindow(s.departureTime, s.estimatedReturnTime))
+  );
+}
+
+/**
+ * Whether a person may take the boat out (skipper a club sail / open a private sail on it).
+ * A boat with no allowed levels and no allowed people is open to everyone.
+ */
+export function mayTakeBoat(
+  boat: { allowedLevels?: string[]; allowedMemberIds?: string[] },
+  person: { id: string; experienceLevel: string } | undefined
+): boolean {
+  const levels = boat.allowedLevels ?? [];
+  const people = boat.allowedMemberIds ?? [];
+  if (levels.length === 0 && people.length === 0) return true;
+  if (!person) return false;
+  return people.includes(person.id) || levels.includes(person.experienceLevel);
+}
+
+export function boatConflictMessage(conflict: { title: string; departureTime: string; estimatedReturnTime: string }, boatName: string): string {
+  return `${boatName} כבר תפוסה בשעות האלה: "${conflict.title}" (${conflict.departureTime}–${conflict.estimatedReturnTime}). בחר שעה או סירה אחרת.`;
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
 import { QualificationLevelsEditor } from './QualificationLevelsEditor';
+import { BoatPermissionsEditor } from './BoatPermissionsEditor';
 import { UserProfile, UserRole, ClubSettings, Boat, BoatStatus, Sail, ExperienceLevel, levelOptions, ROLE_LABELS } from '../types';
 import {
   Shield,
@@ -297,6 +298,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
       statusNotes: editingBoat.statusNotes,
       berthLocation: editingBoat.berthLocation,
       capacity: editingBoat.capacity,
+      allowedLevels: editingBoat.allowedLevels ?? [],
+      allowedMemberIds: editingBoat.allowedMemberIds ?? [],
     });
 
     setFeedbackMessage({ text: `פרטי וסטטוס כלי השייט "${editingBoat.name}" עודכנו בהצלחה.`, type: 'success' });
@@ -674,6 +677,19 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">
                     מיקום רציף: {b.berthLocation || 'מרינה הרצליה'}
+                  </p>
+                  <p className="text-xs mt-0.5">
+                    {(b.allowedLevels?.length ?? 0) + (b.allowedMemberIds?.length ?? 0) === 0 ? (
+                      <span className="text-emerald-700">🔓 פתוחה לכל הסקיפרים</span>
+                    ) : (
+                      <span className="text-amber-800">
+                        🔒 מורשים:{' '}
+                        {[
+                          ...(b.allowedLevels ?? []),
+                          ...(b.allowedMemberIds ?? []).map((id) => store.getUserById(id)?.fullName ?? 'חבר לשעבר'),
+                        ].join(', ')}
+                      </span>
+                    )}
                   </p>
 
                   {b.statusNotes && (
@@ -1380,7 +1396,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <form
             onSubmit={handleUpdateBoat}
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">
@@ -1451,6 +1467,14 @@ export const AdminPanel: React.FC<Props> = ({ currentUser }) => {
                 value={editingBoat.berthLocation || ''}
                 onChange={(e) => setEditingBoat({ ...editingBoat, berthLocation: e.target.value })}
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
+
+            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50">
+              <BoatPermissionsEditor
+                allowedLevels={editingBoat.allowedLevels ?? []}
+                allowedMemberIds={editingBoat.allowedMemberIds ?? []}
+                onChange={(next) => setEditingBoat({ ...editingBoat, ...next })}
               />
             </div>
 

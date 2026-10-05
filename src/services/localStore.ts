@@ -20,7 +20,7 @@ import {
 } from '../types';
 import { DEFAULT_EXPERIENCE_LEVELS } from '../types';
 import type { DataStore, NewMember, Result } from './dataStore';
-import { validatePasswordComplexity } from './sailRules';
+import { validatePasswordComplexity, findBoatConflict, mayTakeBoat, boatConflictMessage, sailUsesBoat } from './sailRules';
 
 // Using v2 clean storage key to clear out old test mock clutter
 const STORAGE_KEY = 'sailing_club_v2_clean';
@@ -618,8 +618,28 @@ export class LocalStore implements DataStore {
   }
 
   public async createSail(sailData: Omit<Sail, 'id' | 'createdAt' | 'photos'>): Promise<Sail> {
+    // Same booking rules as create_sail in schema.sql: no overlapping sails per boat, and only
+    // permitted skippers (club sail) / openers (private sail) on a restricted boat.
+    const boat =
+      this.data.boats.find(b => b.id === sailData.boatId) ??
+      this.data.boats.find(b => sailUsesBoat({ ...sailData, id: '', boatId: undefined } as Sail, b));
+    if (boat) {
+      const conflict = findBoatConflict(this.data.sails, boat, sailData.date, sailData.departureTime, sailData.estimatedReturnTime);
+      if (conflict) throw new Error(boatConflictMessage(conflict, boat.name));
+      const takerId = sailData.sailType === 'private' ? sailData.createdBy : sailData.skipperId;
+      const restricted = (boat.allowedLevels?.length ?? 0) > 0 || (boat.allowedMemberIds?.length ?? 0) > 0;
+      if (takerId ? !mayTakeBoat(boat, this.data.users.find(u => u.id === takerId)) : restricted && this.getUserById(sailData.createdBy)?.role === 'member') {
+        throw new Error(
+          sailData.sailType === 'private'
+            ? `אין לך הרשאה להוציא את ${boat.name}. פנה להנהלת המועדון.`
+            : `הסקיפר שנבחר אינו מורשה להוציא את ${boat.name}.`
+        );
+      }
+    }
+
     const newSail: Sail = {
       ...sailData,
+      boatId: boat?.id ?? sailData.boatId,
       id: 'sail_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       createdAt: new Date().toISOString(),
       photos: [],
