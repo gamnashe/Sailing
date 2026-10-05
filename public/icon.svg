@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#0369a1" />
+      <stop offset="100%" stop-color="#0c4a6e" />
+    </linearGradient>
+    <linearGradient id="sailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#e0f2fe" />
+    </linearGradient>
+    <linearGradient id="jibGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+  </defs>
+  <!-- Background Circle with Safe Zone -->
+  <rect width="512" height="512" rx="110" fill="url(#oceanGrad)"/>
+  
+  <!-- Waves at the bottom -->
+  <path d="M40 390 C 100 370, 160 410, 220 390 C 280 370, 340 410, 400 390 C 440 375, 480 395, 480 395 L 480 472 C 480 480, 472 488, 464 488 L 48 488 C 40 488, 32 480, 32 472 Z" fill="#0369a1" opacity="0.6"/>
+  <path d="M32 415 C 90 395, 160 435, 230 415 C 300 395, 370 435, 440 415 C 460 410, 480 420, 480 420 L 480 472 C 480 480, 472 488, 464 488 L 48 488 C 40 488, 32 480, 32 472 Z" fill="#082f49" opacity="0.8"/>
+
+  <!-- Sailboat Hull -->
+  <path d="M120 330 L392 330 C382 372, 330 382, 256 382 C182 382, 130 372, 120 330 Z" fill="#ffffff" stroke="#bae6fd" stroke-width="4"/>
+  <path d="M140 345 L372 345 C360 365, 320 372, 256 372 C192 372, 152 365, 140 345 Z" fill="#0284c7" opacity="0.3"/>
+
+  <!-- Mast -->
+  <rect x="250" y="90" width="8" height="240" rx="4" fill="#f8fafc" />
+
+  <!-- Main Sail (Big Sail) -->
+  <path d="M246 110 L246 315 L135 315 C135 315, 170 210, 246 110 Z" fill="url(#sailGrad)" stroke="#e2e8f0" stroke-width="2"/>
+
+  <!-- Jib Sail (Front Sail) -->
+  <path d="M266 125 L375 315 L266 315 Z" fill="url(#jibGrad)" opacity="0.95" />
+
+  <!-- Flag at mast top -->
+  <path d="M258 90 L295 102 L258 114 Z" fill="#f59e0b" />
+
+  <!-- Compass / Star Accent in sky -->
+  <circle cx="120" cy="120" r="14" fill="#fbbf24" opacity="0.9"/>
+  <path d="M120 95 L120 145 M95 120 L145 120" stroke="#fef08a" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+</svg>
