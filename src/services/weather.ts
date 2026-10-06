@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
+import { DEFAULT_WEATHER_LOCATION, type WeatherLocation } from '../types';
 
 /**
  * Sailing forecast from Open-Meteo (free, no API key): wind and weather from the forecast API,
  * waves from the marine API. Wind in knots, waves in metres, times in Israel time.
  */
 
-// Herzliya marina; the marine point sits just offshore so it lands on a sea grid cell.
-export const CLUB_LOCATION = { name: 'מרינה הרצליה', lat: 32.163, lon: 34.792, seaLat: 32.165, seaLon: 34.77 };
+// The default spot (Herzliya marina); the club can set its own in the settings.
+export const CLUB_LOCATION = DEFAULT_WEATHER_LOCATION;
 
 const FORECAST_DAYS = 16;
 const MARINE_DAYS = 8;
-const CACHE_KEY = 'sailing_club_forecast_v1';
+const CACHE_KEY = 'sailing_club_forecast_v2';
 const CACHE_MS = 60 * 60 * 1000;
 
 export type DayForecast = {
@@ -36,6 +37,8 @@ export type HourForecast = {
 
 export type Forecast = {
   fetchedAt: number;
+  /** "lat,lon" the forecast was fetched for. */
+  place?: string;
   days: Record<string, DayForecast>;
   hours: Record<string, HourForecast>;
 };
@@ -96,8 +99,12 @@ export function parseForecast(weather: { daily?: OpenMeteoSeries; hourly?: OpenM
   return { fetchedAt, days, hours };
 }
 
-async function fetchForecast(): Promise<Forecast> {
-  const { lat, lon, seaLat, seaLon } = CLUB_LOCATION;
+const placeKey = (loc: WeatherLocation) => `${loc.lat.toFixed(3)},${loc.lon.toFixed(3)}`;
+
+async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
+  const { lat, lon } = loc;
+  const seaLat = loc.seaLat ?? lat;
+  const seaLon = loc.seaLon ?? lon;
   const tz = 'timezone=Asia%2FJerusalem';
   const weatherUrl =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&${tz}&forecast_days=${FORECAST_DAYS}` +
@@ -116,32 +123,38 @@ async function fetchForecast(): Promise<Forecast> {
   const weather = await weatherRes.json();
   // Waves are a bonus: the calendar still shows wind if the marine API is down.
   const marine = marineRes && marineRes.ok ? await marineRes.json() : null;
-  return parseForecast(weather, marine, Date.now());
+  return { ...parseForecast(weather, marine, Date.now()), place: placeKey(loc) };
 }
 
 let inflight: Promise<Forecast> | null = null;
+let inflightPlace = '';
 let memory: Forecast | null = null;
 
-function readCache(): Forecast | null {
+const fresh = (f: Forecast | null, place: string): f is Forecast =>
+  Boolean(f && f.place === place && Date.now() - f.fetchedAt < CACHE_MS);
+
+function readCache(place: string): Forecast | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const cached = JSON.parse(raw) as Forecast;
-    return Date.now() - cached.fetchedAt < CACHE_MS ? cached : null;
+    return fresh(cached, place) ? cached : null;
   } catch {
     return null;
   }
 }
 
-export function loadForecast(): Promise<Forecast> {
-  if (memory && Date.now() - memory.fetchedAt < CACHE_MS) return Promise.resolve(memory);
-  const cached = readCache();
+export function loadForecast(loc: WeatherLocation = CLUB_LOCATION): Promise<Forecast> {
+  const place = placeKey(loc);
+  if (fresh(memory, place)) return Promise.resolve(memory);
+  const cached = readCache(place);
   if (cached) {
     memory = cached;
     return Promise.resolve(cached);
   }
-  if (!inflight) {
-    inflight = fetchForecast()
+  if (!inflight || inflightPlace !== place) {
+    inflightPlace = place;
+    inflight = fetchForecast(loc)
       .then((f) => {
         memory = f;
         try {
@@ -158,18 +171,20 @@ export function loadForecast(): Promise<Forecast> {
   return inflight;
 }
 
-/** The forecast for the club, or null while loading / when offline. */
-export function useForecast(): Forecast | null {
-  const [forecast, setForecast] = useState<Forecast | null>(memory);
+/** The forecast for the club's location, or null while loading / when offline. */
+export function useForecast(loc: WeatherLocation = CLUB_LOCATION): Forecast | null {
+  const place = placeKey(loc);
+  const [forecast, setForecast] = useState<Forecast | null>(fresh(memory, place) ? memory : null);
   useEffect(() => {
     let alive = true;
-    loadForecast()
+    loadForecast(loc)
       .then((f) => alive && setForecast(f))
       .catch(() => alive && setForecast(null));
     return () => {
       alive = false;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [place, loc.seaLat, loc.seaLon]);
   return forecast;
 }
 
@@ -199,11 +214,33 @@ export function weatherLabel(code: number): { icon: string; label: string } {
 
 export type SailingConditions = 'good' | 'caution' | 'rough';
 
-/** A rough guide for a club keelboat: wind and gusts in knots, waves in metres. */
-export function sailingConditions(wind: number, gust: number, wave: number | null): SailingConditions {
-  if (wind >= 25 || gust >= 30 || (wave ?? 0) >= 2.5) return 'rough';
-  if (wind >= 18 || gust >= 24 || (wave ?? 0) >= 1.5) return 'caution';
+export type ConditionThresholds = { roughWindKn: number; roughWaveM: number };
+export const DEFAULT_THRESHOLDS: ConditionThresholds = { roughWindKn: 25, roughWaveM: 2.5 };
+
+/**
+ * A rough guide for a club keelboat: wind and gusts in knots, waves in metres.
+ * Rough from the club's wind / wave limits (gusts 5 kn above the wind limit); "caution" starts 7 kn and 1 m below.
+ */
+export function sailingConditions(
+  wind: number,
+  gust: number,
+  wave: number | null,
+  t: ConditionThresholds = DEFAULT_THRESHOLDS
+): SailingConditions {
+  const w = wave ?? 0;
+  if (wind >= t.roughWindKn || gust >= t.roughWindKn + 5 || w >= t.roughWaveM) return 'rough';
+  if (wind >= t.roughWindKn - 7 || gust >= t.roughWindKn - 1 || w >= Math.max(0.5, t.roughWaveM - 1)) return 'caution';
   return 'good';
+}
+
+/** Why a day counts as rough, e.g. "רוח עד 28 קשר, גלים עד 2.7 מ'". */
+export function roughReason(day: DayForecast, t: ConditionThresholds = DEFAULT_THRESHOLDS): string {
+  const parts: string[] = [];
+  if (day.windMax >= t.roughWindKn || day.gustMax >= t.roughWindKn + 5) {
+    parts.push(`רוח עד ${Math.round(day.windMax)} קשר (משבים ${Math.round(day.gustMax)})`);
+  }
+  if ((day.waveMax ?? 0) >= t.roughWaveM) parts.push(`גלים עד ${day.waveMax!.toFixed(1)} מ'`);
+  return parts.join(', ');
 }
 
 export const CONDITIONS_STYLE: Record<SailingConditions, { label: string; className: string }> = {

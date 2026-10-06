@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { store, sailUsesBoat, sailWindow } from '../services/store';
 import { Sail, UserProfile, BoatReservation, isStaff, RESERVATION_KIND_ICONS, RESERVATION_KIND_LABELS } from '../types';
 import { BoatReservationModal } from './BoatReservationModal';
-import { useForecast, weatherLabel, windFrom, sailingConditions, CLUB_LOCATION, type Forecast } from '../services/weather';
+import { useForecast, weatherLabel, windFrom, sailingConditions, roughReason, type Forecast, type ConditionThresholds } from '../services/weather';
 import {
   ChevronRight,
   ChevronLeft,
@@ -48,6 +48,10 @@ const OCCUPANCY_STYLE = {
 } as const;
 type Occupancy = keyof typeof OCCUPANCY_STYLE;
 
+/** Rough-weather days: a strong red frame with stripes, so nobody opens a sail by mistake. */
+const ROUGH_DAY_STYLE =
+  'border-2 border-rose-500 bg-rose-50 bg-[repeating-linear-gradient(135deg,transparent,transparent_7px,rgba(225,29,72,0.08)_7px,rgba(225,29,72,0.08)_14px)]';
+
 /** Management reservations: a dark striped block, distinct from sails. */
 const RESERVATION_STYLE =
   'bg-slate-700 text-white border-slate-800 bg-[repeating-linear-gradient(135deg,transparent,transparent_5px,rgba(255,255,255,0.12)_5px,rgba(255,255,255,0.12)_10px)]';
@@ -73,10 +77,15 @@ function readView(): View {
 }
 
 /** One-line forecast for a day: icon, wind (coloured by conditions), wave height. */
-const DayWeather: React.FC<{ forecast: Forecast | null; date: string; showWaves?: boolean }> = ({ forecast, date, showWaves = true }) => {
+const DayWeather: React.FC<{ forecast: Forecast | null; date: string; showWaves?: boolean; limits: ConditionThresholds }> = ({
+  forecast,
+  date,
+  showWaves = true,
+  limits,
+}) => {
   const day = forecast?.days[date];
   if (!day) return null;
-  const cond = sailingConditions(day.windMax, day.gustMax, day.waveMax);
+  const cond = sailingConditions(day.windMax, day.gustMax, day.waveMax, limits);
   return (
     <span
       className="inline-flex items-center gap-1 text-[0.625rem] leading-tight"
@@ -96,7 +105,14 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
   const [cursor, setCursor] = useState<Date>(today);
   const [filterType, setFilterType] = useState<'all' | 'club' | 'private'>('all');
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
-  const forecast = useForecast();
+  const settings = store.getSettings();
+  const forecast = useForecast(settings.weatherLocation);
+  const limits: ConditionThresholds = { roughWindKn: settings.roughWindKn, roughWaveM: settings.roughWaveM };
+  /** The day's forecast when it is rough (strong wind / high waves), else null. */
+  const roughDay = (key: string) => {
+    const day = forecast?.days[key];
+    return day && sailingConditions(day.windMax, day.gustMax, day.waveMax, limits) === 'rough' ? day : null;
+  };
 
   const setView = (v: View) => {
     setViewState(v);
@@ -283,12 +299,15 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
             const dayReservations = reservationsByDate[key] ?? [];
             const isToday = key === todayStr;
             const isSelected = key === selectedDateStr;
+            const rough = roughDay(key);
             return (
               <div
                 key={key}
                 onClick={() => setSelectedDateStr(isSelected ? null : key)}
                 className={`min-h-20 sm:min-h-28 p-1 sm:p-2 rounded-2xl border transition flex flex-col cursor-pointer ${
-                  isSelected
+                  rough
+                    ? `${ROUGH_DAY_STYLE} ${isSelected ? 'ring-2 ring-rose-400/50' : ''}`
+                    : isSelected
                     ? 'border-sky-500 bg-sky-50/40 ring-2 ring-sky-400/30'
                     : isToday
                     ? 'border-sky-300 bg-sky-50/20'
@@ -314,8 +333,16 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                   <AddButton date={key} />
                 </div>
                 <div className="mt-0.5">
-                  <DayWeather forecast={forecast} date={key} showWaves={false} />
+                  <DayWeather forecast={forecast} date={key} showWaves={false} limits={limits} />
                 </div>
+                {rough && (
+                  <div
+                    className="mt-0.5 rounded-md bg-rose-600 text-white text-[0.5625rem] sm:text-[0.625rem] font-black text-center py-0.5 leading-tight"
+                    title={`ים סוער: ${roughReason(rough, limits)}`}
+                  >
+                    ⛈️ ים סוער
+                  </div>
+                )}
                 <div className="space-y-1 my-1 overflow-hidden flex-1">
                   {daySails.slice(0, 2).map((sail) => (
                     <SailChip key={sail.id} sail={sail} compact />
@@ -360,6 +387,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
               </div>
             </div>
             <DaySummary date={selectedDateStr} />
+            <RoughBanner date={selectedDateStr} />
             {(reservationsByDate[selectedDateStr] ?? []).length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {(reservationsByDate[selectedDateStr] ?? []).map((r) => (
@@ -389,11 +417,12 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         const key = dateKey(d);
         const daySails = sailsByDate[key] ?? [];
         const isToday = key === todayStr;
+        const rough = roughDay(key);
         return (
           <div
             key={key}
             className={`rounded-2xl border p-2 flex flex-col gap-1.5 min-h-24 ${
-              isToday ? 'border-sky-300 bg-sky-50/30' : 'border-slate-200 bg-white'
+              rough ? ROUGH_DAY_STYLE : isToday ? 'border-sky-300 bg-sky-50/30' : 'border-slate-200 bg-white'
             }`}
           >
             <div className="flex items-center justify-between gap-1">
@@ -409,7 +438,13 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
               </button>
               <AddButton date={key} />
             </div>
-            <DayWeather forecast={forecast} date={key} />
+            <DayWeather forecast={forecast} date={key} limits={limits} />
+            {rough && (
+              <div className="rounded-lg bg-rose-600 text-white text-[0.625rem] font-bold px-1.5 py-1 leading-tight">
+                ⛈️ ים סוער – לא מומלץ להפליג
+                <div className="font-normal opacity-95">{roughReason(rough, limits)}</div>
+              </div>
+            )}
             <div className="space-y-1">
               {daySails.length === 0 && !(reservationsByDate[key] ?? []).length ? (
                 <p className="text-[0.625rem] text-slate-400">אין הפלגות</p>
@@ -439,6 +474,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
 
     return (
       <div className="space-y-4">
+        <RoughBanner date={key} />
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <DaySummary date={key} />
           <div className="flex items-center gap-2">
@@ -450,7 +486,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         {strip.length > 0 && (
           <div className="grid grid-cols-6 gap-1 text-center text-[0.625rem] bg-slate-50 rounded-2xl border border-slate-200 p-2">
             {strip.map((h) => {
-              const cond = sailingConditions(h.wind, h.gust, h.wave);
+              const cond = sailingConditions(h.wind, h.gust, h.wave, limits);
               return (
                 <div key={h.time} className="space-y-0.5">
                   <div className="font-bold text-slate-600">{h.time.slice(11, 16)}</div>
@@ -543,6 +579,20 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
     );
   };
 
+  const RoughBanner: React.FC<{ date: string }> = ({ date }) => {
+    const rough = roughDay(date);
+    if (!rough) return null;
+    return (
+      <div role="alert" className="p-3 rounded-2xl bg-rose-600 text-white text-xs flex items-start gap-2 shadow-sm">
+        <span className="text-xl leading-none">⛈️</span>
+        <div>
+          <p className="font-black text-sm">צפוי ים סוער – לא מומלץ לפתוח הפלגות</p>
+          <p className="opacity-95">{roughReason(rough, limits)}. אם כבר יש הפלגה – שקלו לבטל או להזיז.</p>
+        </div>
+      </div>
+    );
+  };
+
   const DaySummary: React.FC<{ date: string }> = ({ date }) => {
     const day = forecast?.days[date];
     if (!day) return <span className="text-[0.6875rem] text-slate-400">אין עדיין תחזית לתאריך זה</span>;
@@ -556,7 +606,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
           💨 עד {Math.round(day.windMax)} קשר, משבים {Math.round(day.gustMax)} (מ{windFrom(day.windDir)})
         </span>
         {day.waveMax !== null && <span>🌊 גלים עד {day.waveMax.toFixed(1)} מ'</span>}
-        <span className="text-[0.625rem] text-slate-400">{CLUB_LOCATION.name}</span>
+        <span className="text-[0.625rem] text-slate-400">📍 {settings.weatherLocation.name}</span>
       </div>
     );
   };
@@ -668,9 +718,16 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         )}
         <span className="flex items-center gap-1.5"><span className={`w-4 h-3 rounded ${RESERVATION_STYLE}`} />שריון הנהלה (שיעור / מיוחדת / תחזוקה)</span>
         <span className="flex items-center gap-1.5"><Lock className="w-3 h-3" />סירה עם הרשאות</span>
+        <span className="flex items-center gap-1.5">
+          <span className={`w-4 h-3 rounded ${ROUGH_DAY_STYLE}`} />
+          ים סוער (רוח מ-{limits.roughWindKn} קשר או גלים מ-{limits.roughWaveM} מ')
+        </span>
         <span>
-          💨 <span className="text-emerald-700 font-bold">עד 17</span> · <span className="text-amber-700 font-bold">18-24</span> ·{' '}
-          <span className="text-rose-700 font-black">25+</span> קשר · 🌊 מטרים
+          💨 <span className="text-emerald-700 font-bold">עד {limits.roughWindKn - 8}</span> ·{' '}
+          <span className="text-amber-700 font-bold">
+            {limits.roughWindKn - 7}-{limits.roughWindKn - 1}
+          </span>{' '}
+          · <span className="text-rose-700 font-black">{limits.roughWindKn}+</span> קשר · 🌊 מטרים
         </span>
       </div>
     </div>
