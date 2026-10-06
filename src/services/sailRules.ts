@@ -113,3 +113,43 @@ export function mayTakeBoat(
 export function boatConflictMessage(conflict: { title: string; departureTime: string; estimatedReturnTime: string }, boatName: string): string {
   return `${boatName} כבר תפוסה בשעות האלה: "${conflict.title}" (${conflict.departureTime}–${conflict.estimatedReturnTime}). בחר שעה או סירה אחרת.`;
 }
+
+type Reservation = { id: string; boatId: string; date: string; startTime: string; endTime: string; title: string };
+
+/** The first management reservation that blocks the boat in that window, if any. */
+export function findReservationConflict<R extends Reservation>(
+  reservations: R[],
+  boatId: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  ignoreId?: string
+): R | undefined {
+  const window = sailWindow(startTime, endTime);
+  return reservations.find(
+    (r) =>
+      r.id !== ignoreId &&
+      r.boatId === boatId &&
+      r.date === date &&
+      windowsOverlap(window, sailWindow(r.startTime, r.endTime))
+  );
+}
+
+export function reservationConflictMessage(r: { title: string; startTime: string; endTime: string }, boatName: string): string {
+  return `${boatName} משוריינת בשעות האלה על ידי ההנהלה: "${r.title}" (${r.startTime}–${r.endTime}). בחר שעה או סירה אחרת.`;
+}
+
+/** Why the boat can't be booked in that window (a sail or a reservation already has it), or null. */
+export function boatBusyMessage(
+  sails: BookableSail[],
+  reservations: Reservation[],
+  boat: BookableBoat,
+  date: string,
+  startTime: string,
+  endTime: string
+): string | null {
+  const sail = findBoatConflict(sails, boat, date, startTime, endTime);
+  if (sail) return boatConflictMessage(sail, boat.name);
+  const reservation = findReservationConflict(reservations, boat.id, date, startTime, endTime);
+  return reservation ? reservationConflictMessage(reservation, boat.name) : null;
+}

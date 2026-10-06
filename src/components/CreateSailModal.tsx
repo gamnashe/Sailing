@@ -3,9 +3,8 @@ import {
   store,
   calculateDurationHours,
   calculatePrivateSailCredits,
-  findBoatConflict,
   mayTakeBoat,
-  boatConflictMessage,
+  boatBusyMessage,
 } from '../services/store';
 import { UserProfile, Sail, SailType, isStaff } from '../types';
 import {
@@ -73,7 +72,8 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
 
   const boat = boats.find((b) => b.id === boatId);
   const boatName = boat ? `${boat.name} (${boat.model})` : '';
-  const conflict = boat ? findBoatConflict(store.getSails(), boat, date, departureTime, estimatedReturnTime) : undefined;
+  const reservations = store.getBoatReservations();
+  const busyMessage = boat ? boatBusyMessage(store.getSails(), reservations, boat, date, departureTime, estimatedReturnTime) : null;
   const restricted = Boolean(boat && ((boat.allowedLevels?.length ?? 0) > 0 || (boat.allowedMemberIds?.length ?? 0) > 0));
   const skipperUser = selectedSkipperId === 'custom' ? undefined : members.find((m) => m.id === selectedSkipperId);
   const taker = sailType === 'private' ? currentUser : skipperUser;
@@ -85,7 +85,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
         ? !isStaff(currentUser.role) && `${boat.name} מוגבלת לסקיפרים מורשים; בחר סקיפר מורשה מהרשימה`
         : !mayTakeBoat(boat, taker) && `${taker?.fullName ?? 'הסקיפר'} אינו מורשה להוציא את ${boat.name}`
       : false;
-  const blockReason = conflict ? boatConflictMessage(conflict, boat!.name) : permissionProblem || null;
+  const blockReason = busyMessage ?? (permissionProblem || null);
 
   // Credits calculation
   const privateCreditCost = calculatePrivateSailCredits(durationHours);
@@ -352,7 +352,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
               >
                 {boats.map((b) => {
-                  const busy = findBoatConflict(store.getSails(), b, date, departureTime, estimatedReturnTime);
+                  const busy = boatBusyMessage(store.getSails(), reservations, b, date, departureTime, estimatedReturnTime);
                   return (
                     <option key={b.id} value={b.id}>
                       {busy ? '⛔ (תפוסה בשעות אלה)' : b.status === 'available' ? '🟢' : b.status === 'maintenance' ? '🟠 (בהספנה/תיקון)' : '🔴 (לא זמין)'}{' '}

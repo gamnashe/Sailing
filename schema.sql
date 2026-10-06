@@ -563,6 +563,7 @@ DECLARE
   v_dep TIME := (p_sail->>'departureTime')::TIME;
   v_ret TIME := (p_sail->>'estimatedReturnTime')::TIME;
   v_conflict RECORD;
+  v_reservation RECORD;
   v_taker UUID;
 BEGIN
   SELECT who_can_create_sails INTO v_policy FROM club_settings WHERE id = 1;
@@ -590,6 +591,21 @@ BEGIN
         'success', false,
         'message', v_boat.name || ' כבר תפוסה בשעות האלה: "' || v_conflict.title || '" (' ||
           to_char(v_conflict.departure_time, 'HH24:MI') || '–' || to_char(v_conflict.estimated_return_time, 'HH24:MI') ||
+          '). בחר שעה או סירה אחרת.'
+      );
+    END IF;
+
+    -- שריון של ההנהלה (שיעור, פעילות מיוחדת, תחזוקה) חוסם את הסירה לכולם
+    SELECT * INTO v_reservation FROM boat_reservations
+    WHERE boat_id = v_boat.id AND date = v_date
+      AND start_time < (CASE WHEN v_ret > v_dep THEN v_ret ELSE TIME '23:59:59' END)
+      AND v_dep < (CASE WHEN end_time > start_time THEN end_time ELSE TIME '23:59:59' END)
+    LIMIT 1;
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'message', v_boat.name || ' משוריינת בשעות האלה על ידי ההנהלה: "' || v_reservation.title || '" (' ||
+          to_char(v_reservation.start_time, 'HH24:MI') || '–' || to_char(v_reservation.end_time, 'HH24:MI') ||
           '). בחר שעה או סירה אחרת.'
       );
     END IF;
@@ -1256,3 +1272,96 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- ==============================================================================
+-- 13. שריון כלי שייט על ידי ההנהלה (שיעורים, פעילויות מיוחדות, תחזוקה)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS boat_reservations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  boat_id UUID NOT NULL REFERENCES boats(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'lesson' CHECK (kind IN ('lesson', 'special', 'maintenance')),
+  title TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_boat_reservations_boat_date ON boat_reservations(boat_id, date);
+
+ALTER TABLE boat_reservations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "reservations_select" ON boat_reservations FOR SELECT USING (is_approved_member());
+-- צוות ההנהלה עורך ומבטל ישירות; יצירה דרך create_boat_reservation (בדיקת חפיפות)
+CREATE POLICY "reservations_staff_all" ON boat_reservations FOR ALL USING (is_staff()) WITH CHECK (is_staff());
+REVOKE SELECT ON boat_reservations FROM anon;
+
+CREATE OR REPLACE FUNCTION create_boat_reservation(p JSONB)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_boat boats;
+  v_date DATE := (p->>'date')::DATE;
+  v_start TIME := (p->>'startTime')::TIME;
+  v_end TIME := (p->>'endTime')::TIME;
+  v_conflict RECORD;
+  v_id UUID;
+BEGIN
+  IF NOT is_staff() THEN
+    RETURN jsonb_build_object('success', false, 'message', 'שריון סירות מותר לצוות ההנהלה בלבד');
+  END IF;
+  IF v_date IS NULL OR v_start IS NULL OR v_end IS NULL OR v_end <= v_start THEN
+    RETURN jsonb_build_object('success', false, 'message', 'יש לבחור תאריך, ושעת סיום אחרי שעת ההתחלה');
+  END IF;
+  IF COALESCE(trim(p->>'title'), '') = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'יש לתת שם לשריון');
+  END IF;
+
+  -- נעילת הסירה: אותה נעילה שבה משתמשת create_sail, כך ששריון והפלגה במקביל לא יעברו שניהם
+  SELECT * INTO v_boat FROM boats WHERE id = NULLIF(p->>'boatId', '')::UUID FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'הסירה לא נמצאה');
+  END IF;
+
+  SELECT * INTO v_conflict FROM sails
+  WHERE boat_id = v_boat.id AND date = v_date AND status <> 'cancelled'
+    AND departure_time < v_end
+    AND v_start < (CASE WHEN estimated_return_time > departure_time THEN estimated_return_time ELSE TIME '23:59:59' END)
+  LIMIT 1;
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'message', 'ב' || to_char(v_date, 'DD/MM') || ' יש כבר הפלגה על ' || v_boat.name || ': "' || v_conflict.title || '" (' ||
+        to_char(v_conflict.departure_time, 'HH24:MI') || '–' || to_char(v_conflict.estimated_return_time, 'HH24:MI') ||
+        '). בטל או הזז אותה קודם.'
+    );
+  END IF;
+
+  SELECT * INTO v_conflict FROM boat_reservations
+  WHERE boat_id = v_boat.id AND date = v_date AND start_time < v_end AND v_start < end_time
+  LIMIT 1;
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'message', 'ב' || to_char(v_date, 'DD/MM') || ' ' || v_boat.name || ' כבר משוריינת: "' || v_conflict.title || '" (' ||
+        to_char(v_conflict.start_time, 'HH24:MI') || '–' || to_char(v_conflict.end_time, 'HH24:MI') || ').'
+    );
+  END IF;
+
+  INSERT INTO boat_reservations (boat_id, date, start_time, end_time, kind, title, notes, created_by)
+  VALUES (
+    v_boat.id, v_date, v_start, v_end,
+    COALESCE(NULLIF(p->>'kind', ''), 'lesson'),
+    left(trim(p->>'title'), 120),
+    left(COALESCE(trim(p->>'notes'), ''), 500),
+    auth.uid()
+  )
+  RETURNING id INTO v_id;
+  RETURN jsonb_build_object('success', true, 'id', v_id);
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION create_boat_reservation(JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION create_boat_reservation(JSONB) TO authenticated;
+ALTER PUBLICATION supabase_realtime ADD TABLE boat_reservations;

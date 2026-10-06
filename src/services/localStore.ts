@@ -19,10 +19,19 @@ import {
   PasswordResetToken,
   CreditRequest,
   NotificationType,
+  BoatReservation,
 } from '../types';
 import { DEFAULT_EXPERIENCE_LEVELS, isStaff } from '../types';
 import type { DataStore, JoinDetails, NewMember, Result } from './dataStore';
-import { validatePasswordComplexity, findBoatConflict, mayTakeBoat, boatConflictMessage, sailUsesBoat } from './sailRules';
+import {
+  validatePasswordComplexity,
+  findBoatConflict,
+  mayTakeBoat,
+  boatConflictMessage,
+  sailUsesBoat,
+  findReservationConflict,
+  reservationConflictMessage,
+} from './sailRules';
 
 // Using v2 clean storage key to clear out old test mock clutter
 const STORAGE_KEY = 'sailing_club_v2_clean';
@@ -42,6 +51,7 @@ interface AppData {
   /** Missing in data saved before these features existed. */
   creditRequests?: CreditRequest[];
   inviteCode?: string;
+  boatReservations?: BoatReservation[];
 }
 
 const DEFAULT_INVITE_CODE = 'demo-join';
@@ -702,6 +712,14 @@ export class LocalStore implements DataStore {
     if (boat) {
       const conflict = findBoatConflict(this.data.sails, boat, sailData.date, sailData.departureTime, sailData.estimatedReturnTime);
       if (conflict) throw new Error(boatConflictMessage(conflict, boat.name));
+      const reserved = findReservationConflict(
+        this.getBoatReservations(),
+        boat.id,
+        sailData.date,
+        sailData.departureTime,
+        sailData.estimatedReturnTime
+      );
+      if (reserved) throw new Error(reservationConflictMessage(reserved, boat.name));
       const takerId = sailData.sailType === 'private' ? sailData.createdBy : sailData.skipperId;
       const restricted = (boat.allowedLevels?.length ?? 0) > 0 || (boat.allowedMemberIds?.length ?? 0) > 0;
       if (takerId ? !mayTakeBoat(boat, this.data.users.find(u => u.id === takerId)) : restricted && this.getUserById(sailData.createdBy)?.role === 'member') {
@@ -1346,6 +1364,50 @@ export class LocalStore implements DataStore {
   }
 
   // --- Boat Issues & Fault Reporting ---
+  public getBoatReservations(): BoatReservation[] {
+    return [...(this.data.boatReservations ?? [])].sort(
+      (a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)
+    );
+  }
+
+  public async createBoatReservation(data: Omit<BoatReservation, 'id' | 'createdBy' | 'createdAt'>): Promise<Result> {
+    const me = this.getCurrentUser();
+    if (!isStaff(me?.role)) return { success: false, error: 'שריון סירות מותר לצוות ההנהלה בלבד' };
+    if (!data.date || !data.startTime || !data.endTime || data.endTime <= data.startTime) {
+      return { success: false, error: 'יש לבחור תאריך, ושעת סיום אחרי שעת ההתחלה' };
+    }
+    if (!data.title.trim()) return { success: false, error: 'יש לתת שם לשריון' };
+    const boat = this.data.boats.find(b => b.id === data.boatId);
+    if (!boat) return { success: false, error: 'הסירה לא נמצאה' };
+    const dd = data.date.split('-').reverse().slice(0, 2).join('/');
+    const sail = findBoatConflict(this.data.sails, boat, data.date, data.startTime, data.endTime);
+    if (sail) {
+      return {
+        success: false,
+        error: `ב${dd} יש כבר הפלגה על ${boat.name}: "${sail.title}" (${sail.departureTime}–${sail.estimatedReturnTime}). בטל או הזז אותה קודם.`,
+      };
+    }
+    const other = findReservationConflict(this.getBoatReservations(), boat.id, data.date, data.startTime, data.endTime);
+    if (other) {
+      return { success: false, error: `ב${dd} ${boat.name} כבר משוריינת: "${other.title}" (${other.startTime}–${other.endTime}).` };
+    }
+    const reservation: BoatReservation = {
+      ...data,
+      title: data.title.trim(),
+      id: newId('res'),
+      createdBy: me!.id,
+      createdAt: new Date().toISOString(),
+    };
+    this.saveData({ ...this.data, boatReservations: [...(this.data.boatReservations ?? []), reservation] });
+    return { success: true };
+  }
+
+  public async deleteBoatReservation(id: string): Promise<Result> {
+    if (!isStaff(this.getCurrentUser()?.role)) return { success: false, error: 'פעולה זו מותרת לצוות ההנהלה בלבד' };
+    this.saveData({ ...this.data, boatReservations: (this.data.boatReservations ?? []).filter(r => r.id !== id) });
+    return { success: true };
+  }
+
   public getBoatIssues(): BoatIssue[] {
     return [...this.data.boatIssues].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }

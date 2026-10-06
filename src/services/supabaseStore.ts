@@ -13,6 +13,7 @@ import type {
   ExperienceLevel,
   NotificationType,
   CreditRequest,
+  BoatReservation,
 } from '../types';
 import type { DataStore, JoinDetails, MessageResult, NewMember, Result } from './dataStore';
 import { DEFAULT_EXPERIENCE_LEVELS } from '../types';
@@ -30,6 +31,7 @@ interface Snapshot {
   boats: Boat[];
   boatIssues: BoatIssue[];
   creditRequests: CreditRequest[];
+  boatReservations: BoatReservation[];
   /** Staff only. */
   inviteCode: string | null;
 }
@@ -53,6 +55,7 @@ const emptySnapshot = (settings: ClubSettings = DEFAULT_SETTINGS): Snapshot => (
   boats: [],
   boatIssues: [],
   creditRequests: [],
+  boatReservations: [],
   inviteCode: null,
 });
 
@@ -284,7 +287,7 @@ export class SupabaseStore implements DataStore {
       }
 
       const staff = me.role === 'admin' || me.role === 'assistant';
-      const [profiles, boats, issues, sails, regs, photos, posts, likes, comments, notifs, creditReqs, invite] = await Promise.all([
+      const [profiles, boats, issues, sails, regs, photos, posts, likes, comments, notifs, creditReqs, invite, reservations] = await Promise.all([
         this.sb.from('profiles').select('*').order('created_at'),
         this.sb.from('boats').select('*').order('created_at'),
         this.sb.from('boat_issues').select('*'),
@@ -299,8 +302,9 @@ export class SupabaseStore implements DataStore {
         staff
           ? this.sb.from('club_invite').select('code').eq('id', 1).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
+        this.sb.from('boat_reservations').select('*').order('date').order('start_time'),
       ]);
-      for (const res of [profiles, boats, issues, sails, regs, photos, posts, likes, comments, notifs, creditReqs, invite]) {
+      for (const res of [profiles, boats, issues, sails, regs, photos, posts, likes, comments, notifs, creditReqs, invite, reservations]) {
         if (res.error) throw res.error;
       }
 
@@ -437,6 +441,18 @@ export class SupabaseStore implements DataStore {
           handledAt: r.handled_at ?? undefined,
         })),
         inviteCode: (invite.data as Row | null)?.code ?? null,
+        boatReservations: (reservations.data ?? []).map((r) => ({
+          id: r.id,
+          boatId: r.boat_id,
+          date: r.date,
+          startTime: hhmm(r.start_time),
+          endTime: hhmm(r.end_time),
+          kind: r.kind,
+          title: r.title,
+          notes: r.notes || undefined,
+          createdBy: r.created_by ?? '',
+          createdAt: r.created_at,
+        })),
       };
       this.startRealtime();
     } catch (err: any) {
@@ -952,6 +968,20 @@ export class SupabaseStore implements DataStore {
 
   public async deleteBoat(boatId: string) {
     return this.write(this.sb.from('boats').delete().eq('id', boatId));
+  }
+
+  public getBoatReservations() {
+    return [...this.snapshot.boatReservations];
+  }
+
+  public async createBoatReservation(data: Omit<BoatReservation, 'id' | 'createdBy' | 'createdAt'>): Promise<Result> {
+    const r = await this.rpc('create_boat_reservation', { p: data });
+    return { success: Boolean(r.success), error: r.message };
+  }
+
+  public async deleteBoatReservation(id: string): Promise<Result> {
+    const ok = await this.write(this.sb.from('boat_reservations').delete().eq('id', id));
+    return ok ? { success: true } : { success: false, error: this.lastError ?? undefined };
   }
 
   public getBoatIssues() {

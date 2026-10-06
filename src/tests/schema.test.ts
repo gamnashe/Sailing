@@ -426,6 +426,35 @@ async function run() {
   await rpc(tomer, 'resolve_credit_request($1, false)', [req2.request_id]);
   assert((await credits(dana)) === danaCreditsBefore + 4, 'a rejected request adds nothing');
 
+  // --- Boat reservations (state: tomer is the admin, rina an assistant, dana a member) ---
+  const galitId = (await db.query<any>(`SELECT id FROM boats WHERE name = 'גלית'`)).rows[0].id;
+  const resDay = '2097-03-15'; // a day no other test sail uses
+  const reserve = (uid: string, over: Record<string, unknown> = {}) =>
+    rpc(uid, 'create_boat_reservation($1::jsonb)', [
+      JSON.stringify({ boatId: galitId, date: resDay, startTime: '09:00', endTime: '12:00', kind: 'lesson', title: 'שיעור מתחילים', ...over }),
+    ]);
+  assert((await reserve(dana)).success === false, 'members cannot reserve boats');
+  const lesson = await reserve(rina);
+  assert(lesson.success, 'assistant reserves a boat for a lesson');
+  assert((await reserve(tomer, { startTime: '11:00', endTime: '13:00' })).success === false, 'overlapping reservations are refused');
+  assert((await reserve(tomer, { startTime: '12:00', endTime: '14:00', kind: 'special', title: 'אירוע' })).success, 'back-to-back reservation is fine');
+  assert((await reserve(tomer, { startTime: '15:00', endTime: '14:00' })).success === false, 'end must be after start');
+  const sailOnLesson = await rpc(dana, 'create_sail($1::jsonb)', [
+    JSON.stringify({ title: 'בוקר', sailType: 'private', date: resDay, departureTime: '10:00', estimatedReturnTime: '13:00', boatId: galitId, boatName: 'גלית', skipperName: 'דנה', departurePoint: 'מרינה', creditCost: 3 }),
+  ]);
+  assert(sailOnLesson.success === false && /משוריינת/.test(sailOnLesson.message), 'a sail cannot take a reserved boat');
+  const sailAfter = await rpc(tomer, 'create_sail($1::jsonb)', [
+    JSON.stringify({ title: 'ערב', sailType: 'club', date: resDay, departureTime: '16:00', estimatedReturnTime: '19:00', boatId: galitId, boatName: 'גלית', skipperName: 'תומר', skipperId: tomer, departurePoint: 'מרינה' }),
+  ]);
+  assert(sailAfter.success, 'a sail outside the reserved hours is fine');
+  assert((await reserve(tomer, { startTime: '17:00', endTime: '18:00' })).success === false, 'a reservation cannot take a booked sail slot');
+  const memberSees = await as(dana, (tx) => tx.query<any>('SELECT id FROM boat_reservations'));
+  assert(memberSees.rows.length === 2, 'members see reservations in the calendar');
+  const memberDeletes = await as(dana, (tx) => tx.query('DELETE FROM boat_reservations WHERE id = $1', [lesson.id]));
+  assert(memberDeletes.affectedRows === 0, 'members cannot remove reservations');
+  const staffDeletes = await as(rina, (tx) => tx.query('DELETE FROM boat_reservations WHERE id = $1', [lesson.id]));
+  assert(staffDeletes.affectedRows === 1, 'staff remove a reservation');
+
   // --- Notifications privacy ---
   const visible = await as(dana, (tx) => tx.query<any>('SELECT user_id FROM notifications'));
   assert(

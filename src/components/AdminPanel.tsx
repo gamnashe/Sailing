@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { store } from '../services/store';
 import { InviteLinkCard } from './InviteLinkCard';
 import { CreditRequestsList } from './CreditRequestsList';
+import { BoatReservationsList } from './BoatReservationsList';
 import { QualificationLevelsEditor } from './QualificationLevelsEditor';
 import { BoatPermissionsEditor } from './BoatPermissionsEditor';
 import { UserProfile, UserRole, ClubSettings, Boat, BoatStatus, Sail, ExperienceLevel, levelOptions, ROLE_LABELS } from '../types';
@@ -647,6 +648,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0 }) 
       )}
 
       {/* TAB 2: Fleet Management (צי כלי שייט והספנות) */}
+      {activeTab === 'fleet' && <BoatReservationsList />}
+
       {activeTab === 'fleet' && (
         <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
