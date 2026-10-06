@@ -1210,6 +1210,11 @@ export class LocalStore implements DataStore {
     return true;
   }
 
+  public async getStaffTutorialUrl() {
+    // The management video lives in the club's private Supabase storage; not available in demo mode
+    return null;
+  }
+
   // --- Credit requests ---
   public getCreditRequests(): CreditRequest[] {
     const me = this.getCurrentUser();

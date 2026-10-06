@@ -768,6 +768,14 @@ export class SupabaseStore implements DataStore {
     return { success: r.success, newCredits: r.new_credits ?? 0 };
   }
 
+  public async getStaffTutorialUrl() {
+    const me = this.getCurrentUser();
+    if (!me || (me.role !== 'admin' && me.role !== 'assistant')) return null;
+    // The storage policy only lets staff sign this file; the link works for 3 hours
+    const { data, error } = await this.sb.storage.from('staff-tutorials').createSignedUrl('admin.mp4', 3 * 60 * 60);
+    return error ? null : data.signedUrl;
+  }
+
   // --- Credit requests ---
 
   public getCreditRequests() {

@@ -1277,6 +1277,13 @@ BEGIN
     -- נדרש להחלפת קובץ קיים (upsert)
     EXECUTE $p$CREATE POLICY "avatars_select_own" ON storage.objects FOR SELECT TO authenticated
       USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::TEXT)$p$;
+
+    -- סרטון ההדרכה להנהלה (staff-tutorials/admin.mp4): פרטי, קישור חתום למנהל ולעוזר מנהל בלבד
+    INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    VALUES ('staff-tutorials', 'staff-tutorials', FALSE, 52428800, ARRAY['video/mp4', 'image/jpeg'])
+    ON CONFLICT (id) DO NOTHING;
+    EXECUTE $p$CREATE POLICY "staff_tutorials_read" ON storage.objects FOR SELECT TO authenticated
+      USING (bucket_id = 'staff-tutorials' AND public.is_staff())$p$;
   END IF;
 END;
 $$;
