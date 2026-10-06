@@ -26,7 +26,9 @@ import {
   Wrench,
   LogOut,
   AlertCircle,
-  X
+  X,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function App() {
@@ -59,6 +61,25 @@ export default function App() {
   const [showUserSwitcher, setShowUserSwitcher] = useState(false);
   // Arrived through the club's invite link (?join=code)
   const [inviteCode, setInviteCode] = useState(inviteCodeFromUrl);
+  // Staff can preview the app as a regular member sees it (display only; their permissions don't change)
+  const [previewAsMember, setPreviewAsMemberState] = useState(() => {
+    try {
+      return sessionStorage.getItem('sailing_club_preview_member') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const setPreviewAsMember = (on: boolean) => {
+    setPreviewAsMemberState(on);
+    setShowUserSwitcher(false);
+    if (on) setActiveTab((t) => (t === 'admin' ? 'sails' : t));
+    try {
+      if (on) sessionStorage.setItem('sailing_club_preview_member', '1');
+      else sessionStorage.removeItem('sailing_club_preview_member');
+    } catch {
+      // storage blocked: the preview still works for this page
+    }
+  };
   // Bumped to make the admin panel jump to its requests tab (from a notification)
   const [adminRequestsNonce, setAdminRequestsNonce] = useState(0);
 
@@ -131,11 +152,16 @@ export default function App() {
     );
   }
 
-  const unreadNotifications = store.getNotifications(currentUser.id).filter((n) => !n.read).length;
+  // What the screens are built for: the real user, or the same user shown as a regular member
+  const realIsStaff = isStaff(currentUser.role);
+  const previewing = previewAsMember && realIsStaff;
+  const viewer: UserProfile = previewing ? { ...currentUser, role: 'member' } : currentUser;
+
+  const unreadNotifications = store.getNotifications(viewer.id).filter((n) => !n.read).length;
   // Badge on the management tab: sign-ups waiting for approval, plus credit requests for admins
-  const pendingApprovalsCount = isStaff(currentUser.role)
+  const pendingApprovalsCount = isStaff(viewer.role)
     ? users.filter((u) => u.status === 'pending').length +
-      (currentUser.role === 'admin' ? store.getCreditRequests().filter((r) => r.status === 'pending').length : 0)
+      (viewer.role === 'admin' ? store.getCreditRequests().filter((r) => r.status === 'pending').length : 0)
     : 0;
 
   return (
@@ -174,7 +200,7 @@ export default function App() {
               title="יתרת נקודות הקרדיט שלך להפלגות"
             >
               <Coins className="w-4 h-4 text-amber-600" />
-              <span>{currentUser.credits ?? 5} קרדיטים</span>
+              <span>{viewer.credits ?? 5} קרדיטים</span>
             </button>
 
             {/* Notifications Bell */}
@@ -201,12 +227,12 @@ export default function App() {
                 className="flex items-center gap-2 p-1.5 pr-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs transition cursor-pointer"
               >
                 <img
-                  src={currentUser.avatar}
-                  alt={currentUser.fullName}
+                  src={viewer.avatar}
+                  alt={viewer.fullName}
                   className="w-7 h-7 rounded-full object-cover border border-slate-300"
                 />
                 <span className="font-bold text-slate-800 hidden sm:inline max-w-28 truncate">
-                  {currentUser.fullName}
+                  {viewer.fullName}
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
@@ -214,8 +240,17 @@ export default function App() {
               {showUserSwitcher && !isDemo && (
                 <div className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 text-right text-xs">
                   <div className="px-3 py-1.5 border-b border-slate-100 text-[0.6875rem] text-slate-400 font-semibold truncate">
-                    {currentUser.email}
+                    {viewer.email}
                   </div>
+                  {realIsStaff && (
+                    <button
+                      onClick={() => setPreviewAsMember(!previewing)}
+                      className="w-full px-3 py-2 flex items-center gap-2 text-sky-800 hover:bg-sky-50 font-semibold cursor-pointer"
+                    >
+                      {previewing ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {previewing ? 'חזרה לתצוגת מנהל' : 'צפייה כחבר רגיל'}
+                    </button>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="w-full px-3 py-2 flex items-center gap-2 text-rose-700 hover:bg-rose-50 font-semibold cursor-pointer"
@@ -231,6 +266,15 @@ export default function App() {
                   <div className="px-3 py-1.5 border-b border-slate-100 text-[0.6875rem] text-slate-400 font-semibold">
                     החלף משתמש לבדיקה מהירה:
                   </div>
+                  {realIsStaff && (
+                    <button
+                      onClick={() => setPreviewAsMember(!previewing)}
+                      className="w-full px-3 py-2 flex items-center gap-2 text-sky-800 hover:bg-sky-50 font-semibold cursor-pointer border-b border-slate-100"
+                    >
+                      {previewing ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {previewing ? 'חזרה לתצוגת מנהל' : 'צפייה כחבר רגיל'}
+                    </button>
+                  )}
                   {users.map((u) => (
                     <button
                       key={u.id}
@@ -239,7 +283,7 @@ export default function App() {
                         setShowUserSwitcher(false);
                       }}
                       className={`w-full px-3 py-2 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer ${
-                        u.id === currentUser.id ? 'bg-sky-50 text-sky-900 font-bold' : 'text-slate-700'
+                        u.id === viewer.id ? 'bg-sky-50 text-sky-900 font-bold' : 'text-slate-700'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -310,7 +354,7 @@ export default function App() {
               פיד וקהילה
             </button>
 
-            {isStaff(currentUser.role) && (
+            {isStaff(viewer.role) && (
               <button
                 onClick={() => setActiveTab('admin')}
                 aria-current={activeTab === 'admin' ? 'page' : undefined}
@@ -340,17 +384,32 @@ export default function App() {
               }`}
             >
               <User className="w-4 h-4" />
-              פרופיל ({currentUser.credits ?? 5} קרד')
+              פרופיל ({viewer.credits ?? 5} קרד')
             </button>
           </div>
         </nav>
+
+        {previewing && (
+          <div role="status" className="bg-amber-400 text-amber-950 text-xs font-bold px-4 py-2 flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5">
+              <Eye className="w-4 h-4 shrink-0" aria-hidden="true" />
+              מצב צפייה כחבר רגיל – כך חבר מועדון רואה את האפליקציה
+            </span>
+            <button
+              onClick={() => setPreviewAsMember(false)}
+              className="bg-amber-950 text-amber-50 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-black shrink-0"
+            >
+              חזרה לתצוגת מנהל
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area */}
       <main id="main-content" tabIndex={-1} className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 focus:outline-none">
         {activeTab === 'sails' && (
           <SailsList
-            currentUser={currentUser}
+            currentUser={viewer}
             onSelectSail={(id) => setSelectedSailId(id)}
             onOpenCreateModal={openCreateSail}
           />
@@ -358,7 +417,7 @@ export default function App() {
 
         {activeTab === 'boats' && (
           <BoatsAndIssuesView
-            currentUser={currentUser}
+            currentUser={viewer}
             onSelectSail={(id) => {
               setSelectedSailId(id);
               setActiveTab('sails');
@@ -368,7 +427,7 @@ export default function App() {
 
         {activeTab === 'feed' && (
           <CommunityFeed
-            currentUser={currentUser}
+            currentUser={viewer}
             onSelectSail={(id) => {
               setSelectedSailId(id);
               setActiveTab('sails');
@@ -376,13 +435,13 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'admin' && isStaff(currentUser.role) && (
-          <AdminPanel currentUser={currentUser} requestsNonce={adminRequestsNonce} />
+        {activeTab === 'admin' && isStaff(viewer.role) && (
+          <AdminPanel currentUser={viewer} requestsNonce={adminRequestsNonce} onPreviewAsMember={() => setPreviewAsMember(true)} />
         )}
 
         {activeTab === 'profile' && (
           <UserProfileView
-            user={currentUser}
+            user={viewer}
             onLogout={handleLogout}
             onUpdate={() => setTick((t) => t + 1)}
           />
@@ -424,7 +483,7 @@ export default function App() {
           <span className="text-[0.625rem]">פיד</span>
         </button>
 
-        {isStaff(currentUser.role) && (
+        {isStaff(viewer.role) && (
           <button
             onClick={() => setActiveTab('admin')}
             aria-current={activeTab === 'admin' ? 'page' : undefined}
@@ -457,7 +516,7 @@ export default function App() {
       {/* Modals */}
       <SailDetailModal
         sailId={selectedSailId}
-        currentUser={currentUser}
+        currentUser={viewer}
         onClose={() => setSelectedSailId(null)}
         onUpdate={() => setTick((t) => t + 1)}
       />
@@ -465,7 +524,7 @@ export default function App() {
       <CreateSailModal
         isOpen={showCreateSailModal}
         initialDate={createSailDate}
-        currentUser={currentUser}
+        currentUser={viewer}
         onClose={() => setShowCreateSailModal(false)}
         onCreated={(sail) => {
           setSelectedSailId(sail.id);
@@ -475,14 +534,14 @@ export default function App() {
 
       <NotificationsModal
         isOpen={showNotificationsModal}
-        userId={currentUser.id}
+        userId={viewer.id}
         onClose={() => setShowNotificationsModal(false)}
         onSelectSail={(id) => {
           setSelectedSailId(id);
           setActiveTab('sails');
         }}
         onOpenRequests={
-          isStaff(currentUser.role)
+          isStaff(viewer.role)
             ? () => {
                 setActiveTab('admin');
                 setAdminRequestsNonce((n) => n + 1);
