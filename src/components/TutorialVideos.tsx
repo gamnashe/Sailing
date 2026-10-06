@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
-import { PlayCircle, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { PlayCircle, X, Loader2 } from 'lucide-react';
+import { store } from '../services/store';
 
+// The member video is public; the management video sits in private storage and is fetched with a
+// short-lived signed link that only admins and assistants can get.
 const VIDEOS = {
   member: { title: 'מדריך לחבר מועדון', length: '2:21', src: '/tutorials/member.mp4', poster: '/tutorials/member.jpg' },
-  admin: { title: 'מדריך למנהל ולעוזר מנהל', length: '2:34', src: '/tutorials/admin.mp4', poster: '/tutorials/admin.jpg' },
+  admin: { title: 'מדריך למנהל ולעוזר מנהל', length: '2:34', src: null, poster: '/tutorials/admin.jpg' },
 } as const;
 type VideoKey = keyof typeof VIDEOS;
 
@@ -12,6 +15,18 @@ export const TutorialVideosButton: React.FC<{ staff?: boolean; className?: strin
   const [open, setOpen] = useState(false);
   const keys: VideoKey[] = staff ? ['admin', 'member'] : ['member'];
   const [current, setCurrent] = useState<VideoKey>(keys[0]);
+  const [adminUrl, setAdminUrl] = useState<string | null | undefined>(undefined); // undefined = loading
+
+  useEffect(() => {
+    if (!open || !staff || adminUrl) return;
+    let alive = true;
+    store.getStaffTutorialUrl().then((url) => alive && setAdminUrl(url));
+    return () => {
+      alive = false;
+    };
+  }, [open, staff, adminUrl]);
+
+  const src = current === 'admin' ? adminUrl : VIDEOS[current].src;
 
   return (
     <>
@@ -72,17 +87,23 @@ export const TutorialVideosButton: React.FC<{ staff?: boolean; className?: strin
               </div>
             )}
 
-            <div className="bg-black flex-1 min-h-0 flex items-center justify-center">
-              <video
-                key={current}
-                src={VIDEOS[current].src}
-                poster={VIDEOS[current].poster}
-                controls
-                playsInline
-                preload="metadata"
-                className="max-h-[78vh] w-auto max-w-full"
-                aria-label={VIDEOS[current].title}
-              />
+            <div className="bg-black flex-1 min-h-0 flex items-center justify-center min-h-64">
+              {src ? (
+                <video
+                  key={`${current}-${src}`}
+                  src={src}
+                  poster={VIDEOS[current].poster}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="max-h-[78vh] w-auto max-w-full"
+                  aria-label={VIDEOS[current].title}
+                />
+              ) : src === undefined ? (
+                <Loader2 className="w-8 h-8 text-white/70 animate-spin" aria-label="טוען" />
+              ) : (
+                <p className="text-white/80 text-sm p-6 text-center">סרטון ההנהלה אינו זמין כרגע. נסו שוב מאוחר יותר.</p>
+              )}
             </div>
           </div>
         </div>

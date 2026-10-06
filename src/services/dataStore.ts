@@ -114,6 +114,12 @@ export interface DataStore {
     adminName: string
   ): Promise<{ success: boolean; newCredits: number }>;
 
+  /**
+   * A temporary link to the management tutorial video (private storage, staff only).
+   * Null for non-staff, or when it isn't available (e.g. demo mode).
+   */
+  getStaffTutorialUrl(): Promise<string | null>;
+
   // --- Credit requests ---
   /** The signed-in member's own requests; admins see everyone's. Newest first. */
   getCreditRequests(): CreditRequest[];
