@@ -14,6 +14,9 @@ import type {
   NotificationType,
   CreditRequest,
   BoatReservation,
+  ClubSummary,
+  NewClub,
+  WeatherLocation,
 } from '../types';
 import type { DataStore, JoinDetails, MessageResult, NewMember, Result } from './dataStore';
 import { DEFAULT_EXPERIENCE_LEVELS, DEFAULT_WEATHER_LOCATION } from '../types';
@@ -112,6 +115,8 @@ function mapProfile(r: Row): UserProfile {
     status: r.status,
     joinedAt: r.created_at,
     credits: r.credits,
+    clubId: r.club_id ?? undefined,
+    isPlatformAdmin: Boolean(r.is_platform_admin),
   };
 }
 
@@ -178,6 +183,7 @@ export class SupabaseStore implements DataStore {
 
   private snapshot: Snapshot = emptySnapshot();
   private currentUserId: string | null = null;
+  private clubId: string | null = null;
   private loading = true;
   private lastError: string | null = null;
   private passwordRecovery = false;
@@ -270,10 +276,14 @@ export class SupabaseStore implements DataStore {
       const { data: sessionData } = await this.sb.auth.getSession();
       const session = sessionData.session;
 
-      const settingsRes = await this.sb.from('club_settings').select('*').eq('id', 1).maybeSingle();
-      const settings = settingsRes.data ? mapSettings(settingsRes.data) : this.snapshot.settings;
+      // Signed out: the first club's name for the sign-in screen
+      const firstClub = async () => {
+        const r = await this.sb.from('club_settings').select('*').order('id').limit(1).maybeSingle();
+        return r.data ? mapSettings(r.data) : this.snapshot.settings;
+      };
 
       if (!session) {
+        const settings = await firstClub();
         this.currentUserId = null;
         this.snapshot = emptySnapshot(settings);
         this.stopRealtime();
@@ -286,13 +296,18 @@ export class SupabaseStore implements DataStore {
       if (!meRes.data) {
         // Signed in but no profile (e.g. the account was deleted by an admin).
         this.currentUserId = null;
-        this.snapshot = emptySnapshot(settings);
+        this.snapshot = emptySnapshot(await firstClub());
         await this.sb.auth.signOut();
         return;
       }
 
       const me = mapProfile(meRes.data);
       this.currentUserId = uid;
+      this.clubId = me.clubId ?? null;
+
+      // Every club has its own settings (name, policies, weather spot)
+      const settingsRes = await this.sb.from('club_settings').select('*').eq('club_id', me.clubId).maybeSingle();
+      const settings = settingsRes.data ? mapSettings(settingsRes.data) : this.snapshot.settings;
 
       if (me.status !== 'approved') {
         const notifs = await this.sb.from('notifications').select('*').order('created_at', { ascending: false });
@@ -315,7 +330,7 @@ export class SupabaseStore implements DataStore {
         this.sb.from('notifications').select('*').order('created_at', { ascending: false }).limit(200),
         this.sb.from('credit_requests').select('*').order('created_at', { ascending: false }).limit(200),
         staff
-          ? this.sb.from('club_invite').select('code').eq('id', 1).maybeSingle()
+          ? this.sb.from('club_invite').select('code').eq('club_id', me.clubId).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
         this.sb.from('boat_reservations').select('*').order('date').order('start_time'),
       ]);
@@ -776,6 +791,45 @@ export class SupabaseStore implements DataStore {
     return error ? null : data.signedUrl;
   }
 
+  public async inviteClubName(code: string) {
+    const { data, error } = await this.sb.rpc('invite_club_name', { p_code: code });
+    return error ? null : ((data as string | null) ?? null);
+  }
+
+  // --- Clubs (platform admin) ---
+
+  public async listClubs() {
+    const r = await this.callFunction({ action: 'list_clubs' });
+    return r.success ? { success: true, clubs: r.clubs as ClubSummary[] } : { success: false, error: r.message as string };
+  }
+
+  public async createClub(club: NewClub) {
+    const r = await this.callFunction({ action: 'create_club', ...club });
+    return r.success
+      ? { success: true, email: r.email as string, temporaryPassword: r.temporaryPassword as string }
+      : { success: false, error: (r.message as string) || 'פתיחת המועדון נכשלה' };
+  }
+
+  public async updateClub(clubId: string, changes: { name?: string; location?: WeatherLocation }): Promise<Result> {
+    const r = await this.callFunction({ action: 'update_club', clubId, ...changes });
+    if (r.success && clubId === this.clubId) await this.refresh();
+    return { success: Boolean(r.success), error: r.message as string | undefined };
+  }
+
+  public async addClubAdmin(clubId: string, a: { fullName: string; email: string; phone: string }) {
+    const r = await this.callFunction({ action: 'add_club_admin', clubId, ...a });
+    return r.success
+      ? { success: true, email: r.email as string, temporaryPassword: r.temporaryPassword as string }
+      : { success: false, error: (r.message as string) || 'הוספת המנהל נכשלה' };
+  }
+
+  public async resetClubAdminPassword(clubId: string, userId: string) {
+    const r = await this.callFunction({ action: 'reset_club_admin_password', clubId, userId });
+    return r.success
+      ? { success: true, email: r.email as string, temporaryPassword: r.temporaryPassword as string }
+      : { success: false, error: (r.message as string) || 'איפוס הסיסמה נכשל' };
+  }
+
   // --- Credit requests ---
 
   public getCreditRequests() {
@@ -966,7 +1020,7 @@ export class SupabaseStore implements DataStore {
     }
     if (settings.roughWindKn !== undefined) row.rough_wind_kn = settings.roughWindKn;
     if (settings.roughWaveM !== undefined) row.rough_wave_m = settings.roughWaveM;
-    await this.write(this.sb.from('club_settings').update(row).eq('id', 1));
+    await this.write(this.sb.from('club_settings').update(row).eq('club_id', this.clubId));
   }
 
   public async renameExperienceLevel(oldName: string, newName: string): Promise<Result> {

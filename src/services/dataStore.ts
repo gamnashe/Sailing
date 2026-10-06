@@ -12,6 +12,9 @@ import type {
   ExperienceLevel,
   CreditRequest,
   BoatReservation,
+  ClubSummary,
+  NewClub,
+  WeatherLocation,
 } from '../types';
 
 export type NewMember = {
@@ -119,6 +122,23 @@ export interface DataStore {
    * Null for non-staff, or when it isn't available (e.g. demo mode).
    */
   getStaffTutorialUrl(): Promise<string | null>;
+
+  /** The club an invite code belongs to (for the join form, before signing in). */
+  inviteClubName(code: string): Promise<string | null>;
+
+  // --- Clubs (platform admin only: configuration, never the data inside a club) ---
+  listClubs(): Promise<{ success: boolean; error?: string; clubs?: ClubSummary[] }>;
+  /** A new empty club with its first admin; returns the admin's temporary password. */
+  createClub(club: NewClub): Promise<{ success: boolean; error?: string; email?: string; temporaryPassword?: string }>;
+  updateClub(clubId: string, changes: { name?: string; location?: WeatherLocation }): Promise<Result>;
+  addClubAdmin(
+    clubId: string,
+    admin: { fullName: string; email: string; phone: string }
+  ): Promise<{ success: boolean; error?: string; email?: string; temporaryPassword?: string }>;
+  resetClubAdminPassword(
+    clubId: string,
+    userId: string
+  ): Promise<{ success: boolean; error?: string; email?: string; temporaryPassword?: string }>;
 
   // --- Credit requests ---
   /** The signed-in member's own requests; admins see everyone's. Newest first. */

@@ -42,7 +42,29 @@ export interface UserProfile {
   status: UserStatus;
   joinedAt: string;
   credits: number; // Member sailing credits balance
+  /** The one club this member belongs to. */
+  clubId?: string;
+  /** Platform admin: may open and configure clubs (not see inside other clubs). */
+  isPlatformAdmin?: boolean;
 }
+
+/** A club as the platform admin sees it: configuration only. */
+export interface ClubSummary {
+  id: string;
+  name: string;
+  createdAt: string;
+  location: WeatherLocation | null;
+  memberCount: number;
+  admins: { id: string; fullName: string; email: string }[];
+}
+
+export type NewClub = {
+  name: string;
+  location: WeatherLocation;
+  adminName: string;
+  adminEmail: string;
+  adminPhone: string;
+};
 
 export type BoatStatus = 'available' | 'unavailable' | 'maintenance';
 

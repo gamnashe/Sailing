@@ -6,6 +6,7 @@ import { BoatReservationsList } from './BoatReservationsList';
 import { QualificationLevelsEditor } from './QualificationLevelsEditor';
 import { WeatherSettings } from './WeatherSettings';
 import { TutorialVideosButton } from './TutorialVideos';
+import { ClubsManager } from './ClubsManager';
 import { BoatPermissionsEditor } from './BoatPermissionsEditor';
 import { UserProfile, UserRole, ClubSettings, Boat, BoatStatus, Sail, ExperienceLevel, levelOptions, ROLE_LABELS } from '../types';
 import {
@@ -36,7 +37,8 @@ import {
   Share2,
   Mail,
   KeyRound,
-  Eye
+  Eye,
+  Building2
 } from 'lucide-react';
 
 
@@ -49,7 +51,7 @@ interface Props {
 }
 
 export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, onPreviewAsMember }) => {
-  const [activeTab, setActiveTab] = useState<'pending' | 'members' | 'fleet' | 'sails' | 'settings' | 'stats'>(
+  const [activeTab, setActiveTab] = useState<'pending' | 'members' | 'fleet' | 'sails' | 'settings' | 'stats' | 'clubs'>(
     requestsNonce > 0 ? 'pending' : 'members'
   );
   useEffect(() => {
@@ -451,6 +453,18 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             <BarChart3 className="w-3.5 h-3.5" />
             סטטיסטיקה
           </button>
+
+          {currentUser.isPlatformAdmin && (
+            <button
+              onClick={() => setActiveTab('clubs')}
+              className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'clubs' ? 'bg-amber-500 text-white shadow-xs font-bold' : 'text-amber-300 hover:text-white'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              מועדונים (מנהל מערכת)
+            </button>
+          )}
         </div>
       </div>
 
@@ -1047,6 +1061,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
       )}
 
       {/* TAB 6: Statistics */}
+      {activeTab === 'clubs' && currentUser.isPlatformAdmin && <ClubsManager />}
+
       {activeTab === 'stats' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
