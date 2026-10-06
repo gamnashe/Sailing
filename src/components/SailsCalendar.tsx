@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { store, sailUsesBoat, sailWindow } from '../services/store';
-import { Sail, UserProfile } from '../types';
+import { Sail, UserProfile, BoatReservation, isStaff, RESERVATION_KIND_ICONS, RESERVATION_KIND_LABELS } from '../types';
+import { BoatReservationModal } from './BoatReservationModal';
 import { useForecast, weatherLabel, windFrom, sailingConditions, CLUB_LOCATION, type Forecast } from '../services/weather';
 import {
   ChevronRight,
@@ -10,6 +11,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Lock,
+  Trash2,
 } from 'lucide-react';
 
 interface Props {
@@ -45,6 +47,10 @@ const OCCUPANCY_STYLE = {
   waiting: 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200',
 } as const;
 type Occupancy = keyof typeof OCCUPANCY_STYLE;
+
+/** Management reservations: a dark striped block, distinct from sails. */
+const RESERVATION_STYLE =
+  'bg-slate-700 text-white border-slate-800 bg-[repeating-linear-gradient(135deg,transparent,transparent_5px,rgba(255,255,255,0.12)_5px,rgba(255,255,255,0.12)_10px)]';
 
 const WIND_TEXT = { good: 'text-emerald-700', caution: 'text-amber-700', rough: 'text-rose-700 font-black' } as const;
 
@@ -105,6 +111,17 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
   const sailsByDate: Record<string, Sail[]> = {};
   for (const sail of sails) (sailsByDate[sail.date] ??= []).push(sail);
   const boats = store.getBoats();
+  const boatName = (id: string) => boats.find((b) => b.id === id)?.name ?? 'סירה';
+  const reservationsByDate: Record<string, BoatReservation[]> = {};
+  for (const r of store.getBoatReservations()) (reservationsByDate[r.date] ??= []).push(r);
+  const staff = isStaff(currentUser.role);
+  const [reserveDate, setReserveDate] = useState<string | null>(null);
+  const canReserveOn = (key: string) => staff && key >= todayStr;
+
+  const removeReservation = async (r: BoatReservation) => {
+    if (!confirm(`לבטל את השריון "${r.title}" (${boatName(r.boatId)}, ${r.startTime}–${r.endTime})?`)) return;
+    await store.deleteBoatReservation(r.id);
+  };
 
   const canCreateOn = (key: string) => Boolean(onOpenCreateModal) && key >= todayStr;
   const openDay = (key: string) => {
@@ -148,6 +165,64 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         {label && 'הפלגה חדשה'}
       </button>
     ) : null;
+
+  const ReserveButton: React.FC<{ date: string }> = ({ date }) =>
+    canReserveOn(date) ? (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setReserveDate(date);
+        }}
+        className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+        title="שריון סירה לשיעור / פעילות מיוחדת / תחזוקה"
+      >
+        <Lock className="w-3.5 h-3.5" />
+        שריון סירה
+      </button>
+    ) : null;
+
+  const ReservationChip: React.FC<{ r: BoatReservation }> = ({ r }) => (
+    <div
+      className={`w-full text-right p-1 rounded-lg text-[0.625rem] sm:text-xs font-semibold truncate border ${RESERVATION_STYLE}`}
+      title={`${RESERVATION_KIND_LABELS[r.kind]}: ${r.title} (${r.startTime}–${r.endTime}) · ${boatName(r.boatId)}`}
+    >
+      <div className="flex items-center gap-1 truncate">
+        <span>{RESERVATION_KIND_ICONS[r.kind]}</span>
+        <span className="font-bold">{r.startTime}</span>
+        <span className="truncate">{r.title}</span>
+      </div>
+      <div className="text-[0.5625rem] sm:text-[0.625rem] text-slate-200 font-normal truncate">🔒 {boatName(r.boatId)}</div>
+    </div>
+  );
+
+  const ReservationCard: React.FC<{ r: BoatReservation }> = ({ r }) => (
+    <div className="p-3 bg-slate-50 rounded-xl border border-slate-300 text-xs flex items-start justify-between gap-2">
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="px-1.5 py-0.5 rounded text-[0.625rem] font-bold bg-slate-700 text-white">
+            {RESERVATION_KIND_ICONS[r.kind]} {RESERVATION_KIND_LABELS[r.kind]}
+          </span>
+          <h4 className="font-bold text-slate-900">{r.title}</h4>
+        </div>
+        <p className="text-slate-500 text-[0.6875rem]">
+          {r.startTime}–{r.endTime} · 🔒 {boatName(r.boatId)} משוריינת על ידי ההנהלה
+        </p>
+        {r.notes && <p className="text-slate-600 text-[0.6875rem]">{r.notes}</p>}
+      </div>
+      {staff && (
+        <button
+          type="button"
+          onClick={() => removeReservation(r)}
+          aria-label={`בטל שריון ${r.title}`}
+          title="בטל שריון"
+          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer shrink-0"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
 
   const SailChip: React.FC<{ sail: Sail; compact?: boolean }> = ({ sail, compact }) => {
     const confirmed = store.getConfirmedParticipants(sail.id).length;
@@ -205,6 +280,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
           {Array.from({ length: totalDays }).map((_, idx) => {
             const key = dateKey(new Date(year, month, idx + 1));
             const daySails = sailsByDate[key] ?? [];
+            const dayReservations = reservationsByDate[key] ?? [];
             const isToday = key === todayStr;
             const isSelected = key === selectedDateStr;
             return (
@@ -247,6 +323,17 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                   {daySails.length > 2 && (
                     <div className="text-[0.625rem] font-bold text-slate-500 text-center">+{daySails.length - 2} נוספות</div>
                   )}
+                  {dayReservations.length > 0 &&
+                    (dayReservations.length === 1 && daySails.length < 2 ? (
+                      <ReservationChip r={dayReservations[0]} />
+                    ) : (
+                      <div
+                        className={`text-[0.625rem] font-bold text-center rounded-lg py-0.5 ${RESERVATION_STYLE}`}
+                        title={dayReservations.map((r) => `${r.startTime}–${r.endTime} ${r.title} (${boatName(r.boatId)})`).join('\n')}
+                      >
+                        🔒 {dayReservations.length} שריונים
+                      </div>
+                    ))}
                 </div>
               </div>
             );
@@ -268,10 +355,18 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                 >
                   תצוגת יום
                 </button>
+                <ReserveButton date={selectedDateStr} />
                 <AddButton date={selectedDateStr} label />
               </div>
             </div>
             <DaySummary date={selectedDateStr} />
+            {(reservationsByDate[selectedDateStr] ?? []).length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {(reservationsByDate[selectedDateStr] ?? []).map((r) => (
+                  <ReservationCard key={r.id} r={r} />
+                ))}
+              </div>
+            )}
             {selectedSails.length === 0 ? (
               <p className="text-xs text-slate-400 py-2">אין הפלגות בתאריך זה.</p>
             ) : (
@@ -316,11 +411,14 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
             </div>
             <DayWeather forecast={forecast} date={key} />
             <div className="space-y-1">
-              {daySails.length === 0 ? (
+              {daySails.length === 0 && !(reservationsByDate[key] ?? []).length ? (
                 <p className="text-[0.625rem] text-slate-400">אין הפלגות</p>
               ) : (
                 daySails.map((sail) => <SailChip key={sail.id} sail={sail} compact />)
               )}
+              {(reservationsByDate[key] ?? []).map((r) => (
+                <ReservationChip key={r.id} r={r} />
+              ))}
             </div>
           </div>
         );
@@ -343,7 +441,10 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <DaySummary date={key} />
-          <AddButton date={key} label />
+          <div className="flex items-center gap-2">
+            <ReserveButton date={key} />
+            <AddButton date={key} label />
+          </div>
         </div>
 
         {strip.length > 0 && (
@@ -373,6 +474,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
           </div>
           {boats.map((boat) => {
             const boatSails = daySails.filter((s) => s.status !== 'cancelled' && sailUsesBoat(s, boat));
+            const boatReservations = (reservationsByDate[key] ?? []).filter((r) => r.boatId === boat.id);
             const restricted = (boat.allowedLevels?.length ?? 0) > 0 || (boat.allowedMemberIds?.length ?? 0) > 0;
             return (
               <div key={boat.id} className="flex items-stretch gap-2">
@@ -408,14 +510,30 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                       </button>
                     );
                   })}
+                  {boatReservations.map((r) => {
+                    const [start, end] = sailWindow(r.startTime, r.endTime);
+                    return (
+                      <div
+                        key={r.id}
+                        className={`absolute top-1 bottom-1 rounded-lg border px-1 text-[0.625rem] font-bold truncate text-right ${RESERVATION_STYLE}`}
+                        style={{ right: `${pct(start)}%`, width: `${Math.max(pct(end) - pct(start), 4)}%` }}
+                        title={`${RESERVATION_KIND_LABELS[r.kind]}: ${r.title} ${r.startTime}–${r.endTime}`}
+                      >
+                        {RESERVATION_KIND_ICONS[r.kind]} {r.title}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {daySails.length > 0 && (
+        {(daySails.length > 0 || (reservationsByDate[key] ?? []).length > 0) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {(reservationsByDate[key] ?? []).map((r) => (
+              <ReservationCard key={r.id} r={r} />
+            ))}
             {daySails.map((sail) => (
               <SailCard key={sail.id} sail={sail} />
             ))}
@@ -535,6 +653,8 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
       {view === 'week' && renderWeek()}
       {view === 'day' && renderDay()}
 
+      <BoatReservationModal isOpen={reserveDate !== null} initialDate={reserveDate ?? undefined} onClose={() => setReserveDate(null)} />
+
       {/* Legend */}
       <div className="flex items-center gap-x-4 gap-y-1.5 text-xs text-slate-500 pt-2 border-t border-slate-100 flex-wrap">
         <span className="font-bold text-slate-700">מקרא:</span>
@@ -546,6 +666,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         {onOpenCreateModal && (
           <span className="flex items-center gap-1.5"><Plus className="w-3 h-3 text-sky-700" />פתיחת הפלגה ביום</span>
         )}
+        <span className="flex items-center gap-1.5"><span className={`w-4 h-3 rounded ${RESERVATION_STYLE}`} />שריון הנהלה (שיעור / מיוחדת / תחזוקה)</span>
         <span className="flex items-center gap-1.5"><Lock className="w-3 h-3" />סירה עם הרשאות</span>
         <span>
           💨 <span className="text-emerald-700 font-bold">עד 17</span> · <span className="text-amber-700 font-bold">18-24</span> ·{' '}

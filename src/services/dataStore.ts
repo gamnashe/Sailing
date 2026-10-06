@@ -11,6 +11,7 @@ import type {
   IssueStatus,
   ExperienceLevel,
   CreditRequest,
+  BoatReservation,
 } from '../types';
 
 export type NewMember = {
@@ -171,6 +172,11 @@ export interface DataStore {
   createBoat(boatData: Omit<Boat, 'id' | 'createdAt'>): Promise<Boat | null>;
   updateBoat(boatId: string, updates: Partial<Boat>): Promise<boolean>;
   deleteBoat(boatId: string): Promise<boolean>;
+  /** Management reservations (lessons, special events, maintenance), sorted by date and time. */
+  getBoatReservations(): BoatReservation[];
+  /** Staff only. Refused when the boat already has a sail or another reservation in that window. */
+  createBoatReservation(data: Omit<BoatReservation, 'id' | 'createdBy' | 'createdAt'>): Promise<Result>;
+  deleteBoatReservation(id: string): Promise<Result>;
   getBoatIssues(): BoatIssue[];
   reportBoatIssue(issueData: Omit<BoatIssue, 'id' | 'createdAt' | 'status'>): Promise<BoatIssue | null>;
   updateBoatIssueStatus(issueId: string, status: IssueStatus, adminNotes?: string, resolverName?: string): Promise<boolean>;

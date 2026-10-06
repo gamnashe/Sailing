@@ -61,6 +61,34 @@ export interface Boat {
   createdAt: string;
 }
 
+export type ReservationKind = 'lesson' | 'special' | 'maintenance';
+
+export const RESERVATION_KIND_LABELS: Record<ReservationKind, string> = {
+  lesson: 'שיעור',
+  special: 'פעילות מיוחדת',
+  maintenance: 'תחזוקה',
+};
+
+export const RESERVATION_KIND_ICONS: Record<ReservationKind, string> = {
+  lesson: '🎓',
+  special: '⭐',
+  maintenance: '🔧',
+};
+
+/** A boat blocked by the management for a time slot (lessons, special events, maintenance). */
+export interface BoatReservation {
+  id: string;
+  boatId: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  kind: ReservationKind;
+  title: string;
+  notes?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 export type IssueSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type IssueStatus = 'open' | 'in_progress' | 'resolved';
 
