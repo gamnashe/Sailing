@@ -76,6 +76,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
     phone: string;
     email: string;
     password: string;
+    username?: string;
     /** True when resending details to an existing member (a new temporary password was issued). */
     isResend?: boolean;
   } | null>(null);
@@ -148,7 +149,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
     const res = await store.createMember({ ...newMember, credits: isAdminUser ? Number(newMember.credits) || 0 : 5 });
     setAddMemberBusy(false);
     if (res.success && res.email && res.temporaryPassword) {
-      setCreatedMember({ fullName: newMember.fullName, phone: newMember.phone, email: res.email, password: res.temporaryPassword });
+      setCreatedMember({ fullName: newMember.fullName, phone: newMember.phone, email: res.email, password: res.temporaryPassword, username: res.username });
     } else {
       setAddMemberError(res.error || 'הוספת החבר נכשלה');
     }
@@ -162,6 +163,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
         : `צורפת כחבר/ה ב${clubSettings.clubName}! מעכשיו אפשר להירשם להפלגות, לראות את לוח השנה ותחזית הים, ולהתעדכן בפיד המועדון.\n\n`) +
       `כניסה לאפליקציה: ${window.location.origin}\n` +
       `מייל: ${createdMember.email}\n` +
+      (createdMember.username ? `או שם משתמש: ${createdMember.username}\n` : '') +
       `סיסמה זמנית: ${createdMember.password}\n\n` +
       `אחרי הכניסה הראשונה מומלץ להחליף סיסמה במסך "פרופיל".\n` +
       `טיפ: אפשר להוסיף את האפליקציה למסך הבית בטלפון (בתפריט הדפדפן: "הוסף למסך הבית").\n\n` +
@@ -180,7 +182,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
     const res = await store.resetMemberPassword(member.id);
     if (res.success && res.email && res.temporaryPassword) {
       await dismissPasswordHelp(member.id);
-      setCreatedMember({ fullName: member.fullName, phone: member.phone, email: res.email, password: res.temporaryPassword, isResend: true });
+      setCreatedMember({ fullName: member.fullName, phone: member.phone, email: res.email, password: res.temporaryPassword, username: member.username, isResend: true });
       setShowAddMember(true);
     } else {
       setFeedbackMessage({ text: res.error || 'הנפקת סיסמה חדשה נכשלה', type: 'error' });

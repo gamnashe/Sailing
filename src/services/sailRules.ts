@@ -153,3 +153,15 @@ export function boatBusyMessage(
   const reservation = findReservationConflict(reservations, boat.id, date, startTime, endTime);
   return reservation ? reservationConflictMessage(reservation, boat.name) : null;
 }
+
+// --- Usernames (same rule as the database's _valid_username) ---
+
+export const USERNAME_RULE_TEXT = '3–20 תווים באנגלית (אותיות קטנות), ספרות, נקודה, מקף או קו תחתון';
+
+export function normalizeUsername(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+export function isValidUsername(raw: string): boolean {
+  return /^[a-z0-9][a-z0-9._-]{2,19}$/.test(normalizeUsername(raw));
+}

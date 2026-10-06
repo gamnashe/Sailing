@@ -6,6 +6,8 @@
 //          pending until a manager or assistant approves it
 //   POST { action: 'request_password_help', email }
 //        → a member who forgot their password asks the managers for a new temporary one
+//   POST { action: 'login_with_username', username, password }
+//        → signs in by username and returns the session; the email behind it never leaves the server
 //
 // Platform admin only (profiles.is_platform_admin): opening and configuring clubs. The platform admin
 // does not see members, sails or other data inside other clubs.
@@ -46,6 +48,9 @@ function temporaryPassword(): string {
   return chars.join('')
 }
 
+// Same rule as the database (_valid_username): 3–20 chars, a-z 0-9 . _ -, starting with a letter or digit
+const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,19}$/;
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
@@ -68,6 +73,7 @@ Deno.serve(async (req: Request) => {
     credits?: number;
     code?: string;
     password?: string;
+    username?: string;
     clubId?: string;
     name?: string;
     location?: { name?: string; lat?: number; lon?: number; seaLat?: number | null; seaLon?: number | null };
@@ -100,6 +106,12 @@ Deno.serve(async (req: Request) => {
     if (password.length < 8 || !/[a-zA-Zא-ת]/.test(password) || !/[0-9]/.test(password)) {
       return json({ success: false, message: 'הסיסמה חייבת להכיל לפחות 8 תווים ולשלב אותיות ומספרים' }, 400);
     }
+    const username = (body.username ?? '').trim().toLowerCase();
+    if (!USERNAME_RE.test(username)) {
+      return json({ success: false, message: 'שם משתמש: 3–20 תווים באנגלית (אותיות קטנות), ספרות, נקודה, מקף או קו תחתון' }, 400);
+    }
+    const { data: taken } = await admin.from('profiles').select('id').eq('username', username).maybeSingle();
+    if (taken) return json({ success: false, message: `שם המשתמש "${username}" כבר תפוס. בחר שם אחר.` });
 
     // The sign-up trigger creates the profile as pending and notifies the managers.
     const { error } = await admin.auth.admin.createUser({
@@ -111,6 +123,7 @@ Deno.serve(async (req: Request) => {
         phone,
         experience_level: (body.experienceLevel ?? '').trim() || 'איש צוות מנוסה',
         club_id: invite.club_id,
+        username,
       },
     });
     if (error) {
@@ -163,6 +176,23 @@ Deno.serve(async (req: Request) => {
       );
     }
     return done;
+  }
+
+  if (body.action === 'login_with_username') {
+    const wrong = json({ success: false, message: 'שם משתמש או סיסמה שגויים' });
+    const username = (body.username ?? '').trim().toLowerCase();
+    if (!USERNAME_RE.test(username) || !body.password) return wrong;
+    const { data: profile } = await admin.from('profiles').select('email').eq('username', username).maybeSingle();
+    if (!profile?.email) return wrong;
+    const authClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await authClient.auth.signInWithPassword({ email: profile.email, password: body.password });
+    if (error || !data.session) {
+      if (/rate limit|too many/i.test(error?.message ?? '')) {
+        return json({ success: false, message: 'בוצעו יותר מדי ניסיונות. נסה שוב בעוד מספר דקות' }, 429);
+      }
+      return wrong;
+    }
+    return json({ success: true, access_token: data.session.access_token, refresh_token: data.session.refresh_token });
   }
 
   // Client acting as the caller: RLS and auth.uid() apply.
@@ -271,7 +301,8 @@ Deno.serve(async (req: Request) => {
       .eq('id', data.user.id);
     if (profileError) return json({ success: false, message: profileError.message }, 500);
 
-    return json({ success: true, userId: data.user.id, email, temporaryPassword: password });
+    const { data: created } = await admin.from('profiles').select('username').eq('id', data.user.id).maybeSingle();
+    return json({ success: true, userId: data.user.id, email, username: created?.username, temporaryPassword: password });
   }
 
   if (body.action === 'reset_member_password') {

@@ -260,6 +260,14 @@ AS $$
   SELECT COUNT(*)::INT FROM profiles WHERE role = 'admin' AND status = 'approved';
 $$;
 
+-- שם משתמש: 3–20 תווים, אותיות לועזיות קטנות, ספרות, נקודה, קו תחתון או מקף (בלי @, כדי להבדיל ממייל)
+CREATE OR REPLACE FUNCTION _valid_username(p TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql IMMUTABLE
+AS $$
+  SELECT p IS NOT NULL AND p ~ '^[a-z0-9][a-z0-9._-]{2,19}$';
+$$;
+
 -- ==============================================================================
 -- 4. טריגרים
 -- ==============================================================================
@@ -291,12 +299,17 @@ BEGIN
   LOCK TABLE profiles IN SHARE ROW EXCLUSIVE MODE;
   v_is_first := NOT EXISTS (SELECT 1 FROM profiles);
 
-  v_base_username := lower(split_part(NEW.email, '@', 1));
-  v_username := v_base_username;
-  WHILE EXISTS (SELECT 1 FROM profiles WHERE username = v_username) LOOP
-    v_suffix := v_suffix + 1;
-    v_username := v_base_username || v_suffix;
-  END LOOP;
+  -- שם המשתמש שנבחר בהרשמה (אם תקין ופנוי), אחרת נגזר מהמייל
+  v_username := lower(trim(COALESCE(NEW.raw_user_meta_data->>'username', '')));
+  IF NOT (_valid_username(v_username) AND NOT EXISTS (SELECT 1 FROM profiles WHERE username = v_username)) THEN
+    v_base_username := lower(split_part(NEW.email, '@', 1));
+    v_username := v_base_username;
+    WHILE EXISTS (SELECT 1 FROM profiles WHERE username = v_username) LOOP
+      v_suffix := v_suffix + 1;
+      v_username := v_base_username || v_suffix;
+    END LOOP;
+  END IF;
+  v_base_username := COALESCE(v_base_username, v_username);
 
   v_full_name := COALESCE(NULLIF(trim(NEW.raw_user_meta_data->>'full_name'), ''), v_base_username);
 
@@ -1566,3 +1579,48 @@ ALTER POLICY "credit_requests_select" ON credit_requests
 ALTER POLICY "reservations_select" ON boat_reservations USING (is_approved_member() AND club_id = my_club_id());
 ALTER POLICY "reservations_staff_all" ON boat_reservations
   USING (is_staff() AND club_id = my_club_id()) WITH CHECK (is_staff() AND club_id = my_club_id());
+
+-- ==============================================================================
+-- 15. כניסה עם שם משתמש
+-- ==============================================================================
+-- שם המשתמש ייחודי בכל המערכת (בלי תלות באותיות גדולות/קטנות). כניסה עם שם משתמש מתבצעת בפונקציית
+-- השרת admin-actions, כך שכתובות המייל לא נחשפות לדפדפן.
+
+-- האם שם המשתמש פנוי (לטופס ההצטרפות; מחזיר רק כן/לא)
+CREATE OR REPLACE FUNCTION username_available(p_username TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT _valid_username(lower(trim(p_username)))
+    AND NOT EXISTS (SELECT 1 FROM profiles WHERE username = lower(trim(p_username)));
+$$;
+
+-- המשתמש המחובר משנה את שם המשתמש שלו
+CREATE OR REPLACE FUNCTION set_my_username(p_username TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_new TEXT := lower(trim(COALESCE(p_username, '')));
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'message', 'יש להתחבר תחילה');
+  END IF;
+  IF NOT _valid_username(v_new) THEN
+    RETURN jsonb_build_object('success', false, 'message',
+      'שם משתמש: 3–20 תווים באנגלית (אותיות קטנות), ספרות, נקודה, מקף או קו תחתון');
+  END IF;
+  IF EXISTS (SELECT 1 FROM profiles WHERE username = v_new AND id <> auth.uid()) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'שם המשתמש "' || v_new || '" כבר תפוס. בחר שם אחר.');
+  END IF;
+  UPDATE profiles SET username = v_new WHERE id = auth.uid();
+  RETURN jsonb_build_object('success', true, 'username', v_new);
+EXCEPTION WHEN unique_violation THEN
+  RETURN jsonb_build_object('success', false, 'message', 'שם המשתמש "' || v_new || '" כבר תפוס. בחר שם אחר.');
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION username_available(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION username_available(TEXT) TO anon, authenticated;
+REVOKE EXECUTE ON FUNCTION set_my_username(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION set_my_username(TEXT) TO authenticated;

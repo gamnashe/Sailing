@@ -30,6 +30,9 @@ import {
   mayTakeBoat,
   boatConflictMessage,
   sailUsesBoat,
+  isValidUsername,
+  normalizeUsername,
+  USERNAME_RULE_TEXT,
   findReservationConflict,
   reservationConflictMessage,
 } from './sailRules';
@@ -280,7 +283,8 @@ export class LocalStore implements DataStore {
     fullName: string,
     phone: string,
     experienceLevel: ExperienceLevel,
-    avatar?: string
+    avatar?: string,
+    chosenUsername?: string
   ): Promise<{ success: boolean; error?: string; user?: UserProfile }> {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
@@ -300,7 +304,16 @@ export class LocalStore implements DataStore {
     }
 
     const isFirstUser = this.data.users.length === 0;
-    const username = cleanEmail.split('@')[0];
+    let username = chosenUsername ? normalizeUsername(chosenUsername) : '';
+    if (username && this.data.users.some(u => u.username === username)) {
+      return { success: false, error: `שם המשתמש "${username}" כבר תפוס. בחר שם אחר.` };
+    }
+    if (!username) {
+      // Derived from the email, made unique
+      const base = cleanEmail.split('@')[0].replace(/[^a-z0-9._-]/g, '') || 'sailor';
+      username = base;
+      for (let i = 2; this.data.users.some(u => u.username === username); i++) username = `${base}${i}`;
+    }
 
     const newUser: UserProfile = {
       id: 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
@@ -350,7 +363,33 @@ export class LocalStore implements DataStore {
     if (inviteCode !== (this.data.inviteCode ?? DEFAULT_INVITE_CODE)) {
       return { success: false, error: 'קישור ההצטרפות אינו בתוקף. בקש מהנהלת המועדון קישור חדש.' };
     }
-    return this.register(details.email, details.password, details.fullName, details.phone, details.experienceLevel);
+    if (!isValidUsername(details.username)) return { success: false, error: `שם משתמש: ${USERNAME_RULE_TEXT}` };
+    return this.register(
+      details.email,
+      details.password,
+      details.fullName,
+      details.phone,
+      details.experienceLevel,
+      undefined,
+      details.username
+    );
+  }
+
+  public async isUsernameAvailable(username: string) {
+    const u = normalizeUsername(username);
+    return isValidUsername(u) && !this.data.users.some(x => x.username === u);
+  }
+
+  public async changeUsername(username: string): Promise<Result> {
+    const me = this.getCurrentUser();
+    if (!me) return { success: false, error: 'יש להתחבר תחילה' };
+    const u = normalizeUsername(username);
+    if (!isValidUsername(u)) return { success: false, error: `שם משתמש: ${USERNAME_RULE_TEXT}` };
+    if (this.data.users.some(x => x.username === u && x.id !== me.id)) {
+      return { success: false, error: `שם המשתמש "${u}" כבר תפוס. בחר שם אחר.` };
+    }
+    this.saveData({ ...this.data, users: this.data.users.map(x => (x.id === me.id ? { ...x, username: u } : x)) });
+    return { success: true };
   }
 
   public getInviteCode() {
@@ -410,12 +449,12 @@ export class LocalStore implements DataStore {
     const cleanId = identifier.trim().toLowerCase();
     const user = this.data.users.find(u => u.email === cleanId || u.username === cleanId);
     if (!user) {
-      return { success: false, error: 'כתובת מייל או סיסמה שגויים' };
+      return { success: false, error: 'מייל / שם משתמש או סיסמה שגויים' };
     }
 
     const storedPass = this.data.passwords[user.id] || this.data.passwords[user.username];
     if (storedPass !== password) {
-      return { success: false, error: 'כתובת מייל או סיסמה שגויים' };
+      return { success: false, error: 'מייל / שם משתמש או סיסמה שגויים' };
     }
 
     this.setCurrentUser(user.id);
@@ -502,7 +541,7 @@ export class LocalStore implements DataStore {
       u.id === res.user!.id ? { ...u, status: 'approved' as UserStatus, credits: Math.max(0, member.credits) } : u
     );
     this.saveData({ ...this.data, users });
-    return { success: true, email: res.user.email, temporaryPassword };
+    return { success: true, email: res.user.email, username: res.user.username, temporaryPassword };
   }
 
   public async resetMemberPassword(userId: string) {

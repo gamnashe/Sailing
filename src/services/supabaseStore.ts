@@ -20,7 +20,7 @@ import type {
 } from '../types';
 import type { DataStore, JoinDetails, MessageResult, NewMember, Result } from './dataStore';
 import { DEFAULT_EXPERIENCE_LEVELS, DEFAULT_WEATHER_LOCATION } from '../types';
-import { validatePasswordComplexity } from './sailRules';
+import { validatePasswordComplexity, isValidUsername, normalizeUsername, USERNAME_RULE_TEXT } from './sailRules';
 
 type Row = Record<string, any>;
 
@@ -68,7 +68,7 @@ const emptySnapshot = (settings: ClubSettings = DEFAULT_SETTINGS): Snapshot => (
 /** Translates the Supabase Auth errors users are likely to hit into Hebrew. */
 function authErrorMessage(message: string): string {
   const m = message.toLowerCase();
-  if (m.includes('invalid login credentials')) return 'כתובת מייל או סיסמה שגויים';
+  if (m.includes('invalid login credentials')) return 'מייל / שם משתמש או סיסמה שגויים';
   if (m.includes('email not confirmed')) return 'יש לאשר את כתובת המייל דרך הקישור שנשלח אליך לפני ההתחברות';
   if (m.includes('already registered')) return 'כתובת מייל זו כבר רשומה במערכת';
   if (m.includes('rate limit') || m.includes('too many')) return 'בוצעו יותר מדי ניסיונות. נסה שוב בעוד מספר דקות';
@@ -619,8 +619,15 @@ export class SupabaseStore implements DataStore {
     if (!pwCheck.valid) return { success: false, error: pwCheck.error };
     if (!details.fullName.trim()) return { success: false, error: 'יש להזין שם מלא' };
     if (!details.phone.trim()) return { success: false, error: 'יש להזין מספר טלפון' };
+    if (!isValidUsername(details.username)) return { success: false, error: `שם משתמש: ${USERNAME_RULE_TEXT}` };
 
-    const r = await this.callFunction({ action: 'join_with_invite', code: inviteCode, ...details, email });
+    const r = await this.callFunction({
+      action: 'join_with_invite',
+      code: inviteCode,
+      ...details,
+      email,
+      username: normalizeUsername(details.username),
+    });
     if (!r.success) return { success: false, error: (r.message as string) || 'ההרשמה נכשלה' };
     return this.login(email, details.password);
   }
@@ -641,13 +648,33 @@ export class SupabaseStore implements DataStore {
     return r.success ? { success: true } : { success: false, error: (r.message as string) || 'שליחת הבקשה נכשלה' };
   }
 
+  public async isUsernameAvailable(username: string) {
+    if (!isValidUsername(username)) return false;
+    const { data, error } = await this.sb.rpc('username_available', { p_username: normalizeUsername(username) });
+    return !error && data === true;
+  }
+
+  public async changeUsername(username: string): Promise<Result> {
+    if (!isValidUsername(username)) return { success: false, error: `שם משתמש: ${USERNAME_RULE_TEXT}` };
+    const r = await this.rpc('set_my_username', { p_username: normalizeUsername(username) });
+    return { success: Boolean(r.success), error: r.message };
+  }
+
   public async login(identifier: string, password: string) {
-    const email = identifier.trim().toLowerCase();
-    if (!email.includes('@')) {
-      return { success: false, error: 'יש להתחבר עם כתובת המייל שאיתה נרשמת' };
+    const id = identifier.trim().toLowerCase();
+    if (id.includes('@')) {
+      const { error } = await this.sb.auth.signInWithPassword({ email: id, password });
+      if (error) return { success: false, error: authErrorMessage(error.message) };
+    } else {
+      // Username: the server looks up the account and returns the session (emails stay private)
+      const r = await this.callFunction({ action: 'login_with_username', username: id, password });
+      if (!r.success) return { success: false, error: (r.message as string) || 'שם משתמש או סיסמה שגויים' };
+      const { error } = await this.sb.auth.setSession({
+        access_token: r.access_token as string,
+        refresh_token: r.refresh_token as string,
+      });
+      if (error) return { success: false, error: authErrorMessage(error.message) };
     }
-    const { error } = await this.sb.auth.signInWithPassword({ email, password });
-    if (error) return { success: false, error: authErrorMessage(error.message) };
     await this.refresh();
     const user = this.getCurrentUser();
     return user ? { success: true, user } : { success: false, error: 'לא נמצא פרופיל חבר עבור חשבון זה' };
@@ -717,7 +744,7 @@ export class SupabaseStore implements DataStore {
   public async createMember(member: NewMember) {
     const r = await this.adminAction({ action: 'create_member', ...member });
     return r.success
-      ? { success: true, email: r.email as string, temporaryPassword: r.temporaryPassword as string }
+      ? { success: true, email: r.email as string, username: r.username as string | undefined, temporaryPassword: r.temporaryPassword as string }
       : { success: false, error: (r.message as string) || 'הוספת החבר נכשלה' };
   }
 
