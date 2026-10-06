@@ -45,7 +45,8 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
   const isWaitlisted = userRegistration?.status === 'waitlist';
   const isAdmin = isStaff(currentUser.role);
 
-  const forecast = useForecast();
+  const clubSettings = store.getSettings();
+  const forecast = useForecast(clubSettings.weatherLocation);
   const departureForecast = forecastAt(forecast, sail.date, sail.departureTime);
   const returnForecast = forecastAt(forecast, sail.date, sail.estimatedReturnTime);
 
@@ -244,7 +245,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
             const peakWind = Math.max(departureForecast.wind, returnForecast?.wind ?? 0);
             const peakGust = Math.max(departureForecast.gust, returnForecast?.gust ?? 0);
             const peakWave = Math.max(departureForecast.wave ?? 0, returnForecast?.wave ?? 0) || departureForecast.wave;
-            const cond = CONDITIONS_STYLE[sailingConditions(peakWind, peakGust, peakWave)];
+            const cond = CONDITIONS_STYLE[sailingConditions(peakWind, peakGust, peakWave, clubSettings)];
             const w = weatherLabel(departureForecast.weatherCode);
             return (
               <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-xs space-y-2">

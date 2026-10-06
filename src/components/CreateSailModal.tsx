@@ -7,6 +7,7 @@ import {
   boatBusyMessage,
 } from '../services/store';
 import { UserProfile, Sail, SailType, isStaff } from '../types';
+import { useForecast, forecastAt, sailingConditions, roughReason } from '../services/weather';
 import {
   X,
   Calendar,
@@ -62,6 +63,12 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Weather at the club's spot: rough days need an explicit confirmation before opening a sail
+  const clubSettings = store.getSettings();
+  const forecast = useForecast(clubSettings.weatherLocation);
+  const [roughAck, setRoughAck] = useState(false);
+  useEffect(() => setRoughAck(false), [date]);
+
   // Recalculate duration when departure or return time changes
   useEffect(() => {
     const calc = calculateDurationHours(departureTime, estimatedReturnTime);
@@ -87,6 +94,23 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
       : false;
   const blockReason = busyMessage ?? (permissionProblem || null);
 
+  // Worst conditions over the sail (departure and return hours), or the whole day when hours aren't forecast yet
+  const forecastDay = forecast?.days[date];
+  const hoursAt = [forecastAt(forecast, date, departureTime), forecastAt(forecast, date, estimatedReturnTime)].filter(
+    (h): h is NonNullable<typeof h> => Boolean(h)
+  );
+  const weatherCond = hoursAt.length
+    ? sailingConditions(
+        Math.max(...hoursAt.map((h) => h.wind)),
+        Math.max(...hoursAt.map((h) => h.gust)),
+        Math.max(...hoursAt.map((h) => h.wave ?? 0)) || null,
+        clubSettings
+      )
+    : forecastDay
+    ? sailingConditions(forecastDay.windMax, forecastDay.gustMax, forecastDay.waveMax, clubSettings)
+    : null;
+  const needsRoughAck = weatherCond === 'rough' && !roughAck;
+
   // Credits calculation
   const privateCreditCost = calculatePrivateSailCredits(durationHours);
   const userCredits = currentUser.credits ?? 5;
@@ -98,6 +122,10 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
 
     if (blockReason) {
       setErrorMsg(blockReason);
+      return;
+    }
+    if (needsRoughAck) {
+      setErrorMsg('צפוי ים סוער ביום הזה. סמן שראית את התחזית כדי לפתוח בכל זאת.');
       return;
     }
 
@@ -386,6 +414,29 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
             </div>
           </div>
 
+          {weatherCond === 'rough' && forecastDay && (
+            <div role="alert" className="p-3 rounded-xl bg-rose-600 text-white text-xs space-y-2">
+              <p className="font-black text-sm">⛈️ צפוי ים סוער – לא מומלץ לפתוח הפלגה</p>
+              <p className="opacity-95">
+                {roughReason(forecastDay, clubSettings) || 'רוח וגלים מעל הסף שקבע המועדון'} ({clubSettings.weatherLocation.name}).
+              </p>
+              <label className="flex items-center gap-2 bg-white/15 rounded-lg p-2 cursor-pointer font-bold">
+                <input
+                  type="checkbox"
+                  checked={roughAck}
+                  onChange={(e) => setRoughAck(e.target.checked)}
+                  className="w-4 h-4 accent-white cursor-pointer"
+                />
+                ראיתי את התחזית ובכל זאת אני פותח/ת את ההפלגה
+              </label>
+            </div>
+          )}
+          {weatherCond === 'caution' && (
+            <p className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+              💨 רוח/ים ערים בשעות האלה – מתאים לשייטים מנוסים.
+            </p>
+          )}
+
           {blockReason && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -457,9 +508,9 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
           <div className="pt-2">
             <button
               type="submit"
-              disabled={(sailType === 'private' && !canAffordPrivate) || Boolean(blockReason)}
+              disabled={(sailType === 'private' && !canAffordPrivate) || Boolean(blockReason) || needsRoughAck}
               className={`w-full font-bold py-3 rounded-xl transition shadow-md cursor-pointer text-sm flex items-center justify-center gap-2 ${
-                (sailType === 'private' && !canAffordPrivate) || blockReason
+                (sailType === 'private' && !canAffordPrivate) || blockReason || needsRoughAck
                   ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   : 'bg-sky-600 hover:bg-sky-700 text-white shadow-sky-600/20 active:scale-98'
               }`}

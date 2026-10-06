@@ -4,6 +4,8 @@ import { InviteLinkCard } from './InviteLinkCard';
 import { CreditRequestsList } from './CreditRequestsList';
 import { BoatReservationsList } from './BoatReservationsList';
 import { QualificationLevelsEditor } from './QualificationLevelsEditor';
+import { WeatherSettings } from './WeatherSettings';
+import { TutorialVideosButton } from './TutorialVideos';
 import { BoatPermissionsEditor } from './BoatPermissionsEditor';
 import { UserProfile, UserRole, ClubSettings, Boat, BoatStatus, Sail, ExperienceLevel, levelOptions, ROLE_LABELS } from '../types';
 import {
@@ -448,6 +450,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0 }) 
           </button>
         </div>
       </div>
+
+      <TutorialVideosButton staff />
 
       {/* Feedback banner */}
       {feedbackMessage && (
@@ -1019,6 +1023,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0 }) 
           </div>
         </form>
 
+        <WeatherSettings />
         <QualificationLevelsEditor />
         </div>
       )}

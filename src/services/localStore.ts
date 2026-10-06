@@ -21,7 +21,7 @@ import {
   NotificationType,
   BoatReservation,
 } from '../types';
-import { DEFAULT_EXPERIENCE_LEVELS, isStaff } from '../types';
+import { DEFAULT_EXPERIENCE_LEVELS, DEFAULT_WEATHER_LOCATION, isStaff } from '../types';
 import type { DataStore, JoinDetails, NewMember, Result } from './dataStore';
 import {
   validatePasswordComplexity,
@@ -65,6 +65,9 @@ const INITIAL_SETTINGS: ClubSettings = {
   whoCanCreateSails: 'all_members',
   cancellationDeadlineHours: 12,
   experienceLevels: DEFAULT_EXPERIENCE_LEVELS,
+  weatherLocation: DEFAULT_WEATHER_LOCATION,
+  roughWindKn: 25,
+  roughWaveM: 2.5,
 };
 
 // Clean initial admin user

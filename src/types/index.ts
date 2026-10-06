@@ -250,7 +250,42 @@ export interface ClubSettings {
   cancellationDeadlineHours: number;
   /** Qualification levels the club offers, highest first. */
   experienceLevels: ExperienceLevel[];
+  /** Where the forecast is taken from (set by the management). */
+  weatherLocation: WeatherLocation;
+  /** From this wind (knots) or wave height (metres) a day counts as rough and is flagged in the calendar. */
+  roughWindKn: number;
+  roughWaveM: number;
 }
+
+export interface WeatherLocation {
+  name: string;
+  lat: number;
+  lon: number;
+  /** A point just offshore for the wave forecast; defaults to lat/lon. */
+  seaLat?: number;
+  seaLon?: number;
+}
+
+export const DEFAULT_WEATHER_LOCATION: WeatherLocation = {
+  name: 'מרינה הרצליה',
+  lat: 32.163,
+  lon: 34.792,
+  seaLat: 32.165,
+  seaLon: 34.77,
+};
+
+/** Common sailing spots in Israel, each with an offshore point for waves. */
+export const WEATHER_PRESETS: WeatherLocation[] = [
+  DEFAULT_WEATHER_LOCATION,
+  { name: 'מרינה תל אביב', lat: 32.087, lon: 34.771, seaLat: 32.087, seaLon: 34.755 },
+  { name: 'נמל יפו', lat: 32.053, lon: 34.75, seaLat: 32.055, seaLon: 34.735 },
+  { name: 'מרינה אשדוד', lat: 31.799, lon: 34.637, seaLat: 31.805, seaLon: 34.615 },
+  { name: 'מרינה אשקלון', lat: 31.681, lon: 34.556, seaLat: 31.685, seaLon: 34.535 },
+  { name: 'מרינה חיפה (קישון)', lat: 32.81, lon: 35.03, seaLat: 32.83, seaLon: 35.0 },
+  { name: 'מרינה עכו', lat: 32.92, lon: 35.068, seaLat: 32.92, seaLon: 35.05 },
+  { name: 'מרינה אילת', lat: 29.547, lon: 34.959, seaLat: 29.535, seaLon: 34.955 },
+  { name: 'כנרת – טבריה', lat: 32.79, lon: 35.545 },
+];
 
 export interface PasswordResetToken {
   token: string;

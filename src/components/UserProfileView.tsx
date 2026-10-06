@@ -4,6 +4,7 @@ import { UserProfile, ExperienceLevel, levelOptions, ROLE_LABELS, isStaff } from
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { CreditRequestCard } from './CreditRequestCard';
 import { AvatarPicker } from './AvatarPicker';
+import { TutorialVideosButton } from './TutorialVideos';
 import {
   User,
   Phone,
@@ -144,6 +145,8 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
       </div>
 
       {user.role !== 'admin' && <CreditRequestCard />}
+
+      <TutorialVideosButton staff={isStaff(user.role)} />
 
       {/* Edit Details Form */}
       <form onSubmit={handleSaveProfile} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">

@@ -16,7 +16,7 @@ import type {
   BoatReservation,
 } from '../types';
 import type { DataStore, JoinDetails, MessageResult, NewMember, Result } from './dataStore';
-import { DEFAULT_EXPERIENCE_LEVELS } from '../types';
+import { DEFAULT_EXPERIENCE_LEVELS, DEFAULT_WEATHER_LOCATION } from '../types';
 import { validatePasswordComplexity } from './sailRules';
 
 type Row = Record<string, any>;
@@ -43,6 +43,9 @@ const DEFAULT_SETTINGS: ClubSettings = {
   whoCanCreateSails: 'all_members',
   cancellationDeadlineHours: 12,
   experienceLevels: DEFAULT_EXPERIENCE_LEVELS,
+  weatherLocation: DEFAULT_WEATHER_LOCATION,
+  roughWindKn: 25,
+  roughWaveM: 2.5,
 };
 
 const emptySnapshot = (settings: ClubSettings = DEFAULT_SETTINGS): Snapshot => ({
@@ -81,6 +84,18 @@ function mapSettings(r: Row): ClubSettings {
     whoCanCreateSails: r.who_can_create_sails,
     cancellationDeadlineHours: r.cancellation_deadline_hours,
     experienceLevels: r.experience_levels?.length ? r.experience_levels : DEFAULT_EXPERIENCE_LEVELS,
+    weatherLocation:
+      r.weather_lat != null && r.weather_lon != null
+        ? {
+            name: r.weather_location_name || 'מיקום המועדון',
+            lat: Number(r.weather_lat),
+            lon: Number(r.weather_lon),
+            seaLat: r.weather_sea_lat != null ? Number(r.weather_sea_lat) : undefined,
+            seaLon: r.weather_sea_lon != null ? Number(r.weather_sea_lon) : undefined,
+          }
+        : DEFAULT_WEATHER_LOCATION,
+    roughWindKn: r.rough_wind_kn != null ? Number(r.rough_wind_kn) : 25,
+    roughWaveM: r.rough_wave_m != null ? Number(r.rough_wave_m) : 2.5,
   };
 }
 
@@ -934,6 +949,15 @@ export class SupabaseStore implements DataStore {
     if (settings.whoCanCreateSails !== undefined) row.who_can_create_sails = settings.whoCanCreateSails;
     if (settings.cancellationDeadlineHours !== undefined) row.cancellation_deadline_hours = settings.cancellationDeadlineHours;
     if (settings.experienceLevels !== undefined) row.experience_levels = settings.experienceLevels;
+    if (settings.weatherLocation !== undefined) {
+      row.weather_location_name = settings.weatherLocation.name;
+      row.weather_lat = settings.weatherLocation.lat;
+      row.weather_lon = settings.weatherLocation.lon;
+      row.weather_sea_lat = settings.weatherLocation.seaLat ?? null;
+      row.weather_sea_lon = settings.weatherLocation.seaLon ?? null;
+    }
+    if (settings.roughWindKn !== undefined) row.rough_wind_kn = settings.roughWindKn;
+    if (settings.roughWaveM !== undefined) row.rough_wave_m = settings.roughWaveM;
     await this.write(this.sb.from('club_settings').update(row).eq('id', 1));
   }
 

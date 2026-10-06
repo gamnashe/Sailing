@@ -38,6 +38,14 @@ CREATE TABLE club_settings (
     'משיט 60 (סקיפר בינלאומי)', 'משיט 30 (סקיפר חופי)', 'משיט 40 (סקיפר מסחרי)',
     'איש צוות מנוסה', 'סקיפר מתלמד', 'חובב / מתחיל'
   ],
+  -- מיקום תחזית מזג האוויר (נקודת הים לגלים: מעט מהחוף) וספי "ים סוער" לסימון ביומן
+  weather_location_name TEXT NOT NULL DEFAULT 'מרינה הרצליה',
+  weather_lat NUMERIC(8,5) NOT NULL DEFAULT 32.163,
+  weather_lon NUMERIC(8,5) NOT NULL DEFAULT 34.792,
+  weather_sea_lat NUMERIC(8,5) DEFAULT 32.165,
+  weather_sea_lon NUMERIC(8,5) DEFAULT 34.77,
+  rough_wind_kn INT NOT NULL DEFAULT 25 CHECK (rough_wind_kn BETWEEN 8 AND 60),
+  rough_wave_m NUMERIC(3,1) NOT NULL DEFAULT 2.5 CHECK (rough_wave_m BETWEEN 0.5 AND 6),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT single_row_settings CHECK (id = 1)
 );

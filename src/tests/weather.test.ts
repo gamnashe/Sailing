@@ -2,7 +2,7 @@
  * Forecast parsing and sailing-condition rules.
  * Run via: bun run test (or npx tsx src/tests/weather.test.ts)
  */
-import { parseForecast, forecastAt, sailingConditions, windFrom, weatherLabel } from '../services/weather';
+import { parseForecast, forecastAt, sailingConditions, windFrom, weatherLabel, roughReason } from '../services/weather';
 
 let failures = 0;
 function assert(condition: unknown, message: string) {
@@ -54,6 +54,14 @@ assert(sailingConditions(19, 22, 0.8) === 'caution', '19 kn needs experience');
 assert(sailingConditions(12, 18, 1.6) === 'caution', '1.6 m waves need experience');
 assert(sailingConditions(26, 30, 1) === 'rough', '26 kn is rough');
 assert(sailingConditions(10, 12, 2.6) === 'rough', '2.6 m waves are rough');
+// The club sets its own limits
+const strict = { roughWindKn: 18, roughWaveM: 1.5 };
+assert(sailingConditions(19, 22, 0.8, strict) === 'rough', 'a stricter club limit makes 19 kn rough');
+assert(sailingConditions(12, 15, 0.9, strict) === 'caution', 'caution starts 7 kn / 1 m below the limit');
+assert(sailingConditions(9, 12, 0.4, strict) === 'good', 'light wind stays good under strict limits');
+const stormy = { date: '2026-01-01', weatherCode: 61, tempMax: 15, windMax: 28, gustMax: 38, windDir: 270, waveMax: 3.1 };
+assert(/28 קשר/.test(roughReason(stormy)) && /3.1/.test(roughReason(stormy)), 'rough reason names wind and waves');
+assert(roughReason({ ...stormy, windMax: 10, gustMax: 14 }) === "גלים עד 3.1 מ'", 'only the waves when the wind is fine');
 
 assert(windFrom(0) === 'צ' && windFrom(270) === 'מע' && windFrom(290) === 'מע' && windFrom(359) === 'צ', 'compass points');
 assert(weatherLabel(0).label === 'בהיר' && weatherLabel(63).label === 'גשם' && weatherLabel(95).icon === '⛈️', 'weather codes');
