@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { store, validatePasswordComplexity } from '../services/store';
+import { store, validatePasswordComplexity, isValidUsername, normalizeUsername, USERNAME_RULE_TEXT } from '../services/store';
 import { UserProfile, ExperienceLevel } from '../types';
 import { AvatarPicker } from './AvatarPicker';
 import {
@@ -51,6 +51,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [helpRequested, setHelpRequested] = useState(false);
+
   // The club the invite link belongs to (every club has its own link)
   const [inviteClub, setInviteClub] = useState<string | null>(null);
   useEffect(() => {
@@ -70,6 +71,28 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  // null = not checked yet; checked as the member types (sign-up only)
+  const [usernameFree, setUsernameFree] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (mode !== 'register' || !username) {
+      setUsernameFree(null);
+      return;
+    }
+    if (!isValidUsername(username)) {
+      setUsernameFree(false);
+      return;
+    }
+    setUsernameFree(null);
+    let alive = true;
+    const t = setTimeout(() => {
+      store.isUsernameAvailable(username).then((ok) => alive && setUsernameFree(ok));
+    }, 400);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [username, mode]);
   const [phone, setPhone] = useState('');
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>(() => store.getSettings().experienceLevels[1] ?? store.getSettings().experienceLevels[0] ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +131,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
       if (res.success && res.user) {
         onSuccess(res.user);
       } else {
-        setError(res.error || 'שגיאה בהתחברות. ודא שכתובת המייל והסיסמה נכונים.');
+        setError(res.error || 'שגיאה בהתחברות. ודא שהמייל / שם המשתמש והסיסמה נכונים.');
       }
     } else if (mode === 'register') {
       if (!inviteCode) return;
@@ -117,7 +140,15 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
         setError(pwCheck.error || 'הסיסמה אינה עומדת בדרישות האבטחה');
         return;
       }
-      const res = await store.joinWithInvite(inviteCode, { email, password, fullName, phone, experienceLevel });
+      if (!isValidUsername(username)) {
+        setError(`שם משתמש: ${USERNAME_RULE_TEXT}`);
+        return;
+      }
+      if (usernameFree === false) {
+        setError(`שם המשתמש "${normalizeUsername(username)}" כבר תפוס. בחר שם אחר.`);
+        return;
+      }
+      const res = await store.joinWithInvite(inviteCode, { username, email, password, fullName, phone, experienceLevel });
       if (res.success && res.user) {
         // The account exists either way; a failed photo upload can be retried from the profile screen
         if (avatarDraft) await store.setMyAvatar(avatarDraft).catch(() => undefined);
@@ -508,18 +539,71 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                 </>
               )}
 
+              {mode === 'register' && (
+                <div>
+                  <label htmlFor="join-username" className="block text-xs font-semibold text-slate-700 mb-1">
+                    שם משתמש לכניסה *
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="join-username"
+                      type="text"
+                      required
+                      dir="ltr"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      autoComplete="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
+                      placeholder="למשל: dani.cohen"
+                      aria-describedby="join-username-hint"
+                      className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 font-medium text-left ${
+                        usernameFree === false ? 'border-rose-300' : usernameFree ? 'border-emerald-300' : 'border-slate-200'
+                      }`}
+                    />
+                    <User className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+                  </div>
+                  <p id="join-username-hint" className="text-[0.6875rem] mt-1" aria-live="polite">
+                    {!username ? (
+                      <span className="text-slate-500">{USERNAME_RULE_TEXT}. תוכל/י להיכנס איתו או עם המייל.</span>
+                    ) : !isValidUsername(username) ? (
+                      <span className="text-rose-700">{USERNAME_RULE_TEXT}</span>
+                    ) : usernameFree === null ? (
+                      <span className="text-slate-500">בודק זמינות...</span>
+                    ) : usernameFree ? (
+                      <span className="text-emerald-700 font-semibold">✓ "{normalizeUsername(username)}" פנוי</span>
+                    ) : (
+                      <span className="text-rose-700 font-semibold">✗ "{normalizeUsername(username)}" כבר תפוס – בחר/י שם אחר</span>
+                    )}
+                  </p>
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">כתובת מייל *</label>
+                <label htmlFor="auth-identifier" className="block text-xs font-semibold text-slate-700 mb-1">
+                  {mode === 'login' ? 'מייל או שם משתמש *' : 'כתובת מייל *'}
+                </label>
                 <div className="relative">
                   <input
-                    type="email"
+                    id="auth-identifier"
+                    type={mode === 'login' ? 'text' : 'email'}
                     required
+                    dir="ltr"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete={mode === 'login' ? 'username' : 'email'}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your-email@example.com"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 font-medium"
+                    placeholder={mode === 'login' ? 'name@example.com או dani.cohen' : 'your-email@example.com'}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 font-medium text-left"
                   />
-                  <Mail className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+                  {mode === 'login' ? (
+                    <User className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+                  ) : (
+                    <Mail className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+                  )}
                 </div>
               </div>
 
@@ -530,7 +614,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                     <button
                       type="button"
                       onClick={() => {
-                        setResetEmail(email);
+                        setResetEmail(email.includes('@') ? email : '');
                         setMode('forgot_password');
                         setError(null);
                       }}
@@ -579,7 +663,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
 
               <button
                 type="submit"
-                disabled={busy || (mode === 'register' && !isComplex)}
+                disabled={busy || (mode === 'register' && (!isComplex || usernameFree === false || !isValidUsername(username)))}
                 className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-sky-600/20 active:scale-98 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {mode === 'login' ? 'התחבר למערכת' : busy ? 'נרשם...' : 'שלח בקשת הצטרפות'}

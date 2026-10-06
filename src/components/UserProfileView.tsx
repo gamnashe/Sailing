@@ -4,6 +4,7 @@ import { UserProfile, ExperienceLevel, levelOptions, ROLE_LABELS, isStaff } from
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { CreditRequestCard } from './CreditRequestCard';
 import { AvatarPicker } from './AvatarPicker';
+import { UsernameForm } from './UsernameForm';
 import { TutorialVideosButton } from './TutorialVideos';
 import {
   User,
@@ -209,6 +210,8 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
       </form>
 
       {/* Change password */}
+      <UsernameForm current={user.username} />
+
       <form onSubmit={handleChangePassword} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
         <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
           <KeyRound className="w-4 h-4 text-sky-600" />

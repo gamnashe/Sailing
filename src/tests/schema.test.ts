@@ -527,6 +527,24 @@ async function run() {
   assert(await fails(shira, 'UPDATE profiles SET club_id = $1 WHERE id = $2', [clubA, shira]), 'members cannot move themselves to another club');
   assert(await fails(avi, 'UPDATE profiles SET is_platform_admin = TRUE WHERE id = $1', [avi]), 'nobody can make themselves a platform admin');
 
+  // --- Usernames ---
+  const chosen = await signUp('maya@club.co.il', { full_name: 'מאיה', username: 'Maya.Sails' });
+  assert((await db.query<any>('SELECT username FROM profiles WHERE id = $1', [chosen])).rows[0].username === 'maya.sails', 'the chosen username is kept (lowercased)');
+  const clash = await signUp('maya2@other.com', { username: 'maya.sails' });
+  assert((await db.query<any>('SELECT username FROM profiles WHERE id = $1', [clash])).rows[0].username === 'maya2', 'a taken username falls back to one from the email');
+  const anonCheck = async (u: string) =>
+    db.transaction(async (tx) => {
+      await tx.query('SET LOCAL ROLE anon');
+      return (await tx.query<any>('SELECT username_available($1) AS ok', [u])).rows[0].ok;
+    });
+  assert((await anonCheck('MAYA.SAILS')) === false, 'a taken username is reported as taken (any case)');
+  assert((await anonCheck('new.sailor')) === true, 'a free username is reported as free');
+  assert((await anonCheck('a@b')) === false && (await anonCheck('ab')) === false, 'invalid usernames are not available');
+  assert((await rpc(dana, 'set_my_username($1)', ['maya.sails'])).success === false, "a member can't take someone else's username");
+  const renamedU = await rpc(dana, 'set_my_username($1)', ['Dana_L']);
+  assert(renamedU.success && renamedU.username === 'dana_l', 'a member changes their own username');
+  assert((await rpc(dana, 'set_my_username($1)', ['x y'])).success === false, 'usernames with spaces are refused');
+
   // --- Notifications privacy ---
   const visible = await as(dana, (tx) => tx.query<any>('SELECT user_id FROM notifications'));
   assert(

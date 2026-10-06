@@ -26,6 +26,8 @@ export type NewMember = {
 };
 
 export type JoinDetails = {
+  /** Chosen at sign-up; members sign in with it or with their email. */
+  username: string;
   email: string;
   password: string;
   fullName: string;
@@ -81,6 +83,11 @@ export interface DataStore {
   getInviteCode(): string | null;
   /** Replaces the invite code, so links sent earlier stop working. */
   regenerateInviteCode(): Promise<Result>;
+  /** Whether a username is valid and not taken (for the join form). */
+  isUsernameAvailable(username: string): Promise<boolean>;
+  /** The signed-in user changes their username. */
+  changeUsername(username: string): Promise<Result>;
+  /** Signs in with an email address or a username. */
   login(identifier: string, password: string): Promise<{ success: boolean; error?: string; user?: UserProfile }>;
   logout(): Promise<void>;
   /** In demo mode returns the "emailed" code and link so the UI can display them. */
@@ -99,7 +106,7 @@ export interface DataStore {
    * Admin adds a member directly: an approved account with a temporary password the admin hands over.
    * No email is involved.
    */
-  createMember(member: NewMember): Promise<{ success: boolean; error?: string; email?: string; temporaryPassword?: string }>;
+  createMember(member: NewMember): Promise<{ success: boolean; error?: string; email?: string; username?: string; temporaryPassword?: string }>;
   /** Admin issues a member a new temporary password, to resend their login details. */
   resetMemberPassword(userId: string): Promise<{ success: boolean; error?: string; email?: string; temporaryPassword?: string }>;
   deleteUser(userId: string): Promise<Result>;
