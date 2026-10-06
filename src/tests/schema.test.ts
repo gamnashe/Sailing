@@ -455,6 +455,78 @@ async function run() {
   const staffDeletes = await as(rina, (tx) => tx.query('DELETE FROM boat_reservations WHERE id = $1', [lesson.id]));
   assert(staffDeletes.affectedRows === 1, 'staff remove a reservation');
 
+  // --- Multiple clubs: a second club is fully separate (state: tomer admin, dana member of club A) ---
+  const clubA = (await db.query<any>('SELECT club_id FROM profiles WHERE id = $1', [tomer])).rows[0].club_id;
+  const clubB = (await db.query<any>(`INSERT INTO clubs (name) VALUES ('מועדון אילת') RETURNING id`)).rows[0].id;
+  await db.query(`INSERT INTO club_settings (club_id, club_name) VALUES ($1, 'מועדון אילת')`, [clubB]);
+  await db.query(`INSERT INTO club_invite (club_id, code) VALUES ($1, 'eilat-invite-code')`, [clubB]);
+  const notifsBefore = await notificationCount(tomer);
+  const avi = await signUp('avi@eilat.co.il', { full_name: 'אבי', club_id: clubB });
+  await db.query(`UPDATE profiles SET role = 'admin', status = 'approved' WHERE id = $1`, [avi]);
+  const aviClub = (await db.query<any>('SELECT club_id FROM profiles WHERE id = $1', [avi])).rows[0].club_id;
+  assert(aviClub === clubB, 'a user created for a new club belongs to it');
+  assert((await notificationCount(tomer)) === notifsBefore, "club A's admin is not told about club B's sign-ups");
+  const shira = await signUp('shira@eilat.co.il', { full_name: 'שירה', club_id: clubB });
+  assert((await notificationCount(avi, 'member_request')) === 1, "club B's admin is told about club B's sign-ups");
+  const bogus = await signUp('bogus@x.com', { club_id: 'not-a-uuid' });
+  const bogusClub = (await db.query<any>('SELECT club_id FROM profiles WHERE id = $1', [bogus])).rows[0].club_id;
+  assert(bogusClub === clubA, 'an invalid club in the sign-up data falls back to the first club');
+
+  const aviSeesProfiles = await as(avi, (tx) => tx.query<any>('SELECT id FROM profiles'));
+  assert(aviSeesProfiles.rows.every((r: any) => [avi, shira].includes(r.id)), "club B's admin sees only club B's members");
+  const aviSeesSails = await as(avi, (tx) => tx.query<any>('SELECT id FROM sails'));
+  assert(aviSeesSails.rows.length === 0, "club B sees none of club A's sails");
+  const aviSeesBoats = await as(avi, (tx) => tx.query<any>('SELECT id FROM boats'));
+  assert(aviSeesBoats.rows.length === 0, "club B sees none of club A's boats");
+  const aSail = (await db.query<any>(`SELECT id FROM sails WHERE club_id = $1 AND status = 'open' LIMIT 1`, [clubA])).rows[0].id;
+
+  assert((await rpc(avi, 'approve_member($1)', [lior])).success === false, "club B's admin cannot approve club A's members");
+  assert((await rpc(avi, 'update_member_credits($1, $2)', [dana, 50])).success === false, "club B's admin cannot give club A's members credits");
+  assert((await rpc(avi, `set_member_role($1, 'admin')`, [dana])).success === false, "club B's admin cannot change club A's roles");
+  await rpc(avi, 'approve_member($1)', [shira]);
+  assert((await rpc(shira, 'join_sail($1)', [aSail])).success === false, "club B's member cannot join club A's sail");
+  assert((await rpc(tomer, 'add_participant($1, $2)', [aSail, shira])).success === false, "club A's admin cannot add club B's member to a sail");
+
+  const boatB = await as(avi, (tx) => tx.query<any>(`INSERT INTO boats (name, model) VALUES ('שחף', 'Bavaria 34') RETURNING id, club_id`));
+  assert(boatB.rows[0].club_id === clubB, "a boat club B's admin adds belongs to club B");
+  const danaSeesB = await as(dana, (tx) => tx.query<any>('SELECT id FROM boats WHERE id = $1', [boatB.rows[0].id]));
+  assert(danaSeesB.rows.length === 0, "club A can't see club B's boat");
+  const danaNotifs = await notificationCount(dana);
+  const sailB = await rpc(avi, 'create_sail($1::jsonb)', [
+    JSON.stringify({ title: 'שייט באילת', sailType: 'club', date: '2098-01-01', departureTime: '10:00', estimatedReturnTime: '13:00', boatId: boatB.rows[0].id, boatName: 'שחף', skipperName: 'אבי', skipperId: avi, departurePoint: 'מרינה אילת' }),
+  ]);
+  assert(sailB.success, "club B's admin opens a sail on club B's boat");
+  assert((await notificationCount(dana)) === danaNotifs, "club A's members are not told about club B's sails");
+  assert((await notificationCount(shira, 'new_sail')) === 1, "club B's members are told about club B's sails");
+  const crossBoat = await rpc(avi, 'create_sail($1::jsonb)', [
+    JSON.stringify({ title: 'x', sailType: 'club', date: '2098-01-02', departureTime: '10:00', estimatedReturnTime: '13:00', boatId: galitId, boatName: 'גלית', skipperName: 'אבי', skipperId: avi, departurePoint: 'x' }),
+  ]);
+  const crossSail = crossBoat.success
+    ? (await db.query<any>('SELECT boat_id FROM sails WHERE id = $1', [crossBoat.sail_id])).rows[0]
+    : null;
+  assert(!crossSail || crossSail.boat_id === null, "club B cannot book club A's boat");
+  assert(
+    (await rpc(avi, 'create_sail($1::jsonb)', [JSON.stringify({ title: 'y', sailType: 'club', date: '2098-01-03', departureTime: '10:00', estimatedReturnTime: '13:00', boatId: boatB.rows[0].id, boatName: 'שחף', skipperName: 'דנה', skipperId: dana, departurePoint: 'x' })])).success === false,
+    'a skipper from another club is refused'
+  );
+
+  const updA = await as(avi, (tx) => tx.query(`UPDATE club_settings SET club_name = 'נחטף' WHERE club_id = $1`, [clubA]));
+  assert(updA.affectedRows === 0, "club B's admin cannot change club A's settings");
+  const codeA = (await db.query<any>('SELECT code FROM club_invite WHERE club_id = $1', [clubA])).rows[0].code;
+  await rpc(avi, 'regenerate_invite_code()');
+  assert((await db.query<any>('SELECT code FROM club_invite WHERE club_id = $1', [clubA])).rows[0].code === codeA, "a new invite link in club B leaves club A's link alone");
+  const aviSeesInvites = await as(avi, (tx) => tx.query<any>('SELECT club_id FROM club_invite'));
+  assert(aviSeesInvites.rows.length === 1 && aviSeesInvites.rows[0].club_id === clubB, "staff see only their own club's invite");
+  const codeB = (await db.query<any>('SELECT code FROM club_invite WHERE club_id = $1', [clubB])).rows[0].code;
+  const bName = await db.transaction(async (tx) => {
+    await tx.query('SET LOCAL ROLE anon');
+    const code = codeB;
+    return (await tx.query<any>('SELECT invite_club_name($1) AS n', [code])).rows[0].n;
+  });
+  assert(bName === 'מועדון אילת', 'the join form can show the club name for an invite code');
+  assert(await fails(shira, 'UPDATE profiles SET club_id = $1 WHERE id = $2', [clubA, shira]), 'members cannot move themselves to another club');
+  assert(await fails(avi, 'UPDATE profiles SET is_platform_admin = TRUE WHERE id = $1', [avi]), 'nobody can make themselves a platform admin');
+
   // --- Notifications privacy ---
   const visible = await as(dana, (tx) => tx.query<any>('SELECT user_id FROM notifications'));
   assert(

@@ -20,6 +20,7 @@ import {
   CreditRequest,
   NotificationType,
   BoatReservation,
+  ClubSummary,
 } from '../types';
 import { DEFAULT_EXPERIENCE_LEVELS, DEFAULT_WEATHER_LOCATION, isStaff } from '../types';
 import type { DataStore, JoinDetails, NewMember, Result } from './dataStore';
@@ -84,6 +85,7 @@ const INITIAL_USERS: UserProfile[] = [
     status: 'approved',
     joinedAt: '2025-01-01T10:00:00.000Z',
     credits: 20,
+    isPlatformAdmin: true,
   }
 ];
 
@@ -1213,6 +1215,49 @@ export class LocalStore implements DataStore {
   public async getStaffTutorialUrl() {
     // The management video lives in the club's private Supabase storage; not available in demo mode
     return null;
+  }
+
+  public async inviteClubName(code: string) {
+    return code === (this.data.inviteCode ?? DEFAULT_INVITE_CODE) ? this.getSettings().clubName : null;
+  }
+
+  // --- Clubs: demo mode has a single club ---
+  private static readonly NO_CLUBS = 'פתיחת מועדונים נוספים זמינה רק במערכת המחוברת (לא במצב הדגמה)';
+
+  public async listClubs() {
+    const me = this.getCurrentUser();
+    if (!me?.isPlatformAdmin) return { success: false, error: 'פעולה זו מותרת למנהל המערכת בלבד' };
+    const club: ClubSummary = {
+      id: 'demo-club',
+      name: this.getSettings().clubName,
+      createdAt: '2025-01-01T00:00:00Z',
+      location: this.getSettings().weatherLocation,
+      memberCount: this.data.users.filter(u => u.status === 'approved').length,
+      admins: this.data.users
+        .filter(u => u.role === 'admin' && u.status === 'approved')
+        .map(u => ({ id: u.id, fullName: u.fullName, email: u.email })),
+    };
+    return { success: true, clubs: [club] };
+  }
+
+  public async createClub() {
+    return { success: false, error: LocalStore.NO_CLUBS };
+  }
+
+  public async updateClub(_clubId: string, changes: { name?: string; location?: ClubSettings['weatherLocation'] }): Promise<Result> {
+    await this.updateSettings({
+      ...(changes.name ? { clubName: changes.name } : {}),
+      ...(changes.location ? { weatherLocation: changes.location } : {}),
+    });
+    return { success: true };
+  }
+
+  public async addClubAdmin() {
+    return { success: false, error: LocalStore.NO_CLUBS };
+  }
+
+  public async resetClubAdminPassword(_clubId: string, userId: string) {
+    return this.resetMemberPassword(userId);
   }
 
   // --- Credit requests ---

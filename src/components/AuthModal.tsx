@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { store, validatePasswordComplexity } from '../services/store';
 import { UserProfile, ExperienceLevel } from '../types';
 import { AvatarPicker } from './AvatarPicker';
@@ -51,6 +51,18 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [helpRequested, setHelpRequested] = useState(false);
+  // The club the invite link belongs to (every club has its own link)
+  const [inviteClub, setInviteClub] = useState<string | null>(null);
+  useEffect(() => {
+    if (!inviteCode) return;
+    let alive = true;
+    store.inviteClubName(inviteCode).then((n) => alive && setInviteClub(n));
+    return () => {
+      alive = false;
+    };
+  }, [inviteCode]);
+  const clubTitle = inviteClub ?? store.getSettings().clubName;
+
   // Optional photo chosen in the join form; saved right after the account is created
   const [avatarDraft, setAvatarDraft] = useState<string | null>(null);
   // Arrived via the emailed recovery link: Supabase already verified it, so no code is needed.
@@ -209,7 +221,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
           <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
             <Anchor className="w-8 h-8 text-sky-400" />
           </div>
-          <h2 className="text-xl font-black">מועדון שייט גלי ים</h2>
+          <h2 className="text-xl font-black">{mode === 'register' && inviteCode ? clubTitle : isDemo ? store.getSettings().clubName : 'מועדוני שייט'}</h2>
           <p className="text-xs text-sky-200 mt-1">
             {mode === 'login' && 'התחברות לחשבון חבר מועדון'}
             {mode === 'register' && (inviteCode ? 'הצטרפות למועדון – פחות מדקה' : 'הרשמה לחברות במועדון השייט')}
@@ -423,7 +435,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
 
           {mode === 'register' && inviteCode && (
             <p className="text-xs text-slate-600 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-              👋 הוזמנת להצטרף ל<strong>{store.getSettings().clubName}</strong>. ממלאים פרטים, ואחרי שמנהל יאשר אותך אפשר
+              👋 הוזמנת להצטרף ל<strong>{clubTitle}</strong>. ממלאים פרטים, ואחרי שמנהל יאשר אותך אפשר
               להתחיל להפליג.
             </p>
           )}

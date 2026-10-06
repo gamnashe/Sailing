@@ -276,7 +276,17 @@ DECLARE
   v_suffix INT := 1;
   v_full_name TEXT;
   v_admin RECORD;
+  v_club UUID;
+  v_meta_club TEXT := NEW.raw_user_meta_data->>'club_id';
 BEGIN
+  -- המועדון: לפי קישור ההצטרפות / יצירת המנהל (club_id במטא-דאטה), אחרת המועדון הראשון
+  IF v_meta_club ~* '^[0-9a-f-]{36}$' THEN
+    SELECT id INTO v_club FROM clubs WHERE id = v_meta_club::UUID;
+  END IF;
+  IF v_club IS NULL THEN
+    SELECT id INTO v_club FROM clubs ORDER BY created_at, id LIMIT 1;
+  END IF;
+
   -- נעילה למניעת מצב שבו שני "משתמשים ראשונים" נרשמים במקביל
   LOCK TABLE profiles IN SHARE ROW EXCLUSIVE MODE;
   v_is_first := NOT EXISTS (SELECT 1 FROM profiles);
@@ -290,9 +300,10 @@ BEGIN
 
   v_full_name := COALESCE(NULLIF(trim(NEW.raw_user_meta_data->>'full_name'), ''), v_base_username);
 
-  INSERT INTO profiles (id, email, username, full_name, phone, avatar_url, experience_level, role, status, credits)
+  INSERT INTO profiles (id, club_id, email, username, full_name, phone, avatar_url, experience_level, role, status, credits)
   VALUES (
     NEW.id,
+    v_club,
     lower(NEW.email),
     v_username,
     v_full_name,
@@ -305,7 +316,7 @@ BEGIN
   );
 
   IF NOT v_is_first THEN
-    FOR v_admin IN SELECT id FROM profiles WHERE role IN ('admin', 'assistant') AND status = 'approved' LOOP
+    FOR v_admin IN SELECT id FROM profiles WHERE role IN ('admin', 'assistant') AND status = 'approved' AND club_id = v_club LOOP
       PERFORM _notify(
         v_admin.id, 'member_request', 'בקשת הצטרפות חדשה למועדון',
         v_full_name || ' (' || lower(NEW.email) || ') נרשם וממתין לאישורך.'
@@ -329,6 +340,10 @@ LANGUAGE plpgsql SET search_path = public
 AS $$
 BEGIN
   IF current_user IN ('authenticated', 'anon') THEN
+    -- שיוך למועדון והרשאת מנהל מערכת: רק דרך פונקציות השרת
+    IF NEW.club_id IS DISTINCT FROM OLD.club_id OR NEW.is_platform_admin IS DISTINCT FROM OLD.is_platform_admin THEN
+      RAISE EXCEPTION 'אין הרשאה לשנות שיוך מועדון' USING ERRCODE = '42501';
+    END IF;
     -- תפקיד וקרדיטים: מנהל בלבד
     IF NOT is_admin() AND (NEW.role IS DISTINCT FROM OLD.role OR NEW.credits IS DISTINCT FROM OLD.credits) THEN
       RAISE EXCEPTION 'אין הרשאה לשנות תפקיד או קרדיטים' USING ERRCODE = '42501';
@@ -375,7 +390,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'רק חברים מאושרים יכולים להירשם להפלגות');
   END IF;
 
-  SELECT * INTO v_sail FROM sails WHERE id = p_sail_id FOR UPDATE;
+  SELECT * INTO v_sail FROM sails WHERE id = p_sail_id AND club_id = my_club_id() FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'הפלגה לא נמצאה');
   END IF;
@@ -384,7 +399,9 @@ BEGIN
   END IF;
 
   SELECT * INTO v_boat FROM boats
-  WHERE name = v_sail.boat_name OR position(name IN v_sail.boat_name) > 0
+  WHERE club_id = v_sail.club_id
+    AND (id = v_sail.boat_id OR name = v_sail.boat_name OR position(name IN v_sail.boat_name) > 0)
+  ORDER BY (id = v_sail.boat_id) DESC NULLS LAST
   LIMIT 1;
   IF FOUND AND v_boat.status <> 'available' THEN
     RETURN jsonb_build_object(
@@ -475,7 +492,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'אין הרשאה לבטל הרשמה של חבר אחר');
   END IF;
 
-  SELECT * INTO v_sail FROM sails WHERE id = p_sail_id FOR UPDATE;
+  SELECT * INTO v_sail FROM sails WHERE id = p_sail_id AND club_id = my_club_id() FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'הפלגה לא נמצאה');
   END IF;
@@ -488,7 +505,7 @@ BEGIN
   END IF;
 
   IF NOT v_is_admin THEN
-    SELECT cancellation_deadline_hours INTO v_deadline FROM club_settings WHERE id = 1;
+    SELECT cancellation_deadline_hours INTO v_deadline FROM club_settings WHERE club_id = v_sail.club_id;
     -- שעות ההפלגה נשמרות בשעון ישראל
     v_hours_left := EXTRACT(EPOCH FROM (((v_sail.date + v_sail.departure_time) AT TIME ZONE 'Asia/Jerusalem') - NOW())) / 3600;
     IF v_hours_left < v_deadline AND v_hours_left > 0 THEN
@@ -574,16 +591,22 @@ DECLARE
   v_reservation RECORD;
   v_taker UUID;
 BEGIN
-  SELECT who_can_create_sails INTO v_policy FROM club_settings WHERE id = 1;
+  SELECT who_can_create_sails INTO v_policy FROM club_settings WHERE club_id = my_club_id();
   IF NOT (is_staff() OR (is_approved_member() AND v_policy = 'all_members')) THEN
     RETURN jsonb_build_object('success', false, 'message', 'אין לך הרשאה לפתוח הפלגות');
   END IF;
 
   -- הסירה: לפי מזהה, ולתאימות לאחור לפי השם שבתווית ("גלית (Bavaria 38)")
+  -- הסקיפר חייב להיות חבר באותו מועדון
+  IF v_skipper IS NOT NULL AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = v_skipper AND club_id = my_club_id()) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'הסקיפר שנבחר אינו חבר במועדון');
+  END IF;
+
   SELECT * INTO v_boat FROM boats
-  WHERE id = NULLIF(p_sail->>'boatId', '')::UUID
+  WHERE club_id = my_club_id()
+    AND (id = NULLIF(p_sail->>'boatId', '')::UUID
      OR (NULLIF(p_sail->>'boatId', '') IS NULL
-         AND (name = p_sail->>'boatName' OR p_sail->>'boatName' LIKE name || ' (%'))
+         AND (name = p_sail->>'boatName' OR p_sail->>'boatName' LIKE name || ' (%')))
   LIMIT 1
   FOR UPDATE; -- נעילה: שתי פתיחות במקביל לאותה סירה לא יעברו שתיהן את בדיקת החפיפה
 
@@ -669,7 +692,7 @@ BEGIN
     VALUES (v_sail.id, v_sail.skipper_id, 'confirmed', 0, NOW());
   END IF;
 
-  FOR v_member IN SELECT id FROM profiles WHERE status = 'approved' AND id <> v_uid LOOP
+  FOR v_member IN SELECT id FROM profiles WHERE status = 'approved' AND id <> v_uid AND club_id = v_sail.club_id LOOP
     PERFORM _notify(
       v_member.id, 'new_sail',
       '⛵ ' || CASE WHEN v_sail.sail_type = 'private' THEN 'הפלגה פרטית' ELSE 'הפלגת מועדון' END || ' נפתחה!',
@@ -693,7 +716,7 @@ DECLARE
   v_reg RECORD;
   v_actor TEXT;
 BEGIN
-  SELECT * INTO v_sail FROM sails WHERE id = p_sail_id FOR UPDATE;
+  SELECT * INTO v_sail FROM sails WHERE id = p_sail_id AND club_id = my_club_id() FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'הפלגה לא נמצאה');
   END IF;
@@ -744,12 +767,12 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
 
-  SELECT * INTO v_sail FROM sails WHERE id = p_sail_id FOR UPDATE;
+  SELECT * INTO v_sail FROM sails WHERE id = p_sail_id AND club_id = my_club_id() FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'הפלגה לא נמצאה');
   END IF;
 
-  SELECT full_name INTO v_name FROM profiles WHERE id = p_user_id;
+  SELECT full_name INTO v_name FROM profiles WHERE id = p_user_id AND club_id = v_sail.club_id;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'חבר מועדון לא נמצא');
   END IF;
@@ -785,7 +808,7 @@ BEGIN
   IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
-  UPDATE profiles SET status = 'approved' WHERE id = p_user_id;
+  UPDATE profiles SET status = 'approved' WHERE id = p_user_id AND club_id = my_club_id();
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'משתמש לא נמצא');
   END IF;
@@ -805,13 +828,16 @@ BEGIN
   IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = p_user_id AND club_id = my_club_id()) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'משתמש לא נמצא');
+  END IF;
   IF (SELECT role FROM profiles WHERE id = p_user_id) <> 'member' AND NOT is_admin() THEN
     RETURN jsonb_build_object('success', false, 'message', 'רק מנהל יכול לדחות מנהל או עוזר מנהל');
   END IF;
   IF (SELECT role FROM profiles WHERE id = p_user_id) = 'admin' AND _active_admin_count() <= 1 THEN
     RETURN jsonb_build_object('success', false, 'message', 'לא ניתן לדחות את המנהל האחרון במערכת!');
   END IF;
-  UPDATE profiles SET status = 'rejected' WHERE id = p_user_id;
+  UPDATE profiles SET status = 'rejected' WHERE id = p_user_id AND club_id = my_club_id();
   RETURN jsonb_build_object('success', FOUND);
 END;
 $$;
@@ -826,7 +852,7 @@ BEGIN
   IF NOT is_admin() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
-  SELECT role INTO v_current FROM profiles WHERE id = p_user_id FOR UPDATE;
+  SELECT role INTO v_current FROM profiles WHERE id = p_user_id AND club_id = my_club_id() FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'משתמש לא נמצא');
   END IF;
@@ -846,7 +872,7 @@ BEGIN
   IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
-  UPDATE profiles SET experience_level = p_level WHERE id = p_user_id;
+  UPDATE profiles SET experience_level = p_level WHERE id = p_user_id AND club_id = my_club_id();
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'משתמש לא נמצא');
   END IF;
@@ -869,7 +895,7 @@ BEGIN
   IF NOT is_admin() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
-  UPDATE profiles SET credits = GREATEST(0, credits + p_delta) WHERE id = p_user_id
+  UPDATE profiles SET credits = GREATEST(0, credits + p_delta) WHERE id = p_user_id AND club_id = my_club_id()
   RETURNING credits INTO v_new;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'משתמש לא נמצא', 'new_credits', 0);
@@ -906,8 +932,8 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'יש להזין שם לרמת ההסמכה');
   END IF;
   UPDATE club_settings SET experience_levels = array_replace(experience_levels, p_old, trim(p_new)), updated_at = NOW()
-  WHERE id = 1;
-  UPDATE profiles SET experience_level = trim(p_new) WHERE experience_level = p_old;
+  WHERE club_id = my_club_id();
+  UPDATE profiles SET experience_level = trim(p_new) WHERE experience_level = p_old AND club_id = my_club_id();
   GET DIAGNOSTICS v_count = ROW_COUNT;
   RETURN jsonb_build_object('success', true, 'members_updated', v_count);
 END;
@@ -933,7 +959,7 @@ BEGIN
   IF NOT is_approved_member() THEN
     RETURN jsonb_build_object('success', false, 'message', 'רק חברים מאושרים יכולים לדווח על תקלות');
   END IF;
-  SELECT name INTO v_boat_name FROM boats WHERE id = p_boat_id;
+  SELECT name INTO v_boat_name FROM boats WHERE id = p_boat_id AND club_id = my_club_id();
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'כלי השייט לא נמצא');
   END IF;
@@ -947,7 +973,7 @@ BEGIN
     UPDATE boats SET status = 'maintenance', status_notes = 'תקלה משביתה: ' || p_title WHERE id = p_boat_id;
   END IF;
 
-  FOR v_member IN SELECT id FROM profiles WHERE status = 'approved' LOOP
+  FOR v_member IN SELECT id FROM profiles WHERE status = 'approved' AND club_id = my_club_id() LOOP
     PERFORM _notify(
       v_member.id, 'boat_issue', '🚨 דיווח תקלה: ' || v_boat_name,
       v_reporter || ' דיווח על: "' || p_title || '" (' || p_category || ')'
@@ -968,7 +994,7 @@ BEGIN
   IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת למנהלים בלבד');
   END IF;
-  SELECT * INTO v_issue FROM boat_issues WHERE id = p_issue_id FOR UPDATE;
+  SELECT * INTO v_issue FROM boat_issues WHERE id = p_issue_id AND club_id = my_club_id() FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'התקלה לא נמצאה');
   END IF;
@@ -1159,7 +1185,7 @@ BEGIN
   IF NOT is_staff() THEN
     RETURN jsonb_build_object('success', false, 'message', 'פעולה זו מותרת לצוות ההנהלה בלבד');
   END IF;
-  UPDATE club_invite SET code = replace(gen_random_uuid()::TEXT, '-', ''), updated_at = NOW() WHERE id = 1
+  UPDATE club_invite SET code = replace(gen_random_uuid()::TEXT, '-', ''), updated_at = NOW() WHERE club_id = my_club_id()
   RETURNING code INTO v_code;
   RETURN jsonb_build_object('success', true, 'code', v_code);
 END;
@@ -1190,7 +1216,7 @@ BEGIN
   VALUES (v_uid, p_amount, left(COALESCE(trim(p_note), ''), 300))
   RETURNING * INTO v_req;
 
-  FOR v_admin IN SELECT id FROM profiles WHERE role = 'admin' AND status = 'approved' LOOP
+  FOR v_admin IN SELECT id FROM profiles WHERE role = 'admin' AND status = 'approved' AND club_id = v_me.club_id LOOP
     PERFORM _notify(
       v_admin.id, 'credit_request', '🪙 בקשה לקרדיטים נוספים',
       v_me.full_name || ' מבקש/ת ' || p_amount || ' קרדיטים (יתרה נוכחית: ' || v_me.credits || ').' ||
@@ -1214,7 +1240,7 @@ BEGIN
   IF NOT is_admin() THEN
     RETURN jsonb_build_object('success', false, 'message', 'רק מנהל יכול לאשר קרדיטים');
   END IF;
-  SELECT * INTO v_req FROM credit_requests WHERE id = p_request_id FOR UPDATE;
+  SELECT * INTO v_req FROM credit_requests WHERE id = p_request_id AND club_id = my_club_id() FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'הבקשה לא נמצאה');
   END IF;
@@ -1334,7 +1360,7 @@ BEGIN
   END IF;
 
   -- נעילת הסירה: אותה נעילה שבה משתמשת create_sail, כך ששריון והפלגה במקביל לא יעברו שניהם
-  SELECT * INTO v_boat FROM boats WHERE id = NULLIF(p->>'boatId', '')::UUID FOR UPDATE;
+  SELECT * INTO v_boat FROM boats WHERE id = NULLIF(p->>'boatId', '')::UUID AND club_id = my_club_id() FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'הסירה לא נמצאה');
   END IF;
@@ -1380,3 +1406,163 @@ $$;
 REVOKE EXECUTE ON FUNCTION create_boat_reservation(JSONB) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION create_boat_reservation(JSONB) TO authenticated;
 ALTER PUBLICATION supabase_realtime ADD TABLE boat_reservations;
+
+-- ==============================================================================
+-- 14. ריבוי מועדונים
+-- ==============================================================================
+-- כל מועדון עומד בפני עצמו: חברים, סירות, הפלגות, פיד והגדרות משלו. כל חבר שייך למועדון אחד.
+-- מנהל/עוזר מנהל מנהלים רק את המועדון שלהם. מנהל מערכת (is_platform_admin) פותח ומגדיר מועדונים
+-- (דרך פונקציית השרת admin-actions) ואינו רואה את הנתונים שבתוך מועדונים אחרים.
+
+CREATE TABLE IF NOT EXISTS clubs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  created_by UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON clubs FROM anon, authenticated;
+
+-- המועדון הקיים הופך למועדון הראשון
+INSERT INTO clubs (name, created_at)
+SELECT club_name, '2000-01-01' FROM club_settings
+WHERE NOT EXISTS (SELECT 1 FROM clubs)
+ORDER BY id LIMIT 1;
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN NOT NULL DEFAULT FALSE;
+UPDATE profiles SET club_id = (SELECT id FROM clubs ORDER BY created_at, id LIMIT 1) WHERE club_id IS NULL;
+ALTER TABLE profiles ALTER COLUMN club_id SET NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_profiles_club ON profiles(club_id, status);
+
+-- המועדון של המשתמש המחובר
+CREATE OR REPLACE FUNCTION my_club_id()
+RETURNS UUID
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT club_id FROM profiles WHERE id = auth.uid();
+$$;
+
+CREATE OR REPLACE FUNCTION is_platform_admin()
+RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT COALESCE((SELECT is_platform_admin FROM profiles WHERE id = auth.uid() AND status = 'approved'), FALSE);
+$$;
+
+-- מניין המנהלים הפעילים במועדון של הקורא (הגנה מפני הסרת המנהל האחרון)
+CREATE OR REPLACE FUNCTION _active_admin_count()
+RETURNS INT
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT COUNT(*)::INT FROM profiles WHERE role = 'admin' AND status = 'approved' AND club_id = my_club_id();
+$$;
+
+-- הגדרות וקישור הצטרפות: שורה לכל מועדון
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS club_id UUID REFERENCES clubs(id) ON DELETE CASCADE;
+UPDATE club_settings SET club_id = (SELECT id FROM clubs ORDER BY created_at, id LIMIT 1) WHERE club_id IS NULL;
+ALTER TABLE club_settings ALTER COLUMN club_id SET NOT NULL;
+ALTER TABLE club_settings DROP CONSTRAINT IF EXISTS single_row_settings;
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_club_settings_club ON club_settings(club_id);
+CREATE SEQUENCE IF NOT EXISTS club_settings_id_seq START 100 OWNED BY club_settings.id;
+ALTER TABLE club_settings ALTER COLUMN id SET DEFAULT nextval('club_settings_id_seq');
+
+ALTER TABLE club_invite ADD COLUMN IF NOT EXISTS club_id UUID REFERENCES clubs(id) ON DELETE CASCADE;
+UPDATE club_invite SET club_id = (SELECT id FROM clubs ORDER BY created_at, id LIMIT 1) WHERE club_id IS NULL;
+ALTER TABLE club_invite ALTER COLUMN club_id SET NOT NULL;
+ALTER TABLE club_invite DROP CONSTRAINT IF EXISTS single_row_invite;
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_club_invite_club ON club_invite(club_id);
+CREATE SEQUENCE IF NOT EXISTS club_invite_id_seq START 100 OWNED BY club_invite.id;
+ALTER TABLE club_invite ALTER COLUMN id SET DEFAULT nextval('club_invite_id_seq');
+
+-- כל שורת נתונים שייכת למועדון; ברירת המחדל: המועדון של מי שיוצר אותה
+DO $$
+DECLARE
+  t TEXT;
+  v_first UUID := (SELECT id FROM clubs ORDER BY created_at, id LIMIT 1);
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'boats', 'boat_issues', 'sails', 'sail_registrations', 'sail_photos',
+    'posts', 'post_likes', 'post_comments', 'credit_requests', 'boat_reservations'
+  ] LOOP
+    EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS club_id UUID REFERENCES clubs(id) ON DELETE CASCADE', t);
+    EXECUTE format('UPDATE %I SET club_id = %L WHERE club_id IS NULL', t, v_first);
+    EXECUTE format('ALTER TABLE %I ALTER COLUMN club_id SET DEFAULT my_club_id()', t);
+    EXECUTE format('ALTER TABLE %I ALTER COLUMN club_id SET NOT NULL', t);
+    EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I(club_id)', 'idx_' || t || '_club', t);
+  END LOOP;
+END;
+$$;
+
+-- שם המועדון לפי קוד הזמנה (לטופס ההצטרפות, לפני התחברות)
+CREATE OR REPLACE FUNCTION invite_club_name(p_code TEXT)
+RETURNS TEXT
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT s.club_name FROM club_invite i JOIN club_settings s ON s.club_id = i.club_id
+  WHERE i.code = p_code AND length(p_code) >= 8;
+$$;
+REVOKE EXECUTE ON FUNCTION invite_club_name(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION invite_club_name(TEXT) TO anon, authenticated;
+REVOKE EXECUTE ON FUNCTION my_club_id() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION my_club_id() TO authenticated;
+REVOKE EXECUTE ON FUNCTION is_platform_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION is_platform_admin() TO authenticated;
+REVOKE EXECUTE ON FUNCTION _active_admin_count() FROM PUBLIC, anon, authenticated;
+
+-- הרשאות שורות לפי מועדון
+ALTER POLICY "settings_update_staff" ON club_settings
+  USING (is_staff() AND club_id = my_club_id()) WITH CHECK (club_id = my_club_id());
+
+ALTER POLICY "profiles_select" ON profiles
+  USING ((is_approved_member() AND club_id = my_club_id()) OR id = auth.uid());
+ALTER POLICY "profiles_admin_all" ON profiles
+  USING (is_admin() AND club_id = my_club_id()) WITH CHECK (club_id = my_club_id());
+ALTER POLICY "profiles_staff_update_members" ON profiles
+  USING (is_staff() AND role = 'member' AND club_id = my_club_id()) WITH CHECK (role = 'member' AND club_id = my_club_id());
+
+ALTER POLICY "boats_select" ON boats USING (is_approved_member() AND club_id = my_club_id());
+ALTER POLICY "boats_staff_all" ON boats
+  USING (is_staff() AND club_id = my_club_id()) WITH CHECK (is_staff() AND club_id = my_club_id());
+
+ALTER POLICY "issues_select" ON boat_issues USING (is_approved_member() AND club_id = my_club_id());
+
+ALTER POLICY "sails_select" ON sails USING (is_approved_member() AND club_id = my_club_id());
+ALTER POLICY "sails_update" ON sails
+  USING ((is_staff() OR created_by = auth.uid()) AND club_id = my_club_id()) WITH CHECK (club_id = my_club_id());
+ALTER POLICY "sails_delete_staff" ON sails USING (is_staff() AND club_id = my_club_id());
+
+ALTER POLICY "registrations_select" ON sail_registrations USING (is_approved_member() AND club_id = my_club_id());
+
+ALTER POLICY "photos_select" ON sail_photos USING (is_approved_member() AND club_id = my_club_id());
+ALTER POLICY "photos_insert_own" ON sail_photos
+  WITH CHECK (is_approved_member() AND user_id = auth.uid() AND club_id = my_club_id());
+ALTER POLICY "photos_delete" ON sail_photos
+  USING ((is_staff() OR user_id = auth.uid()) AND club_id = my_club_id());
+
+ALTER POLICY "posts_select" ON posts USING (is_approved_member() AND club_id = my_club_id());
+ALTER POLICY "posts_insert_own" ON posts
+  WITH CHECK (is_approved_member() AND author_id = auth.uid() AND club_id = my_club_id());
+ALTER POLICY "posts_update_staff" ON posts USING (is_staff() AND club_id = my_club_id());
+ALTER POLICY "posts_delete" ON posts
+  USING ((is_staff() OR author_id = auth.uid()) AND club_id = my_club_id());
+
+ALTER POLICY "likes_select" ON post_likes USING (is_approved_member() AND club_id = my_club_id());
+ALTER POLICY "likes_insert_own" ON post_likes
+  WITH CHECK (is_approved_member() AND user_id = auth.uid() AND club_id = my_club_id());
+
+ALTER POLICY "comments_select" ON post_comments USING (is_approved_member() AND club_id = my_club_id());
+ALTER POLICY "comments_insert_own" ON post_comments
+  WITH CHECK (is_approved_member() AND author_id = auth.uid() AND club_id = my_club_id());
+ALTER POLICY "comments_delete" ON post_comments
+  USING ((is_staff() OR author_id = auth.uid()) AND club_id = my_club_id());
+
+ALTER POLICY "invite_select_staff" ON club_invite USING (is_staff() AND club_id = my_club_id());
+
+ALTER POLICY "credit_requests_select" ON credit_requests
+  USING (user_id = auth.uid() OR (is_admin() AND club_id = my_club_id()));
+
+ALTER POLICY "reservations_select" ON boat_reservations USING (is_approved_member() AND club_id = my_club_id());
+ALTER POLICY "reservations_staff_all" ON boat_reservations
+  USING (is_staff() AND club_id = my_club_id()) WITH CHECK (is_staff() AND club_id = my_club_id());
