@@ -28,6 +28,22 @@ export const TutorialVideosButton: React.FC<{ staff?: boolean; className?: strin
 
   const src = current === 'admin' ? adminUrl : VIDEOS[current].src;
 
+  // Easy to close: Escape, the phone's Back button, tapping outside, or the big button at the bottom
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.history.pushState({ tutorials: true }, '');
+    const onBack = () => setOpen(false);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('popstate', onBack);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onBack);
+      // Closed by a button rather than Back: drop the history entry we added
+      if (window.history.state?.tutorials) window.history.back();
+    };
+  }, [open]);
+
   return (
     <>
       <button
@@ -67,8 +83,12 @@ export const TutorialVideosButton: React.FC<{ staff?: boolean; className?: strin
                 <PlayCircle className="w-5 h-5" aria-hidden="true" />
                 סרטוני הדרכה
               </h2>
-              <button onClick={() => setOpen(false)} aria-label="סגור" className="p-1 rounded-lg hover:bg-sky-700 cursor-pointer">
-                <X className="w-5 h-5" />
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="סגור את סרטוני ההדרכה"
+                className="w-10 h-10 -m-1 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-6 h-6" />
               </button>
             </div>
 
@@ -96,7 +116,7 @@ export const TutorialVideosButton: React.FC<{ staff?: boolean; className?: strin
                   controls
                   playsInline
                   preload="metadata"
-                  className="max-h-[78vh] w-auto max-w-full"
+                  className="max-h-[70vh] w-auto max-w-full"
                   aria-label={VIDEOS[current].title}
                 />
               ) : src === undefined ? (
@@ -105,6 +125,14 @@ export const TutorialVideosButton: React.FC<{ staff?: boolean; className?: strin
                 <p className="text-white/80 text-sm p-6 text-center">סרטון ההנהלה אינו זמין כרגע. נסו שוב מאוחר יותר.</p>
               )}
             </div>
+
+            <button
+              onClick={() => setOpen(false)}
+              className="shrink-0 w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+              סגור
+            </button>
           </div>
         </div>
       )}

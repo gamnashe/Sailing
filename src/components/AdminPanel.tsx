@@ -35,7 +35,8 @@ import {
   Copy,
   Share2,
   Mail,
-  KeyRound
+  KeyRound,
+  Eye
 } from 'lucide-react';
 
 
@@ -43,9 +44,11 @@ interface Props {
   currentUser: UserProfile;
   /** Changes when a notification asks to show the requests tab. */
   requestsNonce?: number;
+  /** Switches the app to show what a regular member sees. */
+  onPreviewAsMember?: () => void;
 }
 
-export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0 }) => {
+export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, onPreviewAsMember }) => {
   const [activeTab, setActiveTab] = useState<'pending' | 'members' | 'fleet' | 'sails' | 'settings' | 'stats'>(
     requestsNonce > 0 ? 'pending' : 'members'
   );
@@ -451,7 +454,22 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0 }) 
         </div>
       </div>
 
-      <TutorialVideosButton staff />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <TutorialVideosButton staff />
+        {onPreviewAsMember && (
+          <button
+            type="button"
+            onClick={onPreviewAsMember}
+            className="w-full bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3 text-right hover:border-amber-300 cursor-pointer"
+          >
+            <Eye className="w-8 h-8 text-amber-500 shrink-0" aria-hidden="true" />
+            <span>
+              <span className="block font-bold text-slate-900 text-sm">צפייה כחבר רגיל</span>
+              <span className="block text-xs text-slate-500">לראות את האפליקציה כמו שחבר מועדון רואה אותה</span>
+            </span>
+          </button>
+        )}
+      </div>
 
       {/* Feedback banner */}
       {feedbackMessage && (
