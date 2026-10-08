@@ -7,8 +7,8 @@ import { Overlay } from './Overlay';
 // The member video is public; the management video sits in private storage and is fetched with a
 // short-lived signed link that only admins and assistants can get.
 const VIDEOS = {
-  member: { title: 'מדריך לחבר מועדון', length: '2:21', src: '/tutorials/member.mp4', poster: '/tutorials/member.jpg' },
-  admin: { title: 'מדריך למנהל ולעוזר מנהל', length: '2:34', src: null, poster: '/tutorials/admin.jpg' },
+  member: { title: 'מדריך לחבר מועדון', length: '2:49', src: '/tutorials/member.mp4', poster: '/tutorials/member.jpg' },
+  admin: { title: 'מדריך למנהל ולעוזר מנהל', length: '2:53', src: null, poster: '/tutorials/admin.jpg' },
 } as const;
 type VideoKey = keyof typeof VIDEOS;
 
