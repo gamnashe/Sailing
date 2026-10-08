@@ -17,7 +17,7 @@ export const PendingApprovalView: React.FC<Props> = ({ user, onLogout, onRefresh
   }, [onRefresh]);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
+    <div className="min-h-screen glass-scene text-white flex flex-col items-center justify-center p-6 text-center">
       <div className="w-full max-w-md bg-slate-800/90 border border-slate-700/80 rounded-3xl p-8 shadow-2xl backdrop-blur-md relative overflow-hidden">
         {/* Nautical background wave effect */}
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />

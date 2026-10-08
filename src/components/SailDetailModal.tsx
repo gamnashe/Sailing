@@ -3,6 +3,7 @@ import { store } from '../services/store';
 import { Sail, UserProfile, isStaff } from '../types';
 import { compressImage } from '../utils/imageCompression';
 import { useForecast, forecastAt, weatherLabel, windFrom, sailingConditions, CONDITIONS_STYLE } from '../services/weather';
+import { Overlay } from './Overlay';
 import {
   X,
   Calendar,
@@ -155,8 +156,9 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
   const occupancyPercentage = Math.min(100, Math.round((confirmedMembers.length / sail.maxParticipants) * 100));
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right flex flex-col max-h-[92vh]">
+    <Overlay>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-3 sm:p-4 overflow-y-auto">
+      <div className="w-full max-w-2xl glass-sheet rounded-3xl overflow-hidden my-auto text-right flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="bg-gradient-to-r from-sky-900 via-sky-800 to-sky-700 p-5 text-white flex items-start justify-between shrink-0">
           <div>
@@ -254,22 +256,22 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
                   <span className={`px-2 py-0.5 rounded-md border font-bold text-[0.6875rem] ${cond.className}`}>{cond.label}</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <div className="bg-slate-50 rounded-xl p-2">
+                  <div className="bg-white/60 rounded-xl p-2">
                     <div className="text-slate-500">מזג אוויר</div>
                     <div className="font-bold text-slate-900">{w.icon} {w.label}, {Math.round(departureForecast.temp)}°</div>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-2">
+                  <div className="bg-white/60 rounded-xl p-2">
                     <div className="text-slate-500">רוח</div>
                     <div className="font-bold text-slate-900">
                       {Math.round(departureForecast.wind)}
                       {returnForecast && returnForecast.time !== departureForecast.time ? `→${Math.round(returnForecast.wind)}` : ''} קשר מ{windFrom(departureForecast.windDir)}
                     </div>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-2">
+                  <div className="bg-white/60 rounded-xl p-2">
                     <div className="text-slate-500">משבים</div>
                     <div className="font-bold text-slate-900">עד {Math.round(peakGust)} קשר</div>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-2">
+                  <div className="bg-white/60 rounded-xl p-2">
                     <div className="text-slate-500">גובה גלים</div>
                     <div className="font-bold text-slate-900">
                       {departureForecast.wave !== null ? `${departureForecast.wave.toFixed(1)} מ'` : 'אין עדיין תחזית'}
@@ -338,7 +340,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
 
           {/* Notes */}
           {sail.notes && (
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-xs text-slate-700 leading-relaxed">
+            <div className="bg-white/60 rounded-2xl p-4 border border-slate-100 text-xs text-slate-700 leading-relaxed">
               <span className="font-bold text-slate-900 block mb-1">הערות ודגשים לסקיפר ולצוות:</span>
               <p className="whitespace-pre-line">{sail.notes}</p>
             </div>
@@ -377,7 +379,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
               {confirmedMembers.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-200/60 transition text-xs"
+                  className="flex items-center justify-between p-2.5 bg-white/60 hover:bg-slate-100 rounded-2xl border border-slate-200/60 transition text-xs"
                 >
                   <div className="flex items-center gap-2.5">
                     <img
@@ -502,7 +504,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
             </div>
 
             {sail.photos.length === 0 ? (
-              <p className="text-xs text-slate-400 py-3 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <p className="text-xs text-slate-400 py-3 text-center bg-white/60 rounded-2xl border border-dashed border-slate-200">
                 עדיין אין תמונות מהפלגה זו. חברי הצוות מוזמנים להעלות תמונות!
               </p>
             ) : (
@@ -569,7 +571,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
         </div>
 
         {/* Modal Footer / Action Button */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 shrink-0">
+        <div className="p-4 bg-white/60 border-t border-slate-100 shrink-0">
           {sail.status === 'cancelled' ? (
             <div className="text-center text-xs text-rose-700 font-bold py-2 bg-rose-50 rounded-xl">
               הפלגה זו בוטלה ולא ניתן להירשם אליה.
@@ -625,8 +627,9 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
 
       {/* Confirmation Modal for user cancellation */}
       {showCancelConfirm && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl text-right">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 flex items-center justify-center glass-backdrop p-4">
+          <div className="w-full max-w-sm rounded-3xl glass-sheet p-4 sm:p-6 text-right">
             <h3 className="text-lg font-bold text-slate-900 mb-2">ביטול השתתפות בהפלגה</h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-4">
               האם אתה בטוח שברצונך לבטל את השתתפותך בהפלגה זו?
@@ -654,12 +657,14 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
             </div>
           </div>
         </div>
+        </Overlay>
       )}
 
       {/* Admin Cancel Entire Sail Modal */}
       {showCancelSailModal && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4">
-          <form onSubmit={handleCancelSailByAdmin} className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl text-right">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 flex items-center justify-center glass-backdrop p-4">
+          <form onSubmit={handleCancelSailByAdmin} className="w-full max-w-sm rounded-3xl glass-sheet p-4 sm:p-6 text-right">
             <h3 className="text-lg font-bold text-rose-700 mb-2 flex items-center gap-1.5">
               <AlertTriangle className="w-5 h-5 text-rose-600" />
               ביטול הפלגה ושליחת התראה
@@ -673,7 +678,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
               value={cancelSailReason}
               onChange={(e) => setCancelSailReason(e.target.value)}
               placeholder="סיבת ביטול..."
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-rose-500 mb-4"
+              className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-rose-500 mb-4"
             />
             <div className="flex gap-2">
               <button
@@ -692,12 +697,14 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
             </div>
           </form>
         </div>
+        </Overlay>
       )}
 
       {/* Admin Manual Add Modal */}
       {showManualAddModal && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4">
-          <form onSubmit={handleManualAdd} className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl text-right">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 flex items-center justify-center glass-backdrop p-4">
+          <form onSubmit={handleManualAdd} className="w-full max-w-sm rounded-3xl glass-sheet p-4 sm:p-6 text-right">
             <h3 className="text-base font-bold text-slate-900 mb-2">הוספת חבר מועדון ידנית להפלגה</h3>
             <div className="mb-4">
               <label className="block text-xs font-semibold text-slate-700 mb-1">בחר חבר מהמועדון:</label>
@@ -705,7 +712,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
                 required
                 value={selectedMemberToAdd}
                 onChange={(e) => setSelectedMemberToAdd(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
               >
                 <option value="">-- בחר חבר מועדון --</option>
                 {availableMembers.map((m) => (
@@ -732,7 +739,9 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
             </div>
           </form>
         </div>
+        </Overlay>
       )}
     </div>
+    </Overlay>
   );
 };

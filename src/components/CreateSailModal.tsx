@@ -8,6 +8,7 @@ import {
 } from '../services/store';
 import { UserProfile, Sail, SailType, isStaff } from '../types';
 import { useForecast, forecastAt, sailingConditions, roughReason } from '../services/weather';
+import { Overlay } from './Overlay';
 import {
   X,
   Calendar,
@@ -188,8 +189,9 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
   };
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right">
+    <Overlay>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto">
+      <div className="w-full max-w-lg glass-sheet rounded-3xl overflow-hidden my-auto text-right">
         {/* Header */}
         <div className="bg-gradient-to-r from-sky-800 to-sky-700 p-5 text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -210,7 +212,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
         </div>
 
         {/* Sail Type Tabs */}
-        <div className="p-4 bg-slate-50 border-b border-slate-100">
+        <div className="p-4 bg-white/60 border-b border-slate-100">
           <label className="block text-xs font-bold text-slate-700 mb-2">בחר סוג הפלגה:</label>
           <div className="grid grid-cols-2 gap-2 text-xs">
             {/* Club Sail Button */}
@@ -326,7 +328,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                   ? 'למשל: הפלגת שקיעה ותרגול תמרוני מפרש'
                   : 'למשל: הפלגה פרטית למשפחה / חברים לחוף געש'
               }
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+              className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
             />
           </div>
 
@@ -340,7 +342,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
             </div>
             <div>
@@ -352,7 +354,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                 required
                 value={departureTime}
                 onChange={(e) => setDepartureTime(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
             </div>
             <div>
@@ -364,7 +366,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                 required
                 value={estimatedReturnTime}
                 onChange={(e) => setEstimatedReturnTime(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
             </div>
           </div>
@@ -377,7 +379,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
               <select
                 value={boatId}
                 onChange={(e) => setBoatId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
               >
                 {boats.map((b) => {
                   const busy = boatBusyMessage(store.getSails(), reservations, b, date, departureTime, estimatedReturnTime);
@@ -399,7 +401,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
               <select
                 value={selectedSkipperId}
                 onChange={(e) => setSelectedSkipperId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
               >
                 {skippers.map((s) => {
                   const allowed = !boat || mayTakeBoat(boat, s);
@@ -461,7 +463,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                 value={customSkipperName}
                 onChange={(e) => setCustomSkipperName(e.target.value)}
                 placeholder="הזן שם סקיפר מלא"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
             </div>
           )}
@@ -477,7 +479,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
                 value={departurePoint}
                 onChange={(e) => setDeparturePoint(e.target.value)}
                 placeholder="מרינה הרצליה / תל אביב..."
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
             </div>
 
@@ -501,7 +503,7 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="למשל: להביא בגד ים ומגבת, כיבוד קל לשיתוף, נעלי סירה עם סוליה בהירה בלבד..."
-              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 resize-none"
+              className="w-full px-3.5 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 resize-none"
             />
           </div>
 
@@ -524,5 +526,6 @@ export const CreateSailModal: React.FC<Props> = ({ isOpen, currentUser, onClose,
         </form>
       </div>
     </div>
+    </Overlay>
   );
 };

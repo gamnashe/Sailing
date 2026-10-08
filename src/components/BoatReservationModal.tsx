@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { store } from '../services/store';
 import { ReservationKind, RESERVATION_KIND_ICONS, RESERVATION_KIND_LABELS } from '../types';
 import { X, Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Overlay } from './Overlay';
 
 interface Props {
   isOpen: boolean;
@@ -79,15 +80,16 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
   };
 
   return (
+    <Overlay>
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="reservation-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto"
     >
       <form
         onSubmit={submit}
-        className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 my-auto text-right max-h-[92vh] overflow-y-auto"
+        className="w-full max-w-md glass-sheet rounded-3xl my-auto text-right max-h-[92vh] overflow-y-auto"
       >
         <div className="bg-slate-800 text-white p-5 flex items-center justify-between rounded-t-3xl">
           <h2 id="reservation-title" className="text-base font-bold flex items-center gap-2">
@@ -131,7 +133,7 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
               onChange={(e) => setTitle(e.target.value)}
               maxLength={120}
               placeholder={kind === 'lesson' ? 'למשל: קורס משיט 30 – מפגש 3' : kind === 'special' ? 'למשל: שייט קבוצתי לחברה' : 'למשל: החלפת שמן מנוע'}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+              className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl"
             />
           </div>
 
@@ -169,8 +171,8 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
           </div>
 
           {/* When */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-3 sm:col-span-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="col-span-2 sm:col-span-1">
               <label htmlFor="res-date" className="block font-semibold text-slate-700 mb-1">
                 תאריך
               </label>
@@ -180,7 +182,7 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl"
+                className="w-full p-2 bg-white/60 border border-slate-200 rounded-xl"
               />
             </div>
             <div>
@@ -193,7 +195,7 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
                 required
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl"
+                className="w-full p-2 bg-white/60 border border-slate-200 rounded-xl"
               />
             </div>
             <div>
@@ -206,7 +208,7 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
                 required
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl"
+                className="w-full p-2 bg-white/60 border border-slate-200 rounded-xl"
               />
             </div>
           </div>
@@ -219,7 +221,7 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
               id="res-weeks"
               value={weeks}
               onChange={(e) => setWeeks(Number(e.target.value))}
-              className="p-2 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer"
+              className="p-2 bg-white/60 border border-slate-200 rounded-xl cursor-pointer"
             >
               <option value={1}>פעם אחת</option>
               {[2, 3, 4, 5, 6, 8, 10, 12].map((n) => (
@@ -236,7 +238,7 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
             maxLength={500}
             placeholder="הערות (לא חובה), למשל: מדריך – רון"
             aria-label="הערות"
-            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+            className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl"
           />
 
           {timeError && (
@@ -278,5 +280,6 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
         </div>
       </form>
     </div>
+    </Overlay>
   );
 };

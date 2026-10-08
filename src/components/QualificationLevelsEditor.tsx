@@ -71,7 +71,7 @@ export const QualificationLevelsEditor: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4 text-xs">
+    <div className="glass rounded-3xl p-4 sm:p-6 space-y-4 text-xs">
       <div className="border-b border-slate-100 pb-3">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
           <Award className="w-4 h-4 text-sky-600" />
@@ -127,7 +127,7 @@ export const QualificationLevelsEditor: React.FC = () => {
                     rename(level);
                   }
                 }}
-                className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="flex-1 px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
               <span className="text-[0.625rem] text-slate-400 w-14 text-center shrink-0">{holders(level)} חברים</span>
               {changed && (
@@ -160,7 +160,7 @@ export const QualificationLevelsEditor: React.FC = () => {
           value={newLevel}
           onChange={(e) => setNewLevel(e.target.value)}
           placeholder="רמת הסמכה חדשה, למשל: משיט ים פתוח"
-          className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+          className="flex-1 px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
         />
         <button
           type="submit"

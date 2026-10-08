@@ -2,6 +2,7 @@ import React from 'react';
 import { store } from '../services/store';
 import { AppNotification, STAFF_NOTIFICATION_TYPES } from '../types';
 import { Bell, CheckCheck, X, Sailboat, AlertTriangle, Sparkles, UserCheck, UserPlus, Coins, KeyRound } from 'lucide-react';
+import { Overlay } from './Overlay';
 
 interface Props {
   isOpen: boolean;
@@ -60,8 +61,9 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
   };
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right flex flex-col max-h-[85vh]">
+    <Overlay>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto">
+      <div className="w-full max-w-md glass-sheet rounded-3xl overflow-hidden my-auto text-right flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="bg-slate-900 text-white p-5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
@@ -108,7 +110,7 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
                 onClick={() => handleNotificationClick(n)}
                 className={`p-3.5 rounded-2xl border transition text-xs cursor-pointer flex gap-3 ${
                   n.read
-                    ? 'bg-slate-50 border-slate-100 text-slate-600'
+                    ? 'bg-white/60 border-slate-100 text-slate-600'
                     : 'bg-sky-50/70 border-sky-200/80 text-slate-900 shadow-xs'
                 }`}
               >
@@ -138,5 +140,6 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
         </div>
       </div>
     </div>
+    </Overlay>
   );
 };

@@ -9,6 +9,7 @@ import { TutorialVideosButton } from './TutorialVideos';
 import { ClubsManager } from './ClubsManager';
 import { BoatPermissionsEditor } from './BoatPermissionsEditor';
 import { UserProfile, UserRole, ClubSettings, Boat, BoatStatus, Sail, ExperienceLevel, levelOptions, ROLE_LABELS } from '../types';
+import { Overlay } from './Overlay';
 import {
   Shield,
   UserCheck,
@@ -476,7 +477,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
           <button
             type="button"
             onClick={onPreviewAsMember}
-            className="w-full bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3 text-right hover:border-amber-300 cursor-pointer"
+            className="w-full glass rounded-3xl p-4 flex items-center gap-3 text-right hover:border-amber-300 cursor-pointer"
           >
             <Eye className="w-8 h-8 text-amber-500 shrink-0" aria-hidden="true" />
             <span>
@@ -508,7 +509,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
       {/* TAB 1: Members & Credits List */}
       {activeTab === 'members' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="glass rounded-3xl p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
               <h2 className="text-base font-bold text-slate-900">חברי מועדון רשומים</h2>
@@ -516,7 +517,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 ניהול תפקידים, הוספת נקודות קרדיט לכל חבר, או קידום להרשאות מנהל
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
               onClick={() => setShowAddMember(true)}
@@ -525,13 +526,13 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
               <UserPlus className="w-4 h-4" />
               הוספת חבר
             </button>
-            <div className="relative">
+            <div className="relative flex-1 min-w-0">
               <input
                 type="text"
                 value={searchMember}
                 onChange={(e) => setSearchMember(e.target.value)}
                 placeholder="חפש חבר לפי שם או טלפון..."
-                className="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs pr-8 focus:ring-2 focus:ring-sky-500"
+                className="w-full bg-white/60 border border-slate-200 rounded-xl py-2 px-3 text-xs pr-8 focus:ring-2 focus:ring-sky-500"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5" />
             </div>
@@ -542,7 +543,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             {filteredMembers.map((member) => (
               <div
                 key={member.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50/70 hover:bg-slate-100/70 border border-slate-200/80 rounded-2xl gap-3 text-xs transition"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white/55 hover:bg-slate-100/70 border border-slate-200/80 rounded-2xl gap-3 text-xs transition"
               >
                 <div className="flex items-center gap-3">
                   <img
@@ -659,7 +660,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                     <button
                       type="button"
                       onClick={() => handleResendLogin(member)}
-                      className="bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-xl border border-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+                      className="bg-white/60 hover:bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-xl border border-slate-200 transition flex items-center gap-1.5 cursor-pointer"
                       title="הנפק סיסמה זמנית חדשה ושלח פרטי כניסה במייל / וואטסאפ"
                     >
                       <KeyRound className="w-3.5 h-3.5" />
@@ -689,7 +690,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
       {activeTab === 'fleet' && <BoatReservationsList />}
 
       {activeTab === 'fleet' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="glass rounded-3xl p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
               <h2 className="text-base font-bold text-slate-900">הגדרת וניהול צי כלי השייט</h2>
@@ -710,7 +711,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             {boats.map((b) => (
               <div
                 key={b.id}
-                className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between space-y-3"
+                className="p-4 rounded-2xl border border-slate-200 bg-white/55 flex flex-col justify-between space-y-3"
               >
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
@@ -797,7 +798,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
       {/* TAB 3: Cancel Active Sails (ביטול הפלגות ע״י מנהל) */}
       {activeTab === 'sails' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="glass rounded-3xl p-4 sm:p-6 space-y-4">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-base font-bold text-slate-900">ניהול וביטול הפלגות פעילות</h2>
             <p className="text-xs text-slate-500">
@@ -817,7 +818,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 return (
                   <div
                     key={sail.id}
-                    className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    className="p-4 bg-white/60 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-1">
@@ -857,7 +858,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
       {activeTab === 'pending' && <InviteLinkCard />}
 
       {activeTab === 'pending' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="glass rounded-3xl p-4 sm:p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h2 className="text-base font-bold text-slate-900">משתמשים הממתינים לאישור הצטרפות</h2>
@@ -883,7 +884,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
               {pendingUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-2xl gap-3 text-xs"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white/60 border border-slate-200 rounded-2xl gap-3 text-xs"
                 >
                   <div className="flex items-center gap-3">
                     <img
@@ -926,7 +927,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
       )}
 
       {activeTab === 'pending' && passwordHelpMembers.length > 0 && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
+        <div className="glass rounded-3xl p-4 sm:p-6 space-y-3">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <KeyRound className="w-4 h-4 text-sky-700" aria-hidden="true" />
@@ -974,7 +975,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
       {/* TAB 5: Club Settings */}
       {activeTab === 'settings' && (
         <div className="space-y-4">
-        <form onSubmit={handleSaveSettings} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5">
+        <form onSubmit={handleSaveSettings} className="glass rounded-3xl p-4 sm:p-6 space-y-5">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-base font-bold text-slate-900">הגדרות מועדון ומדיניות הפלגות</h2>
             <p className="text-xs text-slate-500">קביעת פרמטרים רוחביים המשפיעים על כלל המשתתפים</p>
@@ -988,7 +989,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 required
                 value={clubName}
                 onChange={(e) => setClubName(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs"
+                className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs"
               />
             </div>
 
@@ -1001,7 +1002,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 required
                 value={defaultMaxParticipants}
                 onChange={(e) => setDefaultMaxParticipants(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs"
+                className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs"
               />
             </div>
 
@@ -1010,7 +1011,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
               <select
                 value={whoCanCreateSails}
                 onChange={(e) => setWhoCanCreateSails(e.target.value as any)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs cursor-pointer"
               >
                 <option value="admin_only">מנהלים בלבד</option>
                 <option value="all_members">כל החברים המאושרים</option>
@@ -1028,7 +1029,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 required
                 value={cancellationDeadlineHours}
                 onChange={(e) => setCancellationDeadlineHours(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs"
+                className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs"
               />
             </div>
           </div>
@@ -1068,25 +1069,25 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
       {activeTab === 'stats' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+            <div className="glass rounded-2xl p-4">
               <span className="text-xs text-slate-500 block mb-1">סך הפלגות במערכת</span>
               <p className="text-2xl font-black text-sky-800">{totalSails}</p>
             </div>
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+            <div className="glass rounded-2xl p-4">
               <span className="text-xs text-slate-500 block mb-1">הפלגות החודש</span>
               <p className="text-2xl font-black text-emerald-700">{currentMonthSails}</p>
             </div>
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+            <div className="glass rounded-2xl p-4">
               <span className="text-xs text-slate-500 block mb-1">חברים פעילים</span>
               <p className="text-2xl font-black text-indigo-700">{approvedUsers.length}</p>
             </div>
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+            <div className="glass rounded-2xl p-4">
               <span className="text-xs text-slate-500 block mb-1">צי כלי שייט</span>
               <p className="text-2xl font-black text-amber-600">{boats.length}</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
+          <div className="glass rounded-3xl p-6">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
               <Award className="w-5 h-5 text-amber-500" />
               <h2 className="text-base font-bold text-slate-900">חברי המועדון הפעילים ביותר (השתתפות בהפלגות)</h2>
@@ -1096,7 +1097,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
               {sortedActiveMembers.map(({ user, count }, idx) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100 text-xs"
+                  className="flex items-center justify-between p-3 bg-white/60 rounded-2xl border border-slate-100 text-xs"
                 >
                   <div className="flex items-center gap-3">
                     <span
@@ -1131,10 +1132,11 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
       {/* MODAL: Credit Adjustment */}
       {creditModalUser && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <form
             onSubmit={handleApplyCredits}
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
+            className="w-full max-w-sm glass-sheet rounded-3xl p-4 sm:p-6 text-right space-y-4 animate-in fade-in"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
@@ -1167,7 +1169,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 value={creditAmount}
                 onChange={(e) => setCreditAmount(Number(e.target.value))}
                 placeholder="למשל: 5 להוספה, או 1- להפחתה"
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-sky-500"
               />
               <span className="text-[0.625rem] text-slate-400 mt-1 block">
                 ניתן להזין מספר חיובי להוספה, או שלילי להפחתה.
@@ -1182,7 +1184,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 value={creditReason}
                 onChange={(e) => setCreditReason(e.target.value)}
                 placeholder="למשל: תשלום דמי מועדון שנתיים, השתתפות במבצע..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
             </div>
 
@@ -1203,14 +1205,16 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
           </form>
         </div>
+        </Overlay>
       )}
 
       {/* MODAL: Cancel Sail with Credit Refund */}
       {cancellingSail && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <form
             onSubmit={handleConfirmCancelSail}
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
+            className="w-full max-w-sm glass-sheet rounded-3xl p-4 sm:p-6 text-right space-y-4 animate-in fade-in"
           >
             <h3 className="text-base font-bold text-rose-700 flex items-center gap-1.5">
               <AlertTriangle className="w-5 h-5 text-rose-600" />
@@ -1232,7 +1236,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 value={cancelSailReason}
                 onChange={(e) => setCancelSailReason(e.target.value)}
                 placeholder="למשל: רוחות צפוניות עזות מעל 25 קשר, כלי השייט נכנס להספנה דחופה..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-rose-500 resize-none"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-rose-500 resize-none"
               />
             </div>
 
@@ -1253,12 +1257,14 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
           </form>
         </div>
+        </Overlay>
       )}
 
       {/* MODAL: Add New Boat */}
       {showAddMember && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
+          <div className="w-full max-w-md glass-sheet rounded-3xl p-4 sm:p-6 text-right space-y-4 animate-in fade-in">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
                 <UserPlus className="w-5 h-5 text-sky-600" />
@@ -1278,7 +1284,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                     <>החשבון של <strong>{createdMember.fullName}</strong> נוצר ומאושר. שלח לו את פרטי הכניסה:</>
                   )}
                 </p>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 font-medium">
+                <div className="p-3 bg-white/60 rounded-xl border border-slate-200 space-y-1 font-medium">
                   <div>מייל: <span className="font-mono">{createdMember.email}</span></div>
                   <div>סיסמה זמנית: <span className="font-mono font-black text-sm tracking-wider">{createdMember.password}</span></div>
                 </div>
@@ -1339,7 +1345,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                     required
                     value={newMember.fullName}
                     onChange={(e) => setNewMember({ ...newMember, fullName: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    className="mt-1 w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm"
                   />
                 </label>
                 <label className="block">
@@ -1350,7 +1356,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                     dir="ltr"
                     value={newMember.email}
                     onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-left"
+                    className="mt-1 w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm text-left"
                   />
                 </label>
                 <label className="block">
@@ -1361,7 +1367,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                     placeholder="050-1234567"
                     value={newMember.phone}
                     onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-left"
+                    className="mt-1 w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm text-left"
                   />
                 </label>
                 <div className={`grid gap-2 ${isAdminUser ? 'grid-cols-2' : 'grid-cols-1'}`}>
@@ -1370,7 +1376,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                     <select
                       value={newMember.experienceLevel}
                       onChange={(e) => setNewMember({ ...newMember, experienceLevel: e.target.value as ExperienceLevel })}
-                      className="mt-1 w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                      className="mt-1 w-full px-2 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs"
                     >
                       {clubSettings.experienceLevels.map((lvl) => (
                         <option key={lvl} value={lvl}>{lvl}</option>
@@ -1385,7 +1391,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                       min={0}
                       value={newMember.credits}
                       onChange={(e) => setNewMember({ ...newMember, credits: Number(e.target.value) })}
-                      className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                      className="mt-1 w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm"
                     />
                   </label>
                   )}
@@ -1401,13 +1407,15 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             )}
           </div>
         </div>
+        </Overlay>
       )}
 
       {showAddBoatModal && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <form
             onSubmit={handleAddBoat}
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
+            className="w-full max-w-md glass-sheet rounded-3xl p-4 sm:p-6 text-right space-y-4 animate-in fade-in"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
@@ -1431,7 +1439,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 value={newBoatName}
                 onChange={(e) => setNewBoatName(e.target.value)}
                 placeholder="גלית / רוח ים / סולאר..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 font-medium"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 font-medium"
               />
             </div>
 
@@ -1443,7 +1451,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                   value={newBoatModel}
                   onChange={(e) => setNewBoatModel(e.target.value)}
                   placeholder="Bavaria 38 Cruiser..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
                 />
               </div>
 
@@ -1455,7 +1463,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                   max="20"
                   value={newBoatCapacity}
                   onChange={(e) => setNewBoatCapacity(Number(e.target.value))}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
                 />
               </div>
             </div>
@@ -1466,7 +1474,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 <select
                   value={newBoatStatus}
                   onChange={(e) => setNewBoatStatus(e.target.value as any)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
                 >
                   <option value="available">🟢 זמין להפלגה</option>
                   <option value="maintenance">🟠 בהספנה / תיקון</option>
@@ -1481,7 +1489,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                   value={newBoatBerth}
                   onChange={(e) => setNewBoatBerth(e.target.value)}
                   placeholder="מרינה הרצליה רציף B..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
                 />
               </div>
             </div>
@@ -1503,14 +1511,16 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
           </form>
         </div>
+        </Overlay>
       )}
 
       {/* MODAL: Edit Existing Boat */}
       {editingBoat && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <form
             onSubmit={handleUpdateBoat}
-            className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4 animate-in fade-in"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto glass-sheet rounded-3xl p-4 sm:p-6 text-right space-y-4 animate-in fade-in"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">
@@ -1532,7 +1542,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 required
                 value={editingBoat.name}
                 onChange={(e) => setEditingBoat({ ...editingBoat, name: e.target.value })}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 font-medium"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 font-medium"
               />
             </div>
 
@@ -1542,7 +1552,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 <select
                   value={editingBoat.status}
                   onChange={(e) => setEditingBoat({ ...editingBoat, status: e.target.value as any })}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 font-bold cursor-pointer"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 font-bold cursor-pointer"
                 >
                   <option value="available">🟢 זמין להפלגה</option>
                   <option value="maintenance">🟠 בהספנה / תיקון</option>
@@ -1556,7 +1566,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                   type="text"
                   value={editingBoat.model}
                   onChange={(e) => setEditingBoat({ ...editingBoat, model: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
                 />
               </div>
             </div>
@@ -1570,7 +1580,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 value={editingBoat.statusNotes || ''}
                 onChange={(e) => setEditingBoat({ ...editingBoat, statusNotes: e.target.value })}
                 placeholder="למשל: טיפול אנטי-פאולינג ושיפוץ מנוע..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
             </div>
 
@@ -1580,11 +1590,11 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 type="text"
                 value={editingBoat.berthLocation || ''}
                 onChange={(e) => setEditingBoat({ ...editingBoat, berthLocation: e.target.value })}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
             </div>
 
-            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50">
+            <div className="p-3 rounded-xl border border-slate-200 bg-white/45">
               <BoatPermissionsEditor
                 allowedLevels={editingBoat.allowedLevels ?? []}
                 allowedMemberIds={editingBoat.allowedMemberIds ?? []}
@@ -1609,6 +1619,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
           </form>
         </div>
+        </Overlay>
       )}
     </div>
   );

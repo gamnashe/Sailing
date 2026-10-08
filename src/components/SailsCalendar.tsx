@@ -213,7 +213,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
   );
 
   const ReservationCard: React.FC<{ r: BoatReservation }> = ({ r }) => (
-    <div className="p-3 bg-slate-50 rounded-xl border border-slate-300 text-xs flex items-start justify-between gap-2">
+    <div className="p-3 bg-white/60 rounded-xl border border-slate-300 text-xs flex items-start justify-between gap-2">
       <div className="space-y-0.5">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="px-1.5 py-0.5 rounded text-[0.625rem] font-bold bg-slate-700 text-white">
@@ -291,7 +291,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
 
         <div className="grid grid-cols-7 gap-1.5">
           {Array.from({ length: lead }).map((_, idx) => (
-            <div key={`empty-${idx}`} className="min-h-20 sm:min-h-28 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200/50 opacity-40" />
+            <div key={`empty-${idx}`} className="min-h-20 sm:min-h-28 bg-white/45 rounded-2xl border border-dashed border-slate-200/50 opacity-40" />
           ))}
           {Array.from({ length: totalDays }).map((_, idx) => {
             const key = dateKey(new Date(year, month, idx + 1));
@@ -313,7 +313,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                     ? 'border-sky-300 bg-sky-50/20'
                     : daySails.length > 0
                     ? 'border-slate-200 hover:border-sky-300 bg-white shadow-2xs'
-                    : 'border-slate-100 bg-slate-50/30 hover:bg-white'
+                    : 'border-slate-100 bg-white/35 hover:bg-white'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -368,7 +368,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         </div>
 
         {selectedDateStr && (
-          <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+          <div className="mt-4 p-4 rounded-2xl bg-white/60 border border-slate-200 space-y-3">
             <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2 flex-wrap">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4 text-sky-600" />
@@ -484,7 +484,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         </div>
 
         {strip.length > 0 && (
-          <div className="grid grid-cols-6 gap-1 text-center text-[0.625rem] bg-slate-50 rounded-2xl border border-slate-200 p-2">
+          <div className="grid grid-cols-6 gap-1 text-center text-[0.625rem] bg-white/60 rounded-2xl border border-slate-200 p-2">
             {strip.map((h) => {
               const cond = sailingConditions(h.wind, h.gust, h.wave, limits);
               return (
@@ -525,7 +525,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                 </div>
                 <div
                   className={`relative flex-1 h-12 rounded-xl border overflow-hidden ${
-                    boat.status === 'available' ? 'bg-slate-50 border-slate-200' : 'bg-amber-50/60 border-amber-200 bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(0,0,0,0.03)_6px,rgba(0,0,0,0.03)_12px)]'
+                    boat.status === 'available' ? 'bg-white/60 border-slate-200' : 'bg-amber-50/60 border-amber-200 bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(0,0,0,0.03)_6px,rgba(0,0,0,0.03)_12px)]'
                   }`}
                 >
                   {hours.map((h) => (
@@ -644,7 +644,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
   };
 
   return (
-    <div className="bg-white rounded-3xl p-3 sm:p-6 border border-slate-200/80 shadow-xs space-y-4">
+    <div className="glass rounded-3xl p-3 sm:p-6 space-y-4">
       {/* Header: title, view switch, filters, navigation */}
       <div className="flex flex-col gap-3 border-b border-slate-100 pb-4">
         <div className="flex items-center justify-between gap-2">

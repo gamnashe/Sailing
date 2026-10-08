@@ -47,7 +47,7 @@ export const WeatherSettings: React.FC = () => {
   };
 
   return (
-    <form onSubmit={save} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4 text-xs">
+    <form onSubmit={save} className="glass rounded-3xl p-4 sm:p-6 space-y-4 text-xs">
       <div className="border-b border-slate-100 pb-3">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
           <MapPin className="w-4 h-4 text-sky-600" aria-hidden="true" />
@@ -66,7 +66,7 @@ export const WeatherSettings: React.FC = () => {
           onChange={(e) => {
             if (e.target.value !== 'custom') setLoc(WEATHER_PRESETS[Number(e.target.value)]);
           }}
-          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer"
+          className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl cursor-pointer"
         >
           {WEATHER_PRESETS.map((p, i) => (
             <option key={p.name} value={i}>
@@ -86,7 +86,7 @@ export const WeatherSettings: React.FC = () => {
             id="weather-name"
             value={loc.name}
             onChange={(e) => setLoc({ ...loc, name: e.target.value })}
-            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+            className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl"
           />
         </div>
         <div>
@@ -100,7 +100,7 @@ export const WeatherSettings: React.FC = () => {
             dir="ltr"
             value={loc.lat}
             onChange={(e) => setLoc({ ...loc, lat: Number(e.target.value), seaLat: undefined, seaLon: undefined })}
-            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+            className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl"
           />
         </div>
         <div>
@@ -114,7 +114,7 @@ export const WeatherSettings: React.FC = () => {
             dir="ltr"
             value={loc.lon}
             onChange={(e) => setLoc({ ...loc, lon: Number(e.target.value), seaLat: undefined, seaLon: undefined })}
-            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+            className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl"
           />
         </div>
       </div>
@@ -156,7 +156,7 @@ export const WeatherSettings: React.FC = () => {
               max={60}
               value={wind}
               onChange={(e) => setWind(Number(e.target.value))}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+              className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl"
             />
           </div>
           <div>
@@ -171,7 +171,7 @@ export const WeatherSettings: React.FC = () => {
               step={0.1}
               value={wave}
               onChange={(e) => setWave(Number(e.target.value))}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+              className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl"
             />
           </div>
         </div>

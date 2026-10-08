@@ -94,7 +94,7 @@ export const AccessibilityMenu: React.FC = () => {
             aria-modal="true"
             aria-labelledby="a11y-menu-title"
             onClick={(e) => e.stopPropagation()}
-            className="absolute left-2 top-2 bottom-2 w-[min(22rem,calc(100vw-1rem))] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden text-right"
+            className="absolute left-2 top-2 bottom-2 w-[min(22rem,calc(100vw-1rem))] glass-sheet rounded-3xl flex flex-col overflow-hidden text-right"
           >
             <div className="bg-sky-800 text-white px-4 py-3 flex items-center justify-between">
               <h2 id="a11y-menu-title" className="font-extrabold text-base flex items-center gap-2">
@@ -108,7 +108,7 @@ export const AccessibilityMenu: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {/* Text size */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+              <div className="bg-white/60 border border-slate-200 rounded-2xl p-3">
                 <div className="flex items-center gap-2 font-bold text-sm text-slate-800 mb-2">
                   <Type className="w-4 h-4 text-sky-700" aria-hidden="true" />
                   גודל טקסט
@@ -181,7 +181,7 @@ export const AccessibilityMenu: React.FC = () => {
               role="dialog"
               aria-modal="true"
               aria-labelledby="a11y-statement-title"
-              className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/70 p-4"
+              className="fixed inset-0 z-[90] flex items-center justify-center glass-backdrop p-4"
               onClick={(e) => {
                 e.stopPropagation();
                 setShowStatement(false);
@@ -189,7 +189,7 @@ export const AccessibilityMenu: React.FC = () => {
             >
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-5 text-right text-sm text-slate-700 space-y-3"
+                className="glass-sheet rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-5 text-right text-sm text-slate-700 space-y-3"
               >
                 <div className="flex items-center justify-between">
                   <h2 id="a11y-statement-title" className="font-extrabold text-lg text-slate-900">

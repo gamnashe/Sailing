@@ -100,7 +100,7 @@ export default function App() {
 
   // Background error toast (failed server writes / loads, expired email links); shown on every screen
   const errorToast = lastError && (
-        <div role="alert" className="fixed bottom-20 sm:bottom-6 inset-x-4 sm:inset-x-auto sm:left-6 sm:max-w-sm z-[60] bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-2xl p-3 shadow-lg flex items-start gap-2">
+        <div role="alert" className="fixed bottom-28 sm:bottom-6 inset-x-4 sm:inset-x-auto sm:left-6 sm:max-w-sm z-[60] bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-2xl p-3 shadow-lg flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
           <span className="flex-1">{lastError}</span>
           <button onClick={() => store.clearLastError()} className="text-rose-500 hover:text-rose-800 cursor-pointer" title="סגור" aria-label="סגור הודעה">
@@ -111,7 +111,7 @@ export default function App() {
 
   if (store.isLoading()) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 text-sky-100">
+      <div className="min-h-screen glass-scene flex flex-col items-center justify-center gap-4 text-sky-100">
         <Anchor className="w-10 h-10 text-sky-400 animate-pulse" />
         <p className="text-sm font-semibold">טוען את נתוני המועדון...</p>
       </div>
@@ -121,7 +121,7 @@ export default function App() {
   // Arrived from a password-recovery email link: choose a new password first
   if (store.isPasswordRecovery()) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen glass-scene flex items-center justify-center p-4">
         <AuthModal isOpen={true} initialMode="enter_new_password" onSuccess={() => setTick((t) => t + 1)} />
       </div>
     );
@@ -130,7 +130,7 @@ export default function App() {
   // If no user is logged in
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen glass-scene flex items-center justify-center p-4">
         {errorToast}
         <AuthModal
           isOpen={true}
@@ -165,7 +165,7 @@ export default function App() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans pb-20 sm:pb-8">
+    <div className="min-h-screen text-slate-900 flex flex-col font-sans pb-28 sm:pb-8">
       {errorToast}
 
       {/* PWA In-App Install Prompt Banner */}
@@ -175,32 +175,35 @@ export default function App() {
       <OfflineIndicator />
 
       {/* Top Application Header */}
-      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 shadow-2xs">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <header className="glass-bar border-b sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           {/* Brand Logo & Name */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-700 to-sky-500 flex items-center justify-center text-white shadow-sm shadow-sky-600/20">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-2xl bg-gradient-to-tr from-sky-700 to-sky-500 flex items-center justify-center text-white shadow-sm shadow-sky-600/20">
               <Anchor className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h1 className="font-extrabold text-base sm:text-lg text-slate-900 leading-tight">
+            <div className="min-w-0">
+              <h1 className="font-extrabold text-base sm:text-lg text-slate-900 leading-tight truncate">
                 {settings.clubName}
               </h1>
-              <p className="text-[0.6875rem] text-slate-500 font-medium">מועדון והפלגות שייט</p>
+              <p className="text-[0.6875rem] text-slate-500 font-medium truncate">מועדון והפלגות שייט</p>
             </div>
           </div>
 
           {/* Right Header Actions: User Credits, Notifications & Profile / Switcher */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Member Credits Badge */}
             <button
               type="button"
               onClick={() => setActiveTab('profile')}
-              className="bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black px-2.5 py-1.5 rounded-2xl text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition active:scale-95"
+              className="bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black px-2.5 py-1.5 rounded-2xl text-xs whitespace-nowrap flex items-center gap-1.5 cursor-pointer shadow-2xs transition active:scale-95"
               title="יתרת נקודות הקרדיט שלך להפלגות"
             >
               <Coins className="w-4 h-4 text-amber-600" />
-              <span>{viewer.credits ?? 5} קרדיטים</span>
+              <span>
+                {viewer.credits ?? 5}
+                <span className="max-[479px]:sr-only"> קרדיטים</span>
+              </span>
             </button>
 
             {/* Notifications Bell */}
@@ -224,7 +227,7 @@ export default function App() {
                 onClick={() => setShowUserSwitcher(!showUserSwitcher)}
                 aria-label="תפריט משתמש"
                 aria-expanded={showUserSwitcher}
-                className="flex items-center gap-2 p-1.5 pr-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs transition cursor-pointer"
+                className="flex items-center gap-2 p-1.5 pr-2 bg-white/60 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs transition cursor-pointer"
               >
                 <img
                   src={viewer.avatar}
@@ -234,11 +237,11 @@ export default function App() {
                 <span className="font-bold text-slate-800 hidden sm:inline max-w-28 truncate">
                   {viewer.fullName}
                 </span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
               </button>
 
               {showUserSwitcher && !isDemo && (
-                <div className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 text-right text-xs">
+                <div className="absolute left-0 mt-2 w-56 glass-sheet rounded-2xl py-2 z-50 text-right text-xs">
                   <div className="px-3 py-1.5 border-b border-slate-100 text-[0.6875rem] text-slate-400 font-semibold truncate">
                     {viewer.email}
                   </div>
@@ -262,7 +265,7 @@ export default function App() {
               )}
 
               {showUserSwitcher && isDemo && (
-                <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 text-right text-xs">
+                <div className="absolute left-0 mt-2 w-64 glass-sheet rounded-2xl py-2 z-50 text-right text-xs">
                   <div className="px-3 py-1.5 border-b border-slate-100 text-[0.6875rem] text-slate-400 font-semibold">
                     החלף משתמש לבדיקה מהירה:
                   </div>
@@ -313,15 +316,16 @@ export default function App() {
         </div>
 
         {/* Desktop Tabs Header Bar */}
-        <nav aria-label="ניווט ראשי" className="hidden sm:block border-t border-slate-100 bg-slate-50/50">
-          <div className="max-w-5xl mx-auto px-4 flex gap-2">
+        <nav aria-label="ניווט ראשי" className="hidden sm:block pb-3">
+          <div className="max-w-5xl mx-auto px-4">
+          <div className="inline-flex gap-1 p-1 rounded-full bg-slate-900/5 border border-white/70 shadow-inner">
             <button
               onClick={() => setActiveTab('sails')}
               aria-current={activeTab === 'sails' ? 'page' : undefined}
-              className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-2 cursor-pointer ${
+              className={`py-2 px-4 rounded-full font-bold text-xs transition flex items-center gap-2 cursor-pointer ${
                 activeTab === 'sails'
-                  ? 'border-sky-600 text-sky-700'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
+                  ? 'glass-selected text-sky-800'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <Sailboat className="w-4 h-4" />
@@ -331,10 +335,10 @@ export default function App() {
             <button
               onClick={() => setActiveTab('boats')}
               aria-current={activeTab === 'boats' ? 'page' : undefined}
-              className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-2 cursor-pointer ${
+              className={`py-2 px-4 rounded-full font-bold text-xs transition flex items-center gap-2 cursor-pointer ${
                 activeTab === 'boats'
-                  ? 'border-sky-600 text-sky-700'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
+                  ? 'glass-selected text-sky-800'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <Wrench className="w-4 h-4" />
@@ -344,10 +348,10 @@ export default function App() {
             <button
               onClick={() => setActiveTab('feed')}
               aria-current={activeTab === 'feed' ? 'page' : undefined}
-              className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-2 cursor-pointer ${
+              className={`py-2 px-4 rounded-full font-bold text-xs transition flex items-center gap-2 cursor-pointer ${
                 activeTab === 'feed'
-                  ? 'border-sky-600 text-sky-700'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
+                  ? 'glass-selected text-sky-800'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <MessageSquare className="w-4 h-4" />
@@ -358,10 +362,10 @@ export default function App() {
               <button
                 onClick={() => setActiveTab('admin')}
                 aria-current={activeTab === 'admin' ? 'page' : undefined}
-                className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-2 cursor-pointer relative ${
+                className={`py-2 px-4 rounded-full font-bold text-xs transition flex items-center gap-2 cursor-pointer relative ${
                   activeTab === 'admin'
-                    ? 'border-sky-600 text-sky-700'
-                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                    ? 'glass-selected text-sky-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                 }`}
               >
                 <Shield className="w-4 h-4" />
@@ -377,15 +381,16 @@ export default function App() {
             <button
               onClick={() => setActiveTab('profile')}
               aria-current={activeTab === 'profile' ? 'page' : undefined}
-              className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-2 cursor-pointer ${
+              className={`py-2 px-4 rounded-full font-bold text-xs transition flex items-center gap-2 cursor-pointer ${
                 activeTab === 'profile'
-                  ? 'border-sky-600 text-sky-700'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
+                  ? 'glass-selected text-sky-800'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <User className="w-4 h-4" />
               פרופיל ({viewer.credits ?? 5} קרד')
             </button>
+          </div>
           </div>
         </nav>
 
@@ -449,12 +454,12 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav aria-label="ניווט ראשי" className="sm:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 py-1.5 px-3 flex items-center justify-around shadow-lg">
+      <nav aria-label="ניווט ראשי" className="sm:hidden fixed safe-bottom inset-x-3 mx-auto max-w-md glass-bar border rounded-[1.75rem] z-40 p-1.5 flex items-center gap-1">
         <button
           onClick={() => setActiveTab('sails')}
           aria-current={activeTab === 'sails' ? 'page' : undefined}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-2xl transition cursor-pointer ${
-            activeTab === 'sails' ? 'text-sky-700 font-bold' : 'text-slate-500'
+          className={`flex-1 min-w-0 flex flex-col items-center gap-0.5 py-1.5 rounded-[1.35rem] transition cursor-pointer ${
+            activeTab === 'sails' ? 'glass-selected text-sky-700 font-bold' : 'text-slate-600'
           }`}
         >
           <Sailboat className="w-5 h-5" />
@@ -464,8 +469,8 @@ export default function App() {
         <button
           onClick={() => setActiveTab('boats')}
           aria-current={activeTab === 'boats' ? 'page' : undefined}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-2xl transition cursor-pointer ${
-            activeTab === 'boats' ? 'text-sky-700 font-bold' : 'text-slate-500'
+          className={`flex-1 min-w-0 flex flex-col items-center gap-0.5 py-1.5 rounded-[1.35rem] transition cursor-pointer ${
+            activeTab === 'boats' ? 'glass-selected text-sky-700 font-bold' : 'text-slate-600'
           }`}
         >
           <Wrench className="w-5 h-5" />
@@ -475,8 +480,8 @@ export default function App() {
         <button
           onClick={() => setActiveTab('feed')}
           aria-current={activeTab === 'feed' ? 'page' : undefined}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-2xl transition cursor-pointer ${
-            activeTab === 'feed' ? 'text-sky-700 font-bold' : 'text-slate-500'
+          className={`flex-1 min-w-0 flex flex-col items-center gap-0.5 py-1.5 rounded-[1.35rem] transition cursor-pointer ${
+            activeTab === 'feed' ? 'glass-selected text-sky-700 font-bold' : 'text-slate-600'
           }`}
         >
           <MessageSquare className="w-5 h-5" />
@@ -487,8 +492,8 @@ export default function App() {
           <button
             onClick={() => setActiveTab('admin')}
             aria-current={activeTab === 'admin' ? 'page' : undefined}
-            className={`flex flex-col items-center gap-1 py-1 px-2 rounded-2xl transition cursor-pointer relative ${
-              activeTab === 'admin' ? 'text-sky-700 font-bold' : 'text-slate-500'
+            className={`flex-1 min-w-0 flex flex-col items-center gap-0.5 py-1.5 rounded-[1.35rem] transition cursor-pointer relative ${
+              activeTab === 'admin' ? 'glass-selected text-sky-700 font-bold' : 'text-slate-600'
             }`}
           >
             <Shield className="w-5 h-5" />
@@ -504,8 +509,8 @@ export default function App() {
         <button
           onClick={() => setActiveTab('profile')}
           aria-current={activeTab === 'profile' ? 'page' : undefined}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-2xl transition cursor-pointer ${
-            activeTab === 'profile' ? 'text-sky-700 font-bold' : 'text-slate-500'
+          className={`flex-1 min-w-0 flex flex-col items-center gap-0.5 py-1.5 rounded-[1.35rem] transition cursor-pointer ${
+            activeTab === 'profile' ? 'glass-selected text-sky-700 font-bold' : 'text-slate-600'
           }`}
         >
           <User className="w-5 h-5" />

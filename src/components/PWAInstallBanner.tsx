@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { Download, Share, X, Smartphone, CheckCircle } from 'lucide-react';
+import { Overlay } from './Overlay';
 
 export const PWAInstallBanner: React.FC = () => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
@@ -63,8 +64,9 @@ export const PWAInstallBanner: React.FC = () => {
 
       {/* iOS Instructions Modal */}
       {showIOSModal && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl text-slate-800 text-right animate-in fade-in zoom-in-95 duration-200">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
+          <div className="w-full max-w-sm rounded-2xl glass-sheet p-6 text-slate-800 text-right animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-sky-600" />
@@ -120,6 +122,7 @@ export const PWAInstallBanner: React.FC = () => {
             </button>
           </div>
         </div>
+        </Overlay>
       )}
     </>
   );

@@ -20,7 +20,7 @@ export const UsernameForm: React.FC<{ current: string }> = ({ current }) => {
   };
 
   return (
-    <form onSubmit={save} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
+    <form onSubmit={save} className="glass rounded-3xl p-4 sm:p-6 space-y-3">
       <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
         <AtSign className="w-4 h-4 text-sky-600" aria-hidden="true" />
         שם משתמש לכניסה
@@ -41,7 +41,7 @@ export const UsernameForm: React.FC<{ current: string }> = ({ current }) => {
             setValue(e.target.value.replace(/\s/g, ''));
             setMsg(null);
           }}
-          className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-left"
+          className="flex-1 px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm text-left"
         />
         <button
           type="submit"

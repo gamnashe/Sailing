@@ -31,7 +31,7 @@ export const CreditRequestCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-3 text-xs">
+    <div className="glass rounded-3xl p-5 space-y-3 text-xs">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Coins className="w-5 h-5 text-amber-600" aria-hidden="true" />
@@ -88,7 +88,7 @@ export const CreditRequestCard: React.FC = () => {
               required
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-20 p-2 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold"
+              className="w-20 p-2 bg-white/60 border border-slate-200 rounded-xl text-center font-bold"
             />
           </div>
           <input
@@ -97,7 +97,7 @@ export const CreditRequestCard: React.FC = () => {
             maxLength={300}
             placeholder="הערה למנהל (לא חובה), למשל: שילמתי בהעברה"
             aria-label="הערה למנהל"
-            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+            className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl"
           />
           <div className="flex gap-2">
             <button
