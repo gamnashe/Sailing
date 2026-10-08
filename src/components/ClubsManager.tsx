@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { store } from '../services/store';
 import { ClubSummary, WEATHER_PRESETS, WeatherLocation } from '../types';
 import { Building2, Plus, MapPin, Users, KeyRound, Pencil, X, Copy, Share2, Mail, Check, UserPlus, Loader2 } from 'lucide-react';
+import { Overlay } from './Overlay';
 
 type Credentials = { clubName: string; fullName: string; phone: string; email: string; password: string; isNewClub: boolean };
 
-const inputCls = 'w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs';
+const inputCls = 'w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs';
 
 const LocationSelect: React.FC<{ value: WeatherLocation; onChange: (l: WeatherLocation) => void; id: string }> = ({ value, onChange, id }) => {
   const idx = WEATHER_PRESETS.findIndex((p) => p.lat === value.lat && p.lon === value.lon);
@@ -112,7 +113,7 @@ export const ClubsManager: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+      <div className="glass rounded-3xl p-4 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -148,7 +149,7 @@ export const ClubsManager: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {clubs.map((c) => (
-              <div key={c.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 text-xs space-y-2">
+              <div key={c.id} className="p-4 rounded-2xl border border-slate-200 bg-white/50 text-xs space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-bold text-slate-900 text-sm">{c.name}</p>
@@ -331,8 +332,9 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-3xl shadow-2xl my-auto text-right overflow-hidden">
+    <Overlay>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md glass-sheet rounded-3xl my-auto text-right overflow-hidden">
         <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
           <h3 className="font-bold">{title}</h3>
           <button onClick={onClose} aria-label="סגור" className="p-1 rounded-lg hover:bg-white/10 cursor-pointer">
@@ -342,5 +344,6 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
         <div className="p-5">{children}</div>
       </div>
     </div>
+    </Overlay>
   );
 };

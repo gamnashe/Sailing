@@ -95,7 +95,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
   return (
     <div className="max-w-2xl mx-auto space-y-5 text-right">
       {/* Profile Card Header */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center gap-5 text-center sm:text-right">
+      <div className="glass rounded-3xl p-4 sm:p-6 flex flex-col sm:flex-row items-center gap-5 text-center sm:text-right">
         <AvatarPicker
           src={user.avatar}
           name={user.fullName}
@@ -150,7 +150,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
       <TutorialVideosButton staff={isStaff(user.role)} />
 
       {/* Edit Details Form */}
-      <form onSubmit={handleSaveProfile} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+      <form onSubmit={handleSaveProfile} className="glass rounded-3xl p-4 sm:p-6 space-y-4">
         <h3 className="font-bold text-slate-900 text-base border-b border-slate-100 pb-3">עריכת פרטים אישיים</h3>
 
         {savedSuccess && (
@@ -168,7 +168,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
               required
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs font-medium"
+              className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs font-medium"
             />
           </div>
 
@@ -179,7 +179,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
               required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs font-medium"
+              className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs font-medium"
             />
           </div>
 
@@ -188,7 +188,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
             <select
               value={experienceLevel}
               onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs cursor-pointer font-medium"
+              className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs cursor-pointer font-medium"
             >
               {levelOptions(store.getSettings().experienceLevels, user.experienceLevel).map((opt) => (
                 <option key={opt} value={opt}>
@@ -212,7 +212,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
       {/* Change password */}
       <UsernameForm current={user.username} />
 
-      <form onSubmit={handleChangePassword} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
+      <form onSubmit={handleChangePassword} className="glass rounded-3xl p-4 sm:p-6 space-y-3">
         <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
           <KeyRound className="w-4 h-4 text-sky-600" />
           החלפת סיסמה
@@ -231,7 +231,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             placeholder="סיסמה חדשה"
-            className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+            className="flex-1 px-3 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm"
           />
           <button
             type="submit"
@@ -244,7 +244,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
       </form>
 
       {/* Notifications & Push Settings */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4 text-xs">
+      <div className="glass rounded-3xl p-4 sm:p-6 space-y-4 text-xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
             <h3 className="font-bold text-slate-900 text-base">התראות Push ישירות למכשיר</h3>
@@ -253,7 +253,7 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
           <Bell className="w-5 h-5 text-sky-600" />
         </div>
 
-        <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+        <div className="flex items-center justify-between p-3.5 bg-white/60 rounded-2xl border border-slate-100">
           <div>
             <p className="font-bold text-slate-800">התראות דפדפן / מערכת</p>
             <p className="text-[0.6875rem] text-slate-500">

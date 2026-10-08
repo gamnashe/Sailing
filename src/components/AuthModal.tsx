@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { store, validatePasswordComplexity, isValidUsername, normalizeUsername, USERNAME_RULE_TEXT } from '../services/store';
 import { UserProfile, ExperienceLevel } from '../types';
 import { AvatarPicker } from './AvatarPicker';
+import { Overlay } from './Overlay';
 import {
   Anchor,
   User,
@@ -236,8 +237,9 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
   };
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right">
+    <Overlay>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto">
+      <div className="w-full max-w-md glass-sheet rounded-3xl overflow-hidden my-auto text-right">
         {/* Header */}
         <div className="bg-gradient-to-br from-sky-900 via-sky-800 to-slate-900 p-6 text-white text-center relative">
           {onClose && (
@@ -263,7 +265,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
 
         {/* Tab Switcher (Only in login/register mode) */}
         {(mode === 'login' || mode === 'register') && (
-          <div className="flex border-b border-slate-100 bg-slate-50 text-sm font-semibold">
+          <div className="flex border-b border-slate-100 bg-white/60 text-sm font-semibold">
             <button
               type="button"
               onClick={() => {
@@ -364,7 +366,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10"
+                    className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10"
                   />
                   <Mail className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
                 </div>
@@ -424,7 +426,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                   value={resetTokenOrCode}
                   onChange={(e) => setResetTokenOrCode(e.target.value)}
                   placeholder="למשל: 489210"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono tracking-widest text-center focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-mono tracking-widest text-center focus:ring-2 focus:ring-sky-500"
                 />
               </div>
               )}
@@ -440,7 +442,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="לפחות 8 תווים עם אותיות ומספרים"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10"
+                    className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10"
                   />
                   <KeyRound className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
                 </div>
@@ -496,7 +498,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="שם פרטי ומשפחה"
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 font-medium"
+                        className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 font-medium"
                       />
                       <User className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
                     </div>
@@ -513,7 +515,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="050-1234567"
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10"
+                        className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10"
                       />
                       <Phone className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
                     </div>
@@ -525,7 +527,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                       <select
                         value={experienceLevel}
                         onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 cursor-pointer"
+                        className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 cursor-pointer"
                       >
                         {store.getSettings().experienceLevels.map((opt) => (
                           <option key={opt} value={opt}>
@@ -597,7 +599,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={mode === 'login' ? 'name@example.com או dani.cohen' : 'your-email@example.com'}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 font-medium text-left"
+                    className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 font-medium text-left"
                   />
                   {mode === 'login' ? (
                     <User className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
@@ -632,7 +634,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={mode === 'register' ? '8 תווים לפחות, אותיות ומספרים' : '••••••••'}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 pl-10"
+                    className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 pl-10"
                   />
                   <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
                   <button
@@ -673,7 +675,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
 
           {/* Clean Admin Credentials Quick Login for easy testing (demo mode only) */}
           {isDemo && (
-          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-600 flex items-center justify-between">
+          <div className="p-3 bg-white/60 rounded-2xl border border-slate-100 text-xs text-slate-600 flex items-center justify-between">
             <div>
               <p className="font-bold text-slate-900">כניסת מנהל ראשי (ברירת מחדל נקייה):</p>
               <p className="text-[0.6875rem] text-slate-500">admin@sailingclub.co.il • Admin1234!</p>
@@ -697,5 +699,6 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
         </div>
       </div>
     </div>
+    </Overlay>
   );
 };

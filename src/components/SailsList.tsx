@@ -136,7 +136,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
 
       {/* Sails Grid / List */}
       {activeTab !== 'calendar' && filteredSails.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-xs space-y-3">
+        <div className="glass rounded-3xl p-12 text-center space-y-3">
           <div className="w-16 h-16 bg-sky-50 text-sky-600 rounded-3xl flex items-center justify-center mx-auto">
             <Sailboat className="w-8 h-8" />
           </div>
@@ -174,7 +174,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
               <div
                 key={sail.id}
                 onClick={() => onSelectSail(sail.id)}
-                className="bg-white hover:bg-sky-50/20 border border-slate-200/80 hover:border-sky-300 rounded-3xl p-5 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between text-right group relative overflow-hidden"
+                className="glass hover:bg-sky-50/20 hover:border-sky-300 rounded-3xl p-5 hover:shadow-md transition cursor-pointer flex flex-col justify-between text-right group relative overflow-hidden"
               >
                 {/* Visual side accent border */}
                 <div
@@ -246,7 +246,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
                   </h3>
 
                   {/* Sailing Cost & Rules Banner */}
-                  <div className="mb-3 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-[0.6875rem] flex items-center justify-between text-slate-700">
+                  <div className="mb-3 px-2.5 py-1.5 rounded-xl bg-white/60 border border-slate-200/70 text-[0.6875rem] flex items-center justify-between text-slate-700">
                     <span className="flex items-center gap-1 font-semibold text-amber-800">
                       <Coins className="w-3.5 h-3.5 text-amber-600" />
                       {isClub ? '1 קרדיט למשתתף' : `${sail.creditCost || 3} קרדיטים (${sail.durationHours || 3} שעות)`}
@@ -276,7 +276,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
                   </div>
 
                   {/* Key metadata grid */}
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 mb-4 bg-slate-50/80 rounded-2xl p-3 border border-slate-100">
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 mb-4 bg-white/60 rounded-2xl p-3 border border-slate-100">
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                       <span className="font-semibold text-slate-800">{sail.date}</span>

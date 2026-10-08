@@ -26,7 +26,7 @@ export const CreditRequestsList: React.FC<{ onDone: (message: string, ok: boolea
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+    <div className="glass rounded-3xl p-4 sm:p-6 space-y-4">
       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">

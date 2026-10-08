@@ -95,7 +95,7 @@ export const BoatPermissionsEditor: React.FC<Props> = ({ allowedLevels, allowedM
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="חפש חבר להוספה..."
-          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+          className="w-full p-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
         />
         {matches.length > 0 && (
           <div className="mt-1 border border-slate-200 rounded-xl bg-white max-h-32 overflow-y-auto">

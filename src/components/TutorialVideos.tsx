@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { PlayCircle, X, Loader2 } from 'lucide-react';
 import { store } from '../services/store';
+import { Overlay } from './Overlay';
 
 // The member video is public; the management video sits in private storage and is fetched with a
 // short-lived signed link that only admins and assistants can get.
@@ -54,7 +55,7 @@ export const TutorialVideosButton: React.FC<{ staff?: boolean; className?: strin
         }}
         className={
           className ??
-          'w-full bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3 text-right hover:border-sky-300 cursor-pointer'
+          'w-full glass rounded-3xl p-4 flex items-center gap-3 text-right hover:border-sky-300 cursor-pointer'
         }
       >
         <PlayCircle className="w-8 h-8 text-sky-600 shrink-0" aria-hidden="true" />
@@ -67,16 +68,17 @@ export const TutorialVideosButton: React.FC<{ staff?: boolean; className?: strin
       </button>
 
       {open && (
+        <Overlay>
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="tutorials-title"
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-3"
+          className="fixed inset-0 z-[60] flex items-center justify-center glass-backdrop p-3"
           onClick={() => setOpen(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl text-right flex flex-col max-h-[94vh]"
+            className="w-full max-w-md glass-sheet rounded-3xl overflow-hidden text-right flex flex-col max-h-[94vh]"
           >
             <div className="bg-sky-800 text-white px-4 py-3 flex items-center justify-between shrink-0">
               <h2 id="tutorials-title" className="font-bold flex items-center gap-2">
@@ -135,6 +137,7 @@ export const TutorialVideosButton: React.FC<{ staff?: boolean; className?: strin
             </button>
           </div>
         </div>
+        </Overlay>
       )}
     </>
   );

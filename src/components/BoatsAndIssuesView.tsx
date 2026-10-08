@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { store } from '../services/store';
 import { Boat, BoatIssue, BoatStatus, IssueSeverity, UserProfile, isStaff } from '../types';
 import { compressImage } from '../utils/imageCompression';
+import { Overlay } from './Overlay';
 import {
   Anchor,
   AlertTriangle,
@@ -299,7 +300,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
             return (
               <div
                 key={boat.id}
-                className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs text-right space-y-4 hover:shadow-md transition"
+                className="glass rounded-3xl p-5 text-right space-y-4 hover:shadow-md transition"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between">
@@ -323,7 +324,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                       ? 'bg-amber-50 border-amber-200 text-amber-900'
                       : boat.status === 'unavailable'
                       ? 'bg-rose-50 border-rose-200 text-rose-900'
-                      : 'bg-slate-50 border-slate-200 text-slate-700'
+                      : 'bg-white/60 border-slate-200 text-slate-700'
                   }`}>
                     <span className="font-bold block mb-0.5">הערת מועדון / תחזוקה:</span>
                     <p>{boat.statusNotes}</p>
@@ -390,7 +391,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
           </div>
 
           {filteredIssues.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-xs space-y-2">
+            <div className="glass rounded-3xl p-12 text-center space-y-2">
               <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
               <h3 className="font-bold text-slate-800 text-sm">אין תקלות מדווחות</h3>
               <p className="text-xs text-slate-500">כל כלי השייט מתוחזקים ותקינים.</p>
@@ -457,7 +458,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
                   {/* Admin notes if resolved/in progress */}
                   {issue.adminNotes && (
-                    <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs text-slate-700">
+                    <div className="bg-white/60 border border-slate-200 p-2.5 rounded-xl text-xs text-slate-700">
                       <span className="font-bold block text-slate-900">הערת מנהל / טיפול:</span>
                       <p>{issue.adminNotes}</p>
                     </div>
@@ -494,10 +495,11 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL 1: Report Issue */}
       {showReportModal && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto">
           <form
             onSubmit={handleReportSubmit}
-            className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right space-y-4 p-6"
+            className="w-full max-w-lg glass-sheet rounded-3xl overflow-hidden my-auto text-right space-y-4 p-6"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -520,7 +522,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                   required
                   value={selectedBoatId}
                   onChange={(e) => setSelectedBoatId(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
                 >
                   {boats.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -535,7 +537,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 <select
                   value={issueCategory}
                   onChange={(e) => setIssueCategory(e.target.value as any)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
                 >
                   <option value="מנוע">מנוע</option>
                   <option value="מפרשים וחבלים">מפרשים וחבלים</option>
@@ -566,7 +568,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                         ? item.id === 'critical'
                           ? 'bg-rose-600 text-white border-rose-700'
                           : 'bg-sky-600 text-white border-sky-700'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        : 'bg-white/60 text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
                     {item.label}
@@ -583,7 +585,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 value={issueTitle}
                 onChange={(e) => setIssueTitle(e.target.value)}
                 placeholder="למשל: נורת ניווט אדומה שרופה, נזילת מים קלה בכיור..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 font-medium"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 font-medium"
               />
             </div>
 
@@ -594,7 +596,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 value={issueDesc}
                 onChange={(e) => setIssueDesc(e.target.value)}
                 placeholder="מתי התגלתה התקלה, האם בוצע תיקון שדה זמני, המלצות לטיפול..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 resize-none"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 resize-none"
               />
             </div>
 
@@ -647,14 +649,16 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
             </div>
           </form>
         </div>
+        </Overlay>
       )}
 
       {/* MODAL 2: Admin Add Boat */}
       {showAddBoatModal && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto">
           <form
             onSubmit={handleAddBoatSubmit}
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 my-auto text-right space-y-4 p-6"
+            className="w-full max-w-md glass-sheet rounded-3xl overflow-hidden my-auto text-right space-y-4 p-6"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -678,7 +682,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 value={newBoatName}
                 onChange={(e) => setNewBoatName(e.target.value)}
                 placeholder="למשל: ים כחול, גלית, רוח סתיו..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 font-medium"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 font-medium"
               />
             </div>
 
@@ -690,7 +694,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                   value={newBoatModel}
                   onChange={(e) => setNewBoatModel(e.target.value)}
                   placeholder="Bavaria 38 / Beneteau 41..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
                 />
               </div>
 
@@ -702,7 +706,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                   max="20"
                   value={newBoatCapacity}
                   onChange={(e) => setNewBoatCapacity(Number(e.target.value))}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
                 />
               </div>
             </div>
@@ -713,7 +717,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 <select
                   value={newBoatStatus}
                   onChange={(e) => setNewBoatStatus(e.target.value as any)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
                 >
                   <option value="available">זמין להפלגה</option>
                   <option value="maintenance">בהספנה / תיקון</option>
@@ -728,7 +732,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                   value={newBoatBerth}
                   onChange={(e) => setNewBoatBerth(e.target.value)}
                   placeholder="מרינה הרצליה, רציף B..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
+                  className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500"
                 />
               </div>
             </div>
@@ -740,7 +744,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 value={newBoatNotes}
                 onChange={(e) => setNewBoatNotes(e.target.value)}
                 placeholder="ציוד מיוחד, שנת ייצור, שעות מנוע..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
             </div>
 
@@ -761,12 +765,14 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
             </div>
           </form>
         </div>
+        </Overlay>
       )}
 
       {/* MODAL 3: Admin Edit Boat Status */}
       {editingBoat && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-right space-y-4">
+        <Overlay>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
+          <div className="w-full max-w-sm glass-sheet rounded-3xl p-4 sm:p-6 text-right space-y-4">
             <h3 className="font-bold text-slate-900 text-base">
               עדכון סטטוס כלי שייט: {editingBoat.name}
             </h3>
@@ -781,7 +787,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 className={`w-full p-3 rounded-xl border text-xs font-bold flex items-center justify-between cursor-pointer transition ${
                   editingBoat.status === 'available'
                     ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
-                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    : 'bg-white/60 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <span>🟢 זמין להפלגה</span>
@@ -797,7 +803,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 className={`w-full p-3 rounded-xl border text-xs font-bold flex items-center justify-between cursor-pointer transition ${
                   editingBoat.status === 'maintenance'
                     ? 'bg-amber-50 border-amber-400 text-amber-800'
-                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    : 'bg-white/60 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <span>🟠 בהספנה / תיקון</span>
@@ -813,7 +819,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 className={`w-full p-3 rounded-xl border text-xs font-bold flex items-center justify-between cursor-pointer transition ${
                   editingBoat.status === 'unavailable'
                     ? 'bg-rose-50 border-rose-400 text-rose-800'
-                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    : 'bg-white/60 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <span>🔴 לא זמין</span>
@@ -830,6 +836,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
             </button>
           </div>
         </div>
+        </Overlay>
       )}
     </div>
   );

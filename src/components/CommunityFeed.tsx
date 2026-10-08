@@ -124,7 +124,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
   return (
     <div className="max-w-2xl mx-auto space-y-5 text-right">
       {/* Create New Post Box */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
+      <div className="glass rounded-3xl p-5">
         <div className="flex items-center gap-3 mb-3">
           <img
             src={currentUser.avatar}
@@ -143,7 +143,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="מה חדש בים? ספרו על ההפלגה האחרונה, מזג אוויר, או תיאום ציוד..."
-            className="w-full p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 resize-none font-sans"
+            className="w-full p-3.5 bg-white/60 rounded-2xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 resize-none font-sans"
           />
 
           {/* Link Input Bar */}
@@ -194,7 +194,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
             <select
               value={selectedSailId}
               onChange={(e) => setSelectedSailId(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer max-w-xs"
+              className="bg-white/60 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer w-full min-w-0 sm:w-auto sm:max-w-xs"
             >
               <option value="">קשר להפלגה (אופציונלי)...</option>
               {sails.map((s) => (
@@ -357,7 +357,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                   href={post.linkPreview.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block mb-3 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden text-right transition group"
+                  className="block mb-3 bg-white/60 hover:bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden text-right transition group"
                 >
                   {post.linkPreview.image && (
                     <img
@@ -412,7 +412,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                   {post.comments.length > 0 ? (
                     <div className="space-y-2">
                       {post.comments.map((comm) => (
-                        <div key={comm.id} className="flex gap-2.5 bg-slate-50 p-2.5 rounded-2xl text-xs">
+                        <div key={comm.id} className="flex gap-2.5 bg-white/60 p-2.5 rounded-2xl text-xs">
                           <img
                             src={comm.authorAvatar}
                             alt={comm.authorName}
@@ -444,7 +444,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                       value={commentContent}
                       onChange={(e) => setCommentContent(e.target.value)}
                       placeholder="הוסף תגובה..."
-                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      className="flex-1 bg-white/60 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
                     />
                     <button
                       type="submit"

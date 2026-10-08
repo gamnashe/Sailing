@@ -48,7 +48,7 @@ export const AvatarPicker: React.FC<Props> = ({ src, name, onChange, canRemove, 
         {src ? (
           <img src={src} alt={name} className={`${box} rounded-full object-cover border-4 border-sky-100 shadow-sm bg-slate-100`} />
         ) : (
-          <div className={`${box} rounded-full border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-slate-400`}>
+          <div className={`${box} rounded-full border-2 border-dashed border-slate-300 bg-white/60 flex items-center justify-center text-slate-400`}>
             <Camera className="w-7 h-7" aria-hidden="true" />
           </div>
         )}
