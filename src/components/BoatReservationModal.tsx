@@ -80,7 +80,7 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
   };
 
   return (
-    <Overlay>
+    <Overlay onClose={onClose}>
     <div
       role="dialog"
       aria-modal="true"
@@ -144,7 +144,7 @@ export const BoatReservationModal: React.FC<Props> = ({ isOpen, initialDate, onC
               <button
                 type="button"
                 onClick={() => setBoatIds(allSelected ? [] : boats.map((b) => b.id))}
-                className="text-sky-700 font-semibold hover:underline cursor-pointer"
+                className="py-1 text-sky-700 font-semibold hover:underline cursor-pointer"
               >
                 {allSelected ? 'נקה' : 'כל הסירות'}
               </button>

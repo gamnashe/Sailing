@@ -222,11 +222,12 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex bg-slate-200/80 p-1 rounded-2xl font-medium text-xs">
           <button
             onClick={() => setActiveTab('fleet')}
-            className={`px-5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+            aria-pressed={activeTab === 'fleet'}
+            className={`px-3 sm:px-5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'fleet'
                 ? 'bg-white text-sky-900 shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
@@ -237,7 +238,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
           </button>
           <button
             onClick={() => setActiveTab('issues')}
-            className={`px-5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+            aria-pressed={activeTab === 'issues'}
+            className={`px-3 sm:px-5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'issues'
                 ? 'bg-white text-sky-900 shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
@@ -252,18 +254,21 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
           <div className="flex gap-1 text-xs">
             <button
               onClick={() => setStatusFilter('all')}
+              aria-pressed={statusFilter === 'all'}
               className={`px-2.5 py-1 rounded-lg ${statusFilter === 'all' ? 'bg-slate-800 text-white font-bold' : 'bg-slate-100 text-slate-600'}`}
             >
               הכל
             </button>
             <button
               onClick={() => setStatusFilter('open')}
+              aria-pressed={statusFilter === 'open'}
               className={`px-2.5 py-1 rounded-lg ${statusFilter === 'open' ? 'bg-amber-600 text-white font-bold' : 'bg-slate-100 text-slate-600'}`}
             >
               פתוחות
             </button>
             <button
               onClick={() => setStatusFilter('resolved')}
+              aria-pressed={statusFilter === 'resolved'}
               className={`px-2.5 py-1 rounded-lg ${statusFilter === 'resolved' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 text-slate-600'}`}
             >
               טופלו
@@ -282,7 +287,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
           }`}
         >
           <span>{feedbackMsg.text}</span>
-          <button
+          <button aria-label="סגור"
             onClick={() => setFeedbackMsg(null)}
             className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
           >
@@ -358,7 +363,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                   {isAdmin && (
                     <button
                       onClick={() => setEditingBoat(boat)}
-                      className="text-sky-700 hover:text-sky-900 font-bold flex items-center gap-1 cursor-pointer"
+                      className="py-1 text-sky-700 hover:text-sky-900 font-bold flex items-center gap-1 cursor-pointer"
                     >
                       <Wrench className="w-3.5 h-3.5" />
                       עדכן סטטוס
@@ -374,7 +379,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
       {/* TAB 2: Issues Board */}
       {activeTab === 'issues' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold text-slate-900">לוח דיווחי תקלות צי הסירות</h2>
               <p className="text-xs text-slate-500">
@@ -495,7 +500,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL 1: Report Issue */}
       {showReportModal && (
-        <Overlay>
+        <Overlay onClose={() => setShowReportModal(false)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto">
           <form
             onSubmit={handleReportSubmit}
@@ -506,7 +511,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
                 דיווח תקלה בכלי שייט
               </h3>
-              <button
+              <button aria-label="סגור"
                 type="button"
                 onClick={() => setShowReportModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
@@ -517,8 +522,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">בחר כלי שייט *</label>
-                <select
+                <label htmlFor="boats-field-1" className="block font-semibold text-slate-700 mb-1">בחר כלי שייט *</label>
+                <select id="boats-field-1"
                   required
                   value={selectedBoatId}
                   onChange={(e) => setSelectedBoatId(e.target.value)}
@@ -533,8 +538,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">תחום התקלה *</label>
-                <select
+                <label htmlFor="boats-field-2" className="block font-semibold text-slate-700 mb-1">תחום התקלה *</label>
+                <select id="boats-field-2"
                   value={issueCategory}
                   onChange={(e) => setIssueCategory(e.target.value as any)}
                   className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
@@ -578,8 +583,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">כותרת קצרה של התקלה *</label>
-              <input
+              <label htmlFor="boats-field-3" className="block text-xs font-semibold text-slate-700 mb-1">כותרת קצרה של התקלה *</label>
+              <input id="boats-field-3"
                 type="text"
                 required
                 value={issueTitle}
@@ -590,8 +595,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">פירוט התקלה ונסיבות האירוע</label>
-              <textarea
+              <label htmlFor="boats-field-4" className="block text-xs font-semibold text-slate-700 mb-1">פירוט התקלה ונסיבות האירוע</label>
+              <textarea id="boats-field-4"
                 rows={3}
                 value={issueDesc}
                 onChange={(e) => setIssueDesc(e.target.value)}
@@ -618,7 +623,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 {issuePhoto && (
                   <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200">
                     <img src={issuePhoto} alt="תצוגה מקדימה" className="w-full h-full object-cover" />
-                    <button
+                    <button aria-label="סגור"
                       type="button"
                       onClick={() => setIssuePhoto(null)}
                       className="absolute top-0 right-0 bg-black/70 text-white p-0.5 rounded-bl cursor-pointer"
@@ -654,7 +659,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL 2: Admin Add Boat */}
       {showAddBoatModal && (
-        <Overlay>
+        <Overlay onClose={() => setShowAddBoatModal(false)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto">
           <form
             onSubmit={handleAddBoatSubmit}
@@ -665,7 +670,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
                 <Sailboat className="w-5 h-5 text-sky-600" />
                 הוספת כלי שייט חדש למועדון
               </h3>
-              <button
+              <button aria-label="סגור"
                 type="button"
                 onClick={() => setShowAddBoatModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
@@ -675,8 +680,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">שם כלי השייט *</label>
-              <input
+              <label htmlFor="boats-field-5" className="block text-xs font-semibold text-slate-700 mb-1">שם כלי השייט *</label>
+              <input id="boats-field-5"
                 type="text"
                 required
                 value={newBoatName}
@@ -688,8 +693,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">דגם ויצרן</label>
-                <input
+                <label htmlFor="boats-field-6" className="block font-semibold text-slate-700 mb-1">דגם ויצרן</label>
+                <input id="boats-field-6"
                   type="text"
                   value={newBoatModel}
                   onChange={(e) => setNewBoatModel(e.target.value)}
@@ -699,8 +704,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">קיבולת משתתפים</label>
-                <input
+                <label htmlFor="boats-field-7" className="block font-semibold text-slate-700 mb-1">קיבולת משתתפים</label>
+                <input id="boats-field-7"
                   type="number"
                   min="2"
                   max="20"
@@ -713,8 +718,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">סטטוס התחלתי</label>
-                <select
+                <label htmlFor="boats-field-8" className="block font-semibold text-slate-700 mb-1">סטטוס התחלתי</label>
+                <select id="boats-field-8"
                   value={newBoatStatus}
                   onChange={(e) => setNewBoatStatus(e.target.value as any)}
                   className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
@@ -726,8 +731,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">מיקום רציף / מרינה</label>
-                <input
+                <label htmlFor="boats-field-9" className="block font-semibold text-slate-700 mb-1">מיקום רציף / מרינה</label>
+                <input id="boats-field-9"
                   type="text"
                   value={newBoatBerth}
                   onChange={(e) => setNewBoatBerth(e.target.value)}
@@ -738,8 +743,8 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">הערות נוספות</label>
-              <input
+              <label htmlFor="boats-field-10" className="block text-xs font-semibold text-slate-700 mb-1">הערות נוספות</label>
+              <input id="boats-field-10"
                 type="text"
                 value={newBoatNotes}
                 onChange={(e) => setNewBoatNotes(e.target.value)}
@@ -770,7 +775,7 @@ export const BoatsAndIssuesView: React.FC<Props> = ({ currentUser }) => {
 
       {/* MODAL 3: Admin Edit Boat Status */}
       {editingBoat && (
-        <Overlay>
+        <Overlay onClose={() => setEditingBoat(null)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <div className="w-full max-w-sm glass-sheet rounded-3xl p-4 sm:p-6 text-right space-y-4">
             <h3 className="font-bold text-slate-900 text-base">

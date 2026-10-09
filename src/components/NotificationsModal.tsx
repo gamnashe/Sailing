@@ -61,7 +61,7 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
   };
 
   return (
-    <Overlay>
+    <Overlay onClose={onClose}>
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto">
       <div className="w-full max-w-md glass-sheet rounded-3xl overflow-hidden my-auto text-right flex flex-col max-h-[85vh]">
         {/* Header */}
@@ -80,14 +80,14 @@ export const NotificationsModal: React.FC<Props> = ({ isOpen, userId, onClose, o
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-[0.6875rem] text-sky-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+                className="py-1 text-[0.6875rem] text-sky-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
                 title="סמן הכל כנקרא"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
                 סמן הכל כנקרא
               </button>
             )}
-            <button
+            <button aria-label="סגור"
               onClick={onClose}
               className="p-1 text-slate-400 hover:text-white rounded-lg cursor-pointer"
             >

@@ -79,9 +79,9 @@ export const AccessibilityMenu: React.FC = () => {
         aria-controls="a11y-menu"
         aria-label="תפריט נגישות"
         title="נגישות"
-        className="fixed left-0 top-1/2 -translate-y-1/2 z-[70] bg-sky-800 hover:bg-sky-900 text-white rounded-r-2xl py-2.5 pl-1.5 pr-2 shadow-lg cursor-pointer"
+        className="fixed left-0 top-1/2 -translate-y-1/2 z-[70] bg-sky-800/90 hover:bg-sky-900 text-white rounded-r-xl py-2 pl-1 pr-1.5 shadow-lg cursor-pointer"
       >
-        <Accessibility className="w-6 h-6" aria-hidden="true" />
+        <Accessibility className="w-5 h-5" aria-hidden="true" />
         {active && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-white" />}
       </button>
 

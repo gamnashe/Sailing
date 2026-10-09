@@ -133,7 +133,7 @@ export const WeatherSettings: React.FC = () => {
           href={`https://www.google.com/maps?q=${loc.lat},${loc.lon}`}
           target="_blank"
           rel="noreferrer"
-          className="text-sky-700 font-semibold hover:underline"
+          className="inline-block py-1 text-sky-700 font-semibold hover:underline"
         >
           הצג במפה ↗
         </a>

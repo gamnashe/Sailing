@@ -111,13 +111,11 @@ const TutorialVideosWindow: React.FC<{ keys: VideoKey[]; initial: VideoKey; noti
     };
   }, [withAdmin]);
 
+  // The phone's Back button closes it too
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.history.pushState({ tutorials: true }, '');
-    document.addEventListener('keydown', onKey);
     window.addEventListener('popstate', onClose);
     return () => {
-      document.removeEventListener('keydown', onKey);
       window.removeEventListener('popstate', onClose);
       // Closed by a button rather than Back: drop the history entry we added
       if (window.history.state?.tutorials) window.history.back();
@@ -127,7 +125,7 @@ const TutorialVideosWindow: React.FC<{ keys: VideoKey[]; initial: VideoKey; noti
   const src = current === 'admin' ? adminUrl : VIDEOS[current].src;
 
   return (
-    <Overlay>
+    <Overlay onClose={onClose}>
       <div
         role="dialog"
         aria-modal="true"

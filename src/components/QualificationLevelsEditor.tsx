@@ -103,7 +103,7 @@ export const QualificationLevelsEditor: React.FC = () => {
                   type="button"
                   disabled={i === 0 || busy}
                   onClick={() => move(i, -1)}
-                  className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                  className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
                   title="הזז למעלה"
                 >
                   <ChevronUp className="w-3.5 h-3.5" />
@@ -112,13 +112,14 @@ export const QualificationLevelsEditor: React.FC = () => {
                   type="button"
                   disabled={i === levels.length - 1 || busy}
                   onClick={() => move(i, 1)}
-                  className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                  className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
                   title="הזז למטה"
                 >
                   <ChevronDown className="w-3.5 h-3.5" />
                 </button>
               </div>
               <input
+                aria-label="שם רמת ההסמכה"
                 value={draft}
                 onChange={(e) => setDrafts({ ...drafts, [level]: e.target.value })}
                 onKeyDown={(e) => {
@@ -127,7 +128,7 @@ export const QualificationLevelsEditor: React.FC = () => {
                     rename(level);
                   }
                 }}
-                className="flex-1 px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
+                className="flex-1 min-w-0 px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500"
               />
               <span className="text-[0.625rem] text-slate-400 w-14 text-center shrink-0">{holders(level)} חברים</span>
               {changed && (

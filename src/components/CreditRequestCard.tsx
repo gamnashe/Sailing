@@ -47,7 +47,7 @@ export const CreditRequestCard: React.FC = () => {
               setOpen(true);
               setMessage(null);
             }}
-            className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3.5 py-2 rounded-xl cursor-pointer shrink-0"
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-2 rounded-xl cursor-pointer shrink-0"
           >
             בקש קרדיטים
           </button>
@@ -103,7 +103,7 @@ export const CreditRequestCard: React.FC = () => {
             <button
               type="submit"
               disabled={busy}
-              className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <Send className="w-4 h-4" aria-hidden="true" />
               {busy ? 'שולח...' : 'שלח בקשה'}

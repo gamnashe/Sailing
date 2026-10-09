@@ -293,7 +293,7 @@ export default function App() {
                         <img src={u.avatar} alt={u.fullName} className="w-6 h-6 rounded-full object-cover" />
                         <span className="truncate">{u.fullName}</span>
                       </div>
-                      <span className="text-[0.625rem] text-slate-400 font-medium">
+                      <span className="text-[0.625rem] text-slate-500 font-medium">
                         {isStaff(u.role) ? ROLE_LABELS[u.role] : u.status === 'pending' ? 'ממתין' : `${u.credits ?? 5} קרד'`}
                       </span>
                     </button>
@@ -371,7 +371,7 @@ export default function App() {
                 <Shield className="w-4 h-4" />
                 ניהול מועדון
                 {pendingApprovalsCount > 0 && (
-                  <span className="w-4 h-4 bg-amber-500 text-white rounded-full text-[0.625rem] flex items-center justify-center font-bold">
+                  <span className="w-4 h-4 bg-amber-600 text-white rounded-full text-[0.625rem] flex items-center justify-center font-bold">
                     {pendingApprovalsCount}
                   </span>
                 )}
@@ -499,7 +499,7 @@ export default function App() {
             <Shield className="w-5 h-5" />
             <span className="text-[0.625rem]">ניהול</span>
             {pendingApprovalsCount > 0 && (
-              <span className="absolute top-0 right-1 w-3.5 h-3.5 bg-amber-500 text-white rounded-full text-[0.5625rem] flex items-center justify-center font-bold">
+              <span className="absolute top-0 right-1 w-3.5 h-3.5 bg-amber-600 text-white rounded-full text-[0.5625rem] flex items-center justify-center font-bold">
                 {pendingApprovalsCount}
               </span>
             )}

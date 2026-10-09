@@ -32,12 +32,15 @@ interface Props {
   onUpdate: () => void;
 }
 
-export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose, onUpdate }) => {
-  if (!sailId) return null;
+export const SailDetailModal: React.FC<Props> = (props) => {
+  if (!props.sailId || !store.getSailById(props.sailId)) return null;
+  // Keyed by sail, so a different sail opens with fresh state
+  return <SailDetailWindow key={props.sailId} {...props} sailId={props.sailId} />;
+};
 
-  const sail = store.getSailById(sailId);
+const SailDetailWindow: React.FC<Props & { sailId: string }> = ({ sailId, currentUser, onClose, onUpdate }) => {
+  const sail = store.getSailById(sailId)!;
   const settings = store.getSettings();
-  if (!sail) return null;
 
   const confirmedMembers = store.getConfirmedParticipants(sail.id);
   const waitlistMembers = store.getWaitlistParticipants(sail.id);
@@ -156,7 +159,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
   const occupancyPercentage = Math.min(100, Math.round((confirmedMembers.length / sail.maxParticipants) * 100));
 
   return (
-    <Overlay>
+    <Overlay onClose={onClose}>
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-3 sm:p-4 overflow-y-auto">
       <div className="w-full max-w-2xl glass-sheet rounded-3xl overflow-hidden my-auto text-right flex flex-col max-h-[92vh]">
         {/* Header */}
@@ -172,7 +175,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
                 </span>
               )}
               {sail.status === 'closed' && (
-                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/90 text-white">
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-600 text-white">
                   הרשמה נעולה
                 </span>
               )}
@@ -186,6 +189,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
           </div>
           <button
             onClick={onClose}
+            aria-label="סגור"
             className="p-1.5 text-sky-200 hover:text-white hover:bg-white/10 rounded-full cursor-pointer transition shrink-0"
           >
             <X className="w-5 h-5" />
@@ -411,17 +415,17 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
                       href={`https://wa.me/972${member.phone.replace(/[^0-9]/g, '').slice(-9)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                      className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
                       title="שלח וואטסאפ"
                     >
-                      <MessageCircle className="w-3.5 h-3.5" />
+                      <MessageCircle className="w-4 h-4" />
                     </a>
                     <a
                       href={`tel:${member.phone}`}
-                      className="p-1 text-slate-600 hover:bg-slate-200 rounded-lg transition"
+                      className="p-2 text-slate-600 hover:bg-slate-200 rounded-lg transition"
                       title="התקשר"
                     >
-                      <Phone className="w-3.5 h-3.5" />
+                      <Phone className="w-4 h-4" />
                     </a>
 
                     {/* Admin remove button */}
@@ -627,7 +631,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
 
       {/* Confirmation Modal for user cancellation */}
       {showCancelConfirm && (
-        <Overlay>
+        <Overlay onClose={() => setShowCancelConfirm(false)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 flex items-center justify-center glass-backdrop p-4">
           <div className="w-full max-w-sm rounded-3xl glass-sheet p-4 sm:p-6 text-right">
             <h3 className="text-lg font-bold text-slate-900 mb-2">ביטול השתתפות בהפלגה</h3>
@@ -662,7 +666,7 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
 
       {/* Admin Cancel Entire Sail Modal */}
       {showCancelSailModal && (
-        <Overlay>
+        <Overlay onClose={() => setShowCancelSailModal(false)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 flex items-center justify-center glass-backdrop p-4">
           <form onSubmit={handleCancelSailByAdmin} className="w-full max-w-sm rounded-3xl glass-sheet p-4 sm:p-6 text-right">
             <h3 className="text-lg font-bold text-rose-700 mb-2 flex items-center gap-1.5">
@@ -702,13 +706,13 @@ export const SailDetailModal: React.FC<Props> = ({ sailId, currentUser, onClose,
 
       {/* Admin Manual Add Modal */}
       {showManualAddModal && (
-        <Overlay>
+        <Overlay onClose={() => setShowManualAddModal(false)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 flex items-center justify-center glass-backdrop p-4">
           <form onSubmit={handleManualAdd} className="w-full max-w-sm rounded-3xl glass-sheet p-4 sm:p-6 text-right">
             <h3 className="text-base font-bold text-slate-900 mb-2">הוספת חבר מועדון ידנית להפלגה</h3>
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">בחר חבר מהמועדון:</label>
-              <select
+              <label htmlFor="detail-field-1" className="block text-xs font-semibold text-slate-700 mb-1">בחר חבר מהמועדון:</label>
+              <select id="detail-field-1"
                 required
                 value={selectedMemberToAdd}
                 onChange={(e) => setSelectedMemberToAdd(e.target.value)}

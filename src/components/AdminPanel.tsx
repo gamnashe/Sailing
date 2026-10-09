@@ -387,6 +387,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
         <div className="flex flex-wrap bg-slate-800/80 p-1 rounded-2xl text-xs font-semibold gap-1">
           <button
             onClick={() => setActiveTab('members')}
+            aria-pressed={activeTab === 'members'}
             className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'members'
                 ? 'bg-sky-600 text-white shadow-xs font-bold'
@@ -399,6 +400,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
           <button
             onClick={() => setActiveTab('fleet')}
+            aria-pressed={activeTab === 'fleet'}
             className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'fleet'
                 ? 'bg-sky-600 text-white shadow-xs font-bold'
@@ -411,6 +413,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
           <button
             onClick={() => setActiveTab('sails')}
+            aria-pressed={activeTab === 'sails'}
             className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'sails'
                 ? 'bg-sky-600 text-white shadow-xs font-bold'
@@ -423,6 +426,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
           <button
             onClick={() => setActiveTab('pending')}
+            aria-pressed={activeTab === 'pending'}
             className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'pending'
                 ? 'bg-sky-600 text-white shadow-xs font-bold'
@@ -435,6 +439,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
           <button
             onClick={() => setActiveTab('settings')}
+            aria-pressed={activeTab === 'settings'}
             className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'settings'
                 ? 'bg-sky-600 text-white shadow-xs font-bold'
@@ -447,6 +452,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
           <button
             onClick={() => setActiveTab('stats')}
+            aria-pressed={activeTab === 'stats'}
             className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'stats'
                 ? 'bg-sky-600 text-white shadow-xs font-bold'
@@ -460,8 +466,9 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
           {currentUser.isPlatformAdmin && (
             <button
               onClick={() => setActiveTab('clubs')}
+              aria-pressed={activeTab === 'clubs'}
               className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'clubs' ? 'bg-amber-500 text-white shadow-xs font-bold' : 'text-amber-300 hover:text-white'
+                activeTab === 'clubs' ? 'bg-amber-600 text-white shadow-xs font-bold' : 'text-amber-300 hover:text-white'
               }`}
             >
               <Building2 className="w-3.5 h-3.5" />
@@ -498,7 +505,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
           }`}
         >
           <span>{feedbackMessage.text}</span>
-          <button
+          <button aria-label="סגור"
             onClick={() => setFeedbackMessage(null)}
             className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
           >
@@ -580,12 +587,12 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                       {/* Qualification Level Selector */}
                       <div className="flex items-center gap-1">
                         <Compass className="w-3 h-3 text-sky-600" />
-                        <select
+                        <select aria-label={`רמת הסמכה של ${member.fullName}`}
                           value={member.experienceLevel}
                           onChange={(e) =>
                             handleUpdateQualification(member.id, e.target.value as ExperienceLevel, member.fullName)
                           }
-                          className="bg-white border border-slate-200 text-slate-700 text-[0.6875rem] font-semibold rounded-lg px-2 py-0.5 hover:border-sky-400 focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                          className="bg-white border border-slate-200 text-slate-700 text-[0.6875rem] font-semibold rounded-lg px-2 py-1 hover:border-sky-400 focus:ring-1 focus:ring-sky-500 cursor-pointer"
                           title="עדכן רמת הסמכה של המשיט"
                         >
                           {levelOptions(clubSettings.experienceLevels, member.experienceLevel).map((lvl) => (
@@ -784,7 +791,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                         setFeedbackMessage({ text: `כלי השייט ${b.name} הוסר מהמערכת`, type: 'success' });
                       }
                     }}
-                    className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
+                    className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-lg cursor-pointer"
                     title="מחק כלי שייט"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -983,8 +990,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">שם המועדון</label>
-              <input
+              <label htmlFor="admin-field-1" className="block font-semibold text-slate-700 mb-1">שם המועדון</label>
+              <input id="admin-field-1"
                 type="text"
                 required
                 value={clubName}
@@ -994,8 +1001,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">מספר משתתפים מקסימלי (ברירת מחדל)</label>
-              <input
+              <label htmlFor="admin-field-2" className="block font-semibold text-slate-700 mb-1">מספר משתתפים מקסימלי (ברירת מחדל)</label>
+              <input id="admin-field-2"
                 type="number"
                 min="2"
                 max="20"
@@ -1007,8 +1014,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">מי רשאי לפתוח הפלגות חדשות?</label>
-              <select
+              <label htmlFor="admin-field-3" className="block font-semibold text-slate-700 mb-1">מי רשאי לפתוח הפלגות חדשות?</label>
+              <select id="admin-field-3"
                 value={whoCanCreateSails}
                 onChange={(e) => setWhoCanCreateSails(e.target.value as any)}
                 className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs cursor-pointer"
@@ -1019,10 +1026,10 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
+              <label htmlFor="admin-field-4" className="block font-semibold text-slate-700 mb-1">
                 חלון ביטול: מינימום שעות לפני הפלגה (ללא מנהל)
               </label>
-              <input
+              <input id="admin-field-4"
                 type="number"
                 min="0"
                 max="72"
@@ -1132,7 +1139,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
       {/* MODAL: Credit Adjustment */}
       {creditModalUser && (
-        <Overlay>
+        <Overlay onClose={() => setCreditModalUser(null)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <form
             onSubmit={handleApplyCredits}
@@ -1143,7 +1150,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 <Coins className="w-5 h-5 text-amber-500" />
                 עדכון נקודות קרדיט
               </h3>
-              <button
+              <button aria-label="סגור"
                 type="button"
                 onClick={() => setCreditModalUser(null)}
                 className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
@@ -1160,10 +1167,10 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="admin-field-5" className="block text-xs font-semibold text-slate-700 mb-1">
                 כמות קרדיטים להוספה / הפחתה
               </label>
-              <input
+              <input id="admin-field-5"
                 type="number"
                 required
                 value={creditAmount}
@@ -1177,8 +1184,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">סיבת העדכון</label>
-              <input
+              <label htmlFor="admin-field-6" className="block text-xs font-semibold text-slate-700 mb-1">סיבת העדכון</label>
+              <input id="admin-field-6"
                 type="text"
                 required
                 value={creditReason}
@@ -1210,7 +1217,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
       {/* MODAL: Cancel Sail with Credit Refund */}
       {cancellingSail && (
-        <Overlay>
+        <Overlay onClose={() => setCancellingSail(null)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <form
             onSubmit={handleConfirmCancelSail}
@@ -1227,10 +1234,10 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </p>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="admin-field-7" className="block text-xs font-semibold text-slate-700 mb-1">
                 סיבת הביטול (תוצג לכל החברים) *
               </label>
-              <textarea
+              <textarea id="admin-field-7"
                 required
                 rows={3}
                 value={cancelSailReason}
@@ -1262,7 +1269,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
       {/* MODAL: Add New Boat */}
       {showAddMember && (
-        <Overlay>
+        <Overlay onClose={closeAddMember}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <div className="w-full max-w-md glass-sheet rounded-3xl p-4 sm:p-6 text-right space-y-4 animate-in fade-in">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1270,7 +1277,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 <UserPlus className="w-5 h-5 text-sky-600" />
                 {createdMember ? (createdMember.isResend ? 'פרטי כניסה חדשים' : 'החבר נוסף בהצלחה') : 'הוספת חבר מועדון'}
               </h3>
-              <button type="button" onClick={closeAddMember} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
+              <button aria-label="סגור" type="button" onClick={closeAddMember} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1411,7 +1418,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
       )}
 
       {showAddBoatModal && (
-        <Overlay>
+        <Overlay onClose={() => setShowAddBoatModal(false)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <form
             onSubmit={handleAddBoat}
@@ -1422,7 +1429,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
                 <Sailboat className="w-5 h-5 text-sky-600" />
                 הוספת כלי שייט לצי
               </h3>
-              <button
+              <button aria-label="סגור"
                 type="button"
                 onClick={() => setShowAddBoatModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
@@ -1432,8 +1439,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">שם כלי השייט *</label>
-              <input
+              <label htmlFor="admin-field-8" className="block text-xs font-semibold text-slate-700 mb-1">שם כלי השייט *</label>
+              <input id="admin-field-8"
                 type="text"
                 required
                 value={newBoatName}
@@ -1445,8 +1452,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">דגם ויצרן</label>
-                <input
+                <label htmlFor="admin-field-9" className="block font-semibold text-slate-700 mb-1">דגם ויצרן</label>
+                <input id="admin-field-9"
                   type="text"
                   value={newBoatModel}
                   onChange={(e) => setNewBoatModel(e.target.value)}
@@ -1456,8 +1463,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">קיבולת מקסימלית</label>
-                <input
+                <label htmlFor="admin-field-10" className="block font-semibold text-slate-700 mb-1">קיבולת מקסימלית</label>
+                <input id="admin-field-10"
                   type="number"
                   min="2"
                   max="20"
@@ -1470,8 +1477,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">סטטוס התחלתי</label>
-                <select
+                <label htmlFor="admin-field-11" className="block font-semibold text-slate-700 mb-1">סטטוס התחלתי</label>
+                <select id="admin-field-11"
                   value={newBoatStatus}
                   onChange={(e) => setNewBoatStatus(e.target.value as any)}
                   className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 cursor-pointer"
@@ -1483,8 +1490,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">מיקום רציף</label>
-                <input
+                <label htmlFor="admin-field-12" className="block font-semibold text-slate-700 mb-1">מיקום רציף</label>
+                <input id="admin-field-12"
                   type="text"
                   value={newBoatBerth}
                   onChange={(e) => setNewBoatBerth(e.target.value)}
@@ -1516,7 +1523,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
       {/* MODAL: Edit Existing Boat */}
       {editingBoat && (
-        <Overlay>
+        <Overlay onClose={() => setEditingBoat(null)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <form
             onSubmit={handleUpdateBoat}
@@ -1526,7 +1533,7 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
               <h3 className="text-base font-bold text-slate-900">
                 עריכת כלי שייט: {editingBoat.name}
               </h3>
-              <button
+              <button aria-label="סגור"
                 type="button"
                 onClick={() => setEditingBoat(null)}
                 className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
@@ -1536,8 +1543,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">שם כלי השייט</label>
-              <input
+              <label htmlFor="admin-field-13" className="block text-xs font-semibold text-slate-700 mb-1">שם כלי השייט</label>
+              <input id="admin-field-13"
                 type="text"
                 required
                 value={editingBoat.name}
@@ -1548,8 +1555,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">סטטוס כלי שייט *</label>
-                <select
+                <label htmlFor="admin-field-14" className="block font-semibold text-slate-700 mb-1">סטטוס כלי שייט *</label>
+                <select id="admin-field-14"
                   value={editingBoat.status}
                   onChange={(e) => setEditingBoat({ ...editingBoat, status: e.target.value as any })}
                   className="w-full p-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 font-bold cursor-pointer"
@@ -1561,8 +1568,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">דגם</label>
-                <input
+                <label htmlFor="admin-field-15" className="block font-semibold text-slate-700 mb-1">דגם</label>
+                <input id="admin-field-15"
                   type="text"
                   value={editingBoat.model}
                   onChange={(e) => setEditingBoat({ ...editingBoat, model: e.target.value })}
@@ -1572,10 +1579,10 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="admin-field-16" className="block text-xs font-semibold text-slate-700 mb-1">
                 הערת סטטוס / פירוט עבודות הספנה
               </label>
-              <input
+              <input id="admin-field-16"
                 type="text"
                 value={editingBoat.statusNotes || ''}
                 onChange={(e) => setEditingBoat({ ...editingBoat, statusNotes: e.target.value })}
@@ -1585,8 +1592,8 @@ export const AdminPanel: React.FC<Props> = ({ currentUser, requestsNonce = 0, on
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">מיקום רציף</label>
-              <input
+              <label htmlFor="admin-field-17" className="block text-xs font-semibold text-slate-700 mb-1">מיקום רציף</label>
+              <input id="admin-field-17"
                 type="text"
                 value={editingBoat.berthLocation || ''}
                 onChange={(e) => setEditingBoat({ ...editingBoat, berthLocation: e.target.value })}

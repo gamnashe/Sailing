@@ -63,6 +63,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
         <div className="flex bg-slate-200/80 p-1 rounded-2xl w-full sm:w-auto font-medium text-xs">
           <button
             onClick={() => setActiveTab('calendar')}
+            aria-pressed={activeTab === 'calendar'}
             className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
               activeTab === 'calendar'
                 ? 'bg-white text-sky-900 shadow-xs font-bold'
@@ -75,6 +76,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
 
           <button
             onClick={() => setActiveTab('upcoming')}
+            aria-pressed={activeTab === 'upcoming'}
             className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
               activeTab === 'upcoming'
                 ? 'bg-white text-sky-900 shadow-xs font-bold'
@@ -87,6 +89,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
 
           <button
             onClick={() => setActiveTab('archive')}
+            aria-pressed={activeTab === 'archive'}
             className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
               activeTab === 'archive'
                 ? 'bg-white text-sky-900 shadow-xs font-bold'
@@ -206,7 +209,7 @@ export const SailsList: React.FC<Props> = ({ currentUser, onSelectSail, onOpenCr
                       </span>
 
                       <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-36">
-                        {sail.boatName}
+                        {sail.boatName.split(' (')[0]}
                       </span>
                     </div>
 
