@@ -77,12 +77,14 @@ function readView(): View {
 }
 
 /** One-line forecast for a day: icon, wind (coloured by conditions), wave height. */
-const DayWeather: React.FC<{ forecast: Forecast | null; date: string; showWaves?: boolean; limits: ConditionThresholds }> = ({
-  forecast,
-  date,
-  showWaves = true,
-  limits,
-}) => {
+const DayWeather: React.FC<{
+  forecast: Forecast | null;
+  date: string;
+  showWaves?: boolean;
+  limits: ConditionThresholds;
+  /** month cells: on phones the wind only */
+  compact?: boolean;
+}> = ({ forecast, date, showWaves = true, limits, compact }) => {
   const day = forecast?.days[date];
   if (!day) return null;
   const cond = sailingConditions(day.windMax, day.gustMax, day.waveMax, limits);
@@ -91,7 +93,7 @@ const DayWeather: React.FC<{ forecast: Forecast | null; date: string; showWaves?
       className="inline-flex items-center gap-1 text-[0.625rem] leading-tight"
       title={`${weatherLabel(day.weatherCode).label} · רוח ${Math.round(day.windMax)} קשר (משבים ${Math.round(day.gustMax)}) מ${windFrom(day.windDir)}${day.waveMax !== null ? ` · גלים עד ${day.waveMax.toFixed(1)} מ'` : ''}`}
     >
-      <span>{weatherLabel(day.weatherCode).icon}</span>
+      <span className={compact ? 'hidden sm:inline' : ''}>{weatherLabel(day.weatherCode).icon}</span>
       <span className={WIND_TEXT[cond]}>{Math.round(day.windMax)}kn</span>
       {showWaves && day.waveMax !== null && <span className="text-sky-700">🌊{day.waveMax.toFixed(1)}</span>}
     </span>
@@ -162,7 +164,8 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
       ? `${shortDate(weekDays[0])} – ${shortDate(weekDays[6])}/${weekDays[6].getFullYear()}`
       : `יום ${HEBREW_DAYS[cursor.getDay()]}, ${cursor.getDate()} ב${HEBREW_MONTHS[cursor.getMonth()]}`;
 
-  const AddButton: React.FC<{ date: string; label?: boolean }> = ({ date, label }) =>
+  // In month cells on phones the cell itself is the tap target (its panel has "הפלגה חדשה"), so no tiny "+"
+  const AddButton: React.FC<{ date: string; label?: boolean; inMonthCell?: boolean }> = ({ date, label, inMonthCell }) =>
     canCreateOn(date) ? (
       <button
         type="button"
@@ -173,7 +176,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
         className={
           label
             ? 'px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs'
-            : 'w-5 h-5 rounded-full bg-sky-100 hover:bg-sky-600 text-sky-700 hover:text-white flex items-center justify-center cursor-pointer transition'
+            : `w-6 h-6 shrink-0 rounded-full bg-sky-100 hover:bg-sky-600 text-sky-700 hover:text-white items-center justify-center cursor-pointer transition ${inMonthCell ? 'hidden sm:flex' : 'flex'}`
         }
         title="פתח הפלגה בתאריך זה"
       >
@@ -200,15 +203,15 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
 
   const ReservationChip: React.FC<{ r: BoatReservation }> = ({ r }) => (
     <div
-      className={`w-full text-right p-1 rounded-lg text-[0.625rem] sm:text-xs font-semibold truncate border ${RESERVATION_STYLE}`}
+      className={`w-full text-center sm:text-right p-1 rounded-lg text-[0.625rem] sm:text-xs font-semibold truncate border ${RESERVATION_STYLE}`}
       title={`${RESERVATION_KIND_LABELS[r.kind]}: ${r.title} (${r.startTime}–${r.endTime}) · ${boatName(r.boatId)}`}
     >
-      <div className="flex items-center gap-1 truncate">
+      <div className="flex items-center justify-center sm:justify-start gap-1 truncate">
         <span>{RESERVATION_KIND_ICONS[r.kind]}</span>
-        <span className="font-bold">{r.startTime}</span>
-        <span className="truncate">{r.title}</span>
+        <span className="font-bold hidden sm:inline">{r.startTime}</span>
+        <span className="truncate hidden sm:inline">{r.title}</span>
       </div>
-      <div className="text-[0.5625rem] sm:text-[0.625rem] text-slate-200 font-normal truncate">🔒 {boatName(r.boatId)}</div>
+      <div className="hidden sm:block text-[0.625rem] text-slate-200 font-normal truncate">🔒 {boatName(r.boatId)}</div>
     </div>
   );
 
@@ -250,15 +253,17 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
           e.stopPropagation();
           onSelectSail(sail.id);
         }}
-        className={`w-full text-right p-1 rounded-lg ${compact ? 'text-[0.625rem] sm:text-xs' : 'text-xs p-2'} font-semibold truncate block transition cursor-pointer border ${OCCUPANCY_STYLE[occ]}`}
+        className={`w-full rounded-lg ${compact ? 'text-[0.625rem] sm:text-xs px-0.5 py-1 sm:p-1 text-center sm:text-right' : 'text-xs p-2 text-right'} font-semibold truncate block transition cursor-pointer border ${OCCUPANCY_STYLE[occ]}`}
         title={`${sail.title} (${sail.departureTime}–${sail.estimatedReturnTime}) · ${sail.boatName} · סקיפר: ${sail.skipperName}`}
+        aria-label={`${sail.title}, ${sail.departureTime}–${sail.estimatedReturnTime}, ${sail.boatName}`}
       >
-        <div className="flex items-center gap-1 truncate">
+        {/* Month cells on phones are narrow: the departure time only (the colour shows how full it is) */}
+        <div className={`flex items-center gap-1 truncate ${compact ? 'justify-center sm:justify-start' : ''}`}>
           <span className="font-bold">{sail.departureTime}</span>
           {!compact && <span className="font-normal">–{sail.estimatedReturnTime}</span>}
-          <span className="truncate">{sail.title}</span>
+          <span className={`truncate ${compact ? 'hidden sm:inline' : ''}`}>{sail.title}</span>
         </div>
-        <div className="flex items-center justify-between text-[0.5625rem] sm:text-[0.625rem] text-slate-500 font-normal mt-0.5">
+        <div className={`items-center justify-between text-[0.5625rem] sm:text-[0.625rem] text-slate-500 font-normal mt-0.5 ${compact ? 'hidden sm:flex' : 'flex'}`}>
           <span className="truncate">{sail.boatName.split(' (')[0]}</span>
           {sail.sailType === 'club' && occ !== 'cancelled' && (
             <span className={occ === 'full' ? 'text-rose-700 font-black' : 'text-slate-600'}>
@@ -323,24 +328,25 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
                       e.stopPropagation();
                       openDay(key);
                     }}
-                    className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-sky-300 ${
+                    className={`text-xs font-bold w-6 h-6 shrink-0 rounded-full flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-sky-300 ${
                       isToday ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-700'
                     }`}
                     title="תצוגת יום"
                   >
                     {idx + 1}
                   </button>
-                  <AddButton date={key} />
+                  <AddButton date={key} inMonthCell />
                 </div>
                 <div className="mt-0.5">
-                  <DayWeather forecast={forecast} date={key} showWaves={false} limits={limits} />
+                  <DayWeather forecast={forecast} date={key} showWaves={false} limits={limits} compact />
                 </div>
                 {rough && (
                   <div
                     className="mt-0.5 rounded-md bg-rose-600 text-white text-[0.5625rem] sm:text-[0.625rem] font-black text-center py-0.5 leading-tight"
                     title={`ים סוער: ${roughReason(rough, limits)}`}
                   >
-                    ⛈️ ים סוער
+                    ⛈️<span className="sm:hidden"> סוער</span>
+                    <span className="hidden sm:inline"> ים סוער</span>
                   </div>
                 )}
                 <div className="space-y-1 my-1 overflow-hidden flex-1">
@@ -679,6 +685,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
               <button
                 key={v}
                 onClick={() => setView(v)}
+                aria-pressed={view === v}
                 className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${view === v ? 'bg-white text-sky-900 shadow-2xs font-bold' : 'text-slate-600'}`}
               >
                 {v === 'month' ? 'חודש' : v === 'week' ? 'שבוע' : 'יום'}
@@ -690,6 +697,7 @@ export const SailsCalendar: React.FC<Props> = ({ currentUser, onSelectSail, onOp
               <button
                 key={f}
                 onClick={() => setFilterType(f)}
+                aria-pressed={filterType === f}
                 className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${filterType === f ? 'bg-white text-sky-900 shadow-2xs font-bold' : 'text-slate-600'}`}
               >
                 {f === 'all' ? 'הכל' : f === 'club' ? 'מועדון' : 'פרטית'}

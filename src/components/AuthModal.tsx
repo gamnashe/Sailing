@@ -237,13 +237,13 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
   };
 
   return (
-    <Overlay>
+    <Overlay onClose={onClose}>
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto">
       <div className="w-full max-w-md glass-sheet rounded-3xl overflow-hidden my-auto text-right">
         {/* Header */}
         <div className="bg-gradient-to-br from-sky-900 via-sky-800 to-slate-900 p-6 text-white text-center relative">
           {onClose && (
-            <button
+            <button aria-label="סגור"
               onClick={onClose}
               className="absolute left-4 top-4 p-1.5 text-sky-200 hover:text-white hover:bg-white/10 rounded-full cursor-pointer transition"
             >
@@ -417,10 +417,10 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
               )}
               {!viaRecoveryLink && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="auth-field-1" className="block text-xs font-semibold text-slate-700 mb-1">
                   קוד אימות מהמייל (או מזהה הקישור) *
                 </label>
-                <input
+                <input id="auth-field-1"
                   type="text"
                   required
                   value={resetTokenOrCode}
@@ -522,9 +522,9 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">רמת הסמכה / ניסיון בשייט *</label>
+                    <label htmlFor="join-level" className="block text-xs font-semibold text-slate-700 mb-1">רמת הסמכה / ניסיון בשייט *</label>
                     <div className="relative">
-                      <select
+                      <select id="join-level"
                         value={experienceLevel}
                         onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
                         className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 pr-10 cursor-pointer"
@@ -620,7 +620,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                         setMode('forgot_password');
                         setError(null);
                       }}
-                      className="text-[0.6875rem] font-semibold text-sky-700 hover:underline cursor-pointer"
+                      className="py-1 text-[0.6875rem] font-semibold text-sky-700 hover:underline cursor-pointer"
                     >
                       שכחת סיסמה?
                     </button>
@@ -641,7 +641,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onSuccess, onClose, initial
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
-                    className="absolute left-2.5 top-2.5 p-0.5 text-slate-400 hover:text-slate-700 cursor-pointer"
+                    className="absolute left-1 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-700 cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

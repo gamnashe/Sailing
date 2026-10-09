@@ -12,7 +12,9 @@
     "test": "tsx src/tests/sailLogic.test.ts && tsx src/tests/accessibility.test.ts && tsx src/tests/weather.test.ts && tsx src/tests/booking.test.ts && tsx src/tests/schema.test.ts",
     "icons": "node scripts/generate-icons.js",
     "test:logic": "tsx src/tests/sailLogic.test.ts",
-    "test:db": "tsx src/tests/schema.test.ts"
+    "test:db": "tsx src/tests/schema.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report e2e-results/report"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
@@ -21,7 +23,9 @@
     "react-dom": "^19.0.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "1.56.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",

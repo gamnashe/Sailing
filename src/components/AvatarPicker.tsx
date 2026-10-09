@@ -68,7 +68,7 @@ export const AvatarPicker: React.FC<Props> = ({ src, name, onChange, canRemove, 
         <button
           type="button"
           onClick={() => run(null)}
-          className="text-[0.6875rem] text-slate-500 hover:text-rose-600 flex items-center gap-1 cursor-pointer whitespace-nowrap"
+          className="py-1 text-[0.6875rem] text-slate-500 hover:text-rose-600 flex items-center gap-1 cursor-pointer whitespace-nowrap"
         >
           <Trash2 className="w-3 h-3" aria-hidden="true" />
           הסר תמונה

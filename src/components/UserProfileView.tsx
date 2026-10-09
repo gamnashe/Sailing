@@ -162,8 +162,8 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">שם מלא</label>
-            <input
+            <label htmlFor="profile-field-1" className="block font-semibold text-slate-700 mb-1">שם מלא</label>
+            <input id="profile-field-1"
               type="text"
               required
               value={fullName}
@@ -173,8 +173,8 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">מספר טלפון</label>
-            <input
+            <label htmlFor="profile-field-2" className="block font-semibold text-slate-700 mb-1">מספר טלפון</label>
+            <input id="profile-field-2"
               type="tel"
               required
               value={phone}
@@ -184,8 +184,8 @@ export const UserProfileView: React.FC<Props> = ({ user, onLogout, onUpdate }) =
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block font-semibold text-slate-700 mb-1">רמת ניסיון בשייט</label>
-            <select
+            <label htmlFor="profile-field-3" className="block font-semibold text-slate-700 mb-1">רמת ניסיון בשייט</label>
+            <select id="profile-field-3"
               value={experienceLevel}
               onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
               className="w-full px-3.5 py-2.5 bg-white/60 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 text-xs cursor-pointer font-medium"

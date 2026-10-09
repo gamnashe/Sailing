@@ -187,7 +187,7 @@ export const ClubsManager: React.FC = () => {
                 </div>
                 <button
                   onClick={() => setAddingAdminTo(c)}
-                  className="text-sky-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                  className="py-1 text-sky-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                 >
                   <UserPlus className="w-3.5 h-3.5" aria-hidden="true" /> הוסף מנהל למועדון
                 </button>
@@ -326,13 +326,8 @@ const Field: React.FC<{ label: string; id: string; children: React.ReactNode }> 
 );
 
 const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
   return (
-    <Overlay>
+    <Overlay onClose={onClose}>
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4 overflow-y-auto" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md glass-sheet rounded-3xl my-auto text-right overflow-hidden">
         <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">

@@ -64,7 +64,7 @@ export const PWAInstallBanner: React.FC = () => {
 
       {/* iOS Instructions Modal */}
       {showIOSModal && (
-        <Overlay>
+        <Overlay onClose={() => setShowIOSModal(false)}>
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center glass-backdrop p-4">
           <div className="w-full max-w-sm rounded-2xl glass-sheet p-6 text-slate-800 text-right animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -72,7 +72,7 @@ export const PWAInstallBanner: React.FC = () => {
                 <Smartphone className="w-5 h-5 text-sky-600" />
                 התקנה ב-iPhone / iPad
               </h3>
-              <button
+              <button aria-label="סגור"
                 onClick={() => setShowIOSModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >

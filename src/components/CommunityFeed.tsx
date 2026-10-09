@@ -157,7 +157,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                 placeholder="הדבק קישור (למשל windy.com, תחזית, סרטון...)"
                 className="flex-1 bg-white border border-sky-200 px-3 py-1.5 rounded-lg text-xs focus:outline-none"
               />
-              <button
+              <button aria-label="סגור"
                 type="button"
                 onClick={() => {
                   setShowLinkInput(false);
@@ -176,7 +176,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
               {images.map((img, idx) => (
                 <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-slate-200">
                   <img src={img} alt="תמונה מועלית" className="w-full h-full object-cover" />
-                  <button
+                  <button aria-label="סגור"
                     type="button"
                     onClick={() => removeImage(idx)}
                     className="absolute top-1 left-1 bg-black/70 hover:bg-black text-white p-1 rounded-full cursor-pointer"
@@ -191,7 +191,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
           {/* Sail linking selector */}
           <div className="flex items-center gap-2 text-xs">
             <Sailboat className="w-4 h-4 text-slate-400 shrink-0" />
-            <select
+            <select aria-label="קשר להפלגה"
               value={selectedSailId}
               onChange={(e) => setSelectedSailId(e.target.value)}
               className="bg-white/60 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 cursor-pointer w-full min-w-0 sm:w-auto sm:max-w-xs"
@@ -386,7 +386,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => handleToggleLike(post.id)}
-                    className={`flex items-center gap-1.5 font-bold transition cursor-pointer ${
+                    className={`flex items-center gap-1.5 py-1 font-bold transition cursor-pointer ${
                       hasLiked ? 'text-rose-600' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
@@ -398,7 +398,7 @@ export const CommunityFeed: React.FC<Props> = ({ currentUser, onSelectSail }) =>
                     onClick={() =>
                       setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)
                     }
-                    className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 font-bold transition cursor-pointer"
+                    className="py-1 flex items-center gap-1.5 text-slate-500 hover:text-slate-800 font-bold transition cursor-pointer"
                   >
                     <MessageSquare className="w-4 h-4" />
                     <span>{post.comments.length} תגובות</span>

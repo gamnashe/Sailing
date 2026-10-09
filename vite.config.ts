@@ -17,7 +17,7 @@ export default defineConfig(() => {
           name: 'מועדון שייט - ניהול הפלגות וקהילה',
           short_name: 'מועדון שייט',
           description: 'אפליקציית מועדון שייט לניהול הפלגות, הרשמה והמתנה, פיד קהילתי והתראות.',
-          theme_color: '#0284c7',
+          theme_color: '#e7f0f8',
           background_color: '#0f172a',
           display: 'standalone',
           orientation: 'portrait',
