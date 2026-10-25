@@ -113,6 +113,16 @@
   .status b { color: var(--ink); font-weight: 600; }
 
   /* Floating elements on the chart */
+  .simbar {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 4; width: min(720px, calc(100% - 24px));
+    padding: 10px 12px; border-radius: 14px; background: rgba(20,32,43,.94); color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  }
+  .simbar .say { font-size: 16px; line-height: 1.5; margin-bottom: 8px; white-space: pre-wrap; }
+  .simbar .ctl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .simbar .ctl b { margin-inline-end: auto; font-size: 13px; color: #c9d4de; font-variant-numeric: tabular-nums; }
+  .simbar .btn { color: #fff; border-color: rgba(255,255,255,.35); }
+  .simbar .btn:hover { background: rgba(255,255,255,.12); }
+  .simbar .btn.go { background: #0a58a8; border-color: #0a58a8; }
   .hint {
     position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 4; max-width: calc(100% - 24px);
     display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; border-radius: 12px;
@@ -244,6 +254,7 @@
       <div class="task-head"><span id="taskTitle">התרגיל</span><button class="btn sm" id="bHideTask" aria-label="הסתרת הוראות התרגיל">הסתרה</button></div>
       <div class="task-body"><div id="taskText"></div><div class="ans" id="taskAns" hidden></div></div>
       <div class="task-actions" id="taskActions" hidden>
+        <button class="btn sm primary" id="bSim" hidden>הדמיית פתרון</button>
         <button class="btn sm outline" id="bAns">הצגת התשובה</button>
         <button class="btn sm outline" id="bQPrev" aria-label="השאלה הקודמת">הקודמת</button>
         <button class="btn sm outline" id="bQNext" aria-label="השאלה הבאה">הבאה</button>
@@ -254,6 +265,17 @@
       <span class="meter" id="recMeter" title="עוצמת הקול מהמיקרופון"><i id="recLevel"></i></span>
       <button class="btn sm" id="recPause">השהיה</button>
       <button class="btn sm stop" id="recStop">סיום ושמירה</button>
+    </div>
+    <div class="simbar" id="simBar" hidden role="region" aria-label="הדמיית פתרון">
+      <div class="say" id="simSay" aria-live="polite"></div>
+      <div class="ctl">
+        <b id="simStep"></b>
+        <button class="btn sm" id="simPrev">הקודם</button>
+        <button class="btn sm go" id="simNext">הבא</button>
+        <button class="btn sm" id="simPlay">הפעלה</button>
+        <button class="btn sm" id="simKeep" title="מעתיק את ציורי הפתרון לשכבת הפתרון, כשרטוטים רגילים">שמירה כשרטוט</button>
+        <button class="btn sm" id="simEnd">סיום</button>
+      </div>
     </div>
     <div class="hint" id="hint" hidden><span id="hintText"></span><button class="btn sm outline" id="hintDone" hidden>סיום</button><button class="btn sm outline" id="hintCancel">ביטול</button></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -384,7 +406,7 @@ const COLORS = ['#d0021b', '#0b57d0', '#111111', '#0a7d32', '#c2410c', '#7e22ce'
 const LAYERS = { base: 'שאלה (מורה)', solution: 'פתרון', student: 'תשובת תלמיד' };
 const KINDS = [['M', 'מגנטי M'], ['T', 'אמיתי T'], ['C', 'מצפן C']];
 const MARKS = { fix: 'פיקס', dr: 'ניווט מת DR', ep: 'משוער EP', wp: 'נקודת דרך' };
-const MARK_ABBR = { fix: 'Fix', dr: 'DR', ep: 'EP', wp: 'WP' };
+const MARK_ABBR = { fix: 'Fix', dr: 'DR', ep: 'EP', wp: 'WP', lm: '' };
 const ARROWS = [[0, 'קו רגיל'], [1, 'מסלול במים (חץ אחד)'], [2, 'מסלול על הקרקע (שני חצים)'], [3, 'זרם (שלושה חצים)']];
 const MIN_S = 0.02, MAX_S = 40;
 
@@ -616,6 +638,7 @@ function draw() {
   ctx.drawImage(S.img, 0, 0);
   ctx.restore();
   drawObjects(false);
+  if (SIM.on) drawSim();
   if (S.measure) drawLine({ ...S.measure, color: '#0b57d0', width: 2, dash: true, label: 'auto', arrows: 0 });
   drawTemp();
   if (S.ruler.on) drawRuler();
@@ -711,6 +734,7 @@ function markShape(kind, p, sz) {
   if (kind === 'fix') { ctx.arc(p.x, p.y, sz, 0, Math.PI * 2); ctx.stroke(); }
   else if (kind === 'dr') { ctx.moveTo(p.x - sz, p.y); ctx.lineTo(p.x + sz, p.y); ctx.moveTo(p.x, p.y - sz); ctx.lineTo(p.x, p.y + sz); ctx.stroke(); return; }
   else if (kind === 'ep') { ctx.moveTo(p.x, p.y - sz * 1.25); ctx.lineTo(p.x + sz * 1.1, p.y + sz * 0.75); ctx.lineTo(p.x - sz * 1.1, p.y + sz * 0.75); ctx.closePath(); ctx.stroke(); }
+  else if (kind === 'lm') { ctx.arc(p.x, p.y, sz * 0.8, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(p.x, p.y, sz * 1.35, 0, Math.PI * 2); ctx.stroke(); }   // a charted landmark
   else { ctx.rect(p.x - sz, p.y - sz, sz * 2, sz * 2); ctx.stroke(); }
   ctx.beginPath(); ctx.arc(p.x, p.y, 2.2 * K, 0, Math.PI * 2); ctx.fill();
 }
@@ -718,8 +742,8 @@ function drawMark(o) {
   const p = toS(o.p);
   ctx.strokeStyle = o.color; ctx.fillStyle = o.color; ctx.lineWidth = 2.4 * K;
   markShape(o.kind, p, 9 * K);
-  const t = (o.text ? o.text + ' ' : '') + MARK_ABBR[o.kind];
-  pill(t, p.x + 16 * K, p.y, { align: 'left', color: o.color });
+  const t = [o.text, MARK_ABBR[o.kind]].filter(Boolean).join(' ');
+  if (t) pill(t, p.x + 16 * K, p.y, { align: 'left', color: o.color });
 }
 function drawText(o) {
   const p = toS(o.p);
@@ -1887,24 +1911,176 @@ function syncSettingsInputs() {
   setVal('#inTask', S.task); setVal('#inShowTask', S.showTask);
   convert(); syncInstr(); syncTask();
 }
+// coordinates (32°20'N 034°40'E) and bearings (140°T, 058°-113°) stay in reading order inside Hebrew text
+const COORD_RE = /\d+°\s?[\d.]+'\s?[NS],?\s?0?\d+°\s?[\d.]+'\s?[EW]|\d+°\s?[\d.]+'\s?[NSEW]|\d+(?:\.\d+)?°[TMC]?(?:\s?[-–]\s?\d+(?:\.\d+)?°[TMC]?)?/g;
+const bidiText = (t) => String(t).replace(COORD_RE, (m) => '\u2066' + m + '\u2069');
 function syncTask() {
   const show = !!(S.task.trim() && S.showTask && S.img && !REC.overlay);
   $('#taskCard').hidden = !show;
   if (!show) return;
   $('#taskTitle').textContent = S.taskTitle || 'התרגיל';
-  $('#taskText').textContent = S.task;
+  $('#taskText').textContent = bidiText(S.task);
   const ans = (S.taskAnswer || '').trim();
   $('#taskActions').hidden = !ans && !S.qn;
   $('#bAns').hidden = !ans;
   $('#bAns').textContent = S.showAnswer ? 'הסתרת התשובה' : 'הצגת התשובה';
   $('#taskAns').hidden = !(ans && S.showAnswer);
-  $('#taskAns').textContent = ans ? 'תשובות:\n' + ans : '';
+  $('#taskAns').textContent = ans ? 'תשובות:\n' + bidiText(ans) : '';
   $('#bQPrev').hidden = $('#bQNext').hidden = !S.qn;
+  const q = S.qn && (S.pack?.questions || []).find((x) => x.n === S.qn);
+  $('#bSim').hidden = !(q && q.sim && q.sim.steps && q.sim.steps.length);
+  if (q && q.sim) $('#taskActions').hidden = false;
 }
 $('#bHideTask').onclick = () => { S.showTask = false; setVal('#inShowTask', false); syncTask(); scheduleSave(); };
 $('#bAns').onclick = () => { S.showAnswer = !S.showAnswer; syncTask(); req(); };
 $('#bQPrev').onclick = () => stepQuestion(-1);
 $('#bQNext').onclick = () => stepQuestion(1);
+
+// ───────────────────────── Solution simulation ─────────────────────────
+// A question in a pack may carry sim: { area, steps:[{ say, draw:[ops], focus:[points] }] }. Points are
+// [lat, lon] (placed with the calibration of `area`, else the whole map) or { px:[x, y] } in image pixels.
+// Ops: { line:[p,q], arrows, head, dash, label, color } · { mark:p, kind, text, color } · { circle:p, r (NM), arc:[from°T, to°T], label } · { text:p, t }.
+// Each step draws its ops (lines grow, arcs sweep) on top of what the earlier steps drew.
+const SIM = { on: false, q: null, steps: [], i: 0, g: null, t0: 0, timer: null };
+const SIM_COLOR = '#d0021b';
+function simPt(v) {
+  if (v && v.px) return { x: v.px[0], y: v.px[1] };
+  return SIM.g ? fromGeo(v[0], v[1], SIM.g) : fromGeo(v[0], v[1]);
+}
+function startSim() {
+  const q = (S.pack?.questions || []).find((x) => x.n === S.qn);
+  if (!q || !q.sim) return;
+  const area = q.sim.area && AREAS.find((a) => a.name === q.sim.area);
+  if (!G && !(area && area.G)) return toast('כדי להציג את ההדמיה צריך את המפה המכוילת של החבילה (כפתור "מפת תרגול")', true);
+  Object.assign(SIM, { on: true, q, steps: q.sim.steps, i: 0, g: area ? area.G : G, t0: performance.now() });
+  $('#simBar').hidden = false;
+  showSimStep();
+}
+function showSimStep() {
+  const st = SIM.steps[SIM.i];
+  $('#simSay').textContent = bidiText(st.say);
+  $('#simStep').textContent = `שלב ${SIM.i + 1} מתוך ${SIM.steps.length}`;
+  $('#simPrev').disabled = SIM.i === 0;
+  $('#simNext').textContent = SIM.i === SIM.steps.length - 1 ? 'מההתחלה' : 'הבא';
+  SIM.t0 = performance.now();
+  const pts = (st.focus || []).map(simPt);
+  if (pts.length) flyTo(pts);
+  animateSim();
+}
+function simGo(d) {
+  if (!SIM.on) return;
+  if (d > 0 && SIM.i === SIM.steps.length - 1) SIM.i = 0;
+  else SIM.i = clamp(SIM.i + d, 0, SIM.steps.length - 1);
+  showSimStep();
+}
+function endSim() {
+  if (!SIM.on) return;
+  SIM.on = false; clearInterval(SIM.timer); SIM.timer = null;
+  $('#simBar').hidden = true; $('#simPlay').textContent = 'הפעלה'; req();
+}
+function toggleSimPlay() {
+  if (SIM.timer) { clearInterval(SIM.timer); SIM.timer = null; $('#simPlay').textContent = 'הפעלה'; return; }
+  $('#simPlay').textContent = 'עצירה';
+  const tick = () => {
+    if (SIM.i >= SIM.steps.length - 1) { clearInterval(SIM.timer); SIM.timer = null; $('#simPlay').textContent = 'הפעלה'; return; }
+    simGo(1);
+  };
+  SIM.timer = setInterval(tick, 4500);
+}
+let simRaf = 0;
+function animateSim() {
+  cancelAnimationFrame(simRaf);
+  const loop = () => { req(); if (performance.now() - SIM.t0 < 900) simRaf = requestAnimationFrame(loop); };
+  loop();
+}
+/** Moves the view so that the given image points are all on screen, smoothly. */
+function flyTo(pts) {
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  // keep clear of the caption bar, and of the question box when it spans most of a narrow screen
+  const cv = $('#cv').getBoundingClientRect(), card = $('#taskCard'), bar = $('#simBar');
+  const cardR = !card.hidden && card.getBoundingClientRect();
+  const padX = Math.min(220, W * 0.18), padTop = cardR && cardR.width > W * 0.45 ? cardR.bottom - cv.top + 16 : 80;
+  const padBottom = bar.hidden ? 80 : cv.bottom - bar.getBoundingClientRect().top + 24;
+  const s = clamp(Math.min((W - 2 * padX) / Math.max(x1 - x0, 160), (H - padTop - padBottom) / Math.max(y1 - y0, 120)), MIN_S, Math.max(V.s, 1) * 4);   // a lone point still shows its surroundings
+  const target = { s: Math.min(s, 8), ox: 0, oy: 0 };
+  target.ox = W / 2 - ((x0 + x1) / 2) * target.s; target.oy = padTop + (H - padTop - padBottom) / 2 - ((y0 + y1) / 2) * target.s;
+  const from = { ...V }, t0 = performance.now(), dur = 550;
+  const step = () => {
+    const t = clamp((performance.now() - t0) / dur, 0, 1), e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+    V.s = from.s + (target.s - from.s) * e; V.ox = from.ox + (target.ox - from.ox) * e; V.oy = from.oy + (target.oy - from.oy) * e;
+    updateZoom(); req();
+    if (t < 1) requestAnimationFrame(step);
+  };
+  step();
+}
+function simObjects(upto, grow) {
+  const out = [];
+  for (let k = 0; k <= upto; k++) {
+    const f = k === upto ? grow : 1;
+    for (const op of SIM.steps[k].draw || []) {
+      const color = op.color || SIM_COLOR, width = k === upto ? 3 : 2.5;
+      if (op.line) {
+        const a = simPt(op.line[0]), b0 = simPt(op.line[1]), b = { x: a.x + (b0.x - a.x) * f, y: a.y + (b0.y - a.y) * f };
+        out.push({ type: 'line', a, b, color, width, arrows: f < 1 ? 0 : op.arrows || 0, head: f < 1 ? 0 : op.head || 0, dash: op.dash, label: f < 1 ? 'none' : op.label ?? 'auto', labelAt: op.labelAt });
+      } else if (op.mark) {
+        if (f > 0.6) out.push({ type: 'mark', p: simPt(op.mark), kind: op.kind || 'fix', text: op.text || '', color });
+      } else if (op.circle) {
+        const c = simPt(op.circle), k1 = pxPerNmWith(c), r = op.r * k1;
+        let arc = null;
+        if (op.arc) {   // true bearings → screen angles (north is up in the image for these charts)
+          const u = dirVecWith(c, 0), north = Math.atan2(u.y, u.x);
+          arc = [north + op.arc[0] * D, north + (op.arc[0] + (((op.arc[1] - op.arc[0]) % 360 + 360) % 360) * f) * D];
+        } else if (f < 1) { arc = [-Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * f]; }
+        out.push({ type: 'circle', c, r, arc, color, width, label: f < 1 ? 'none' : op.label ?? 'none' });
+      } else if (op.text && f > 0.6) {
+        out.push({ type: 'text', p: simPt(op.text), text: op.t, color, size: 16 });
+      }
+    }
+  }
+  // a later mark on the same spot replaces the earlier one (a waypoint that has become a fix)
+  return out.filter((o, i) => o.type !== 'mark' || !out.some((m, j) => j > i && m.type === 'mark' && Math.hypot(m.p.x - o.p.x, m.p.y - o.p.y) < 2));
+}
+// pixel scale and north at a point, with the simulation's own calibration
+function pxPerNmWith(p) {
+  const g = SIM.g;
+  if (!g || g.kind === 'scale') return g ? g.ppnm : 1;
+  const o = toGeo(p, g), n = fromGeo(o.lat + 1 / 60, o.lon, g);   // one minute of latitude is one mile
+  return Math.hypot(n.x - p.x, n.y - p.y);
+}
+function dirVecWith(p, brg) {
+  const g = SIM.g;
+  if (!g || g.kind !== 'geo') return { x: Math.sin(brg * D), y: -Math.cos(brg * D) };
+  const o = toGeo(p, g), q = fromGeo(o.lat + 0.01 * Math.cos(brg * D), o.lon + 0.01 * Math.sin(brg * D) / Math.cos(o.lat * D), g);
+  const dx = q.x - p.x, dy = q.y - p.y, l = Math.hypot(dx, dy) || 1;
+  return { x: dx / l, y: dy / l };
+}
+function drawSim() {
+  const grow = clamp((performance.now() - SIM.t0) / 700, 0, 1);
+  const g0 = gAt, prevG = SIM.g;
+  for (const o of simObjects(SIM.i, grow)) {
+    ctx.save();
+    // labels measure with the simulation's calibration, also when the points sit in another area
+    gAt = () => prevG;
+    try {
+      if (o.type === 'line') drawLine(o); else if (o.type === 'mark') drawMark(o); else if (o.type === 'circle') drawCircle(o); else drawText(o);
+    } finally { gAt = g0; }
+    ctx.restore();
+  }
+}
+function keepSim() {
+  if (!SIM.on) return;
+  snap();
+  for (const o of simObjects(SIM.steps.length - 1, 1)) { o.id = uid(); o.layer = 'solution'; if (o.type === 'line' && o.label === 'auto') o.label = lineText(o); S.objects.push(o); }
+  S.visible.solution = true; changed(); endSim();
+  toast('הפתרון נשמר כשרטוטים בשכבת "פתרון". אפשר לערוך או למחוק אותם');
+}
+$('#bSim').onclick = startSim;
+$('#simNext').onclick = () => simGo(1);
+$('#simPrev').onclick = () => simGo(-1);
+$('#simPlay').onclick = toggleSimPlay;
+$('#simEnd').onclick = endSim;
+$('#simKeep').onclick = keepSim;
 
 // ───────────────────────── Course pack and question bank ─────────────────────────
 // A pack is a JSON file { app:'navplot-pack', title, charts:[{ id, name, image, calib, areas, variation }],
@@ -1938,11 +2114,12 @@ function renderQList() {
 }
 function renderQPreview() {
   const q = (S.pack?.questions || []).find((x) => x.n === +$('#qSel').value);
-  $('#qPrev').textContent = q ? q.q.join('\n') : '';
+  $('#qPrev').textContent = q ? bidiText(q.q.join('\n')) : '';
 }
 async function showQuestion(n) {
   const q = (S.pack?.questions || []).find((x) => x.n === n);
   if (!q) return;
+  endSim();
   if (!S.img && S.pack.charts.length) await openPackChart(S.pack.charts[0]);
   S.qn = q.n; S.taskTitle = `שאלה ${q.n}${q.cat && q.cat !== q.n ? ` (${q.cat})` : ''}${q.section ? ' · ' + q.section : ''}`;
   S.task = q.q.join('\n'); S.taskAnswer = q.a.join('\n'); S.showAnswer = false; S.showTask = true;
@@ -2461,10 +2638,11 @@ function drawRecordingOverlay() {
   };
   ctx.save();
   if (S.task.trim() && S.showTask) {
-    const lines = [...(S.taskTitle ? [S.taskTitle] : []), ...S.task.trim().split('\n'), ...(S.showAnswer && S.taskAnswer ? ['תשובות:', ...S.taskAnswer.split('\n')] : [])];
+    const lines = [...(S.taskTitle ? [S.taskTitle] : []), ...S.task.trim().split('\n'), ...(S.showAnswer && S.taskAnswer ? ['תשובות:', ...S.taskAnswer.split('\n')] : [])].map(bidiText);
     box(lines, 12, 12, Math.min(460, W * 0.45), 15, { fromLeft: true });
   }
-  if (ovLines.length) box(ovLines, 12, H - 12, Math.min(360, W * 0.4), 17, { fromBottom: true, fromLeft: true });
+  if (SIM.on && SIM.steps[SIM.i]) box([`שלב ${SIM.i + 1} מתוך ${SIM.steps.length}`, ...SIM.steps[SIM.i].say.split('\n').map(bidiText)], W - 12, H - 12, Math.min(620, W * 0.6), 17, { fromBottom: true });
+  else if (ovLines.length) box(ovLines, 12, H - 12, Math.min(360, W * 0.4), 17, { fromBottom: true, fromLeft: true });
   const pts = ptrs.size ? [...ptrs.values()] : hover ? [hover] : [];
   for (const p of pts) {
     ctx.fillStyle = 'rgba(229,72,77,0.28)'; ctx.strokeStyle = 'rgba(229,72,77,0.9)'; ctx.lineWidth = 2;
@@ -2539,7 +2717,7 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.code === 'KeyS') { e.preventDefault(); saveProject(); return; }
   if (mod && e.code === 'KeyO') { e.preventDefault(); openPicker(); return; }
   if (mod || e.altKey) return;
-  if (e.key === 'Escape') { if (S.mode) cancelMode(); else if (S.sel) { S.sel = null; renderPanel(); req(); } else if (S.measure) { S.measure = null; req(); } return; }
+  if (e.key === 'Escape') { if (SIM.on) endSim(); else if (S.mode) cancelMode(); else if (S.sel) { S.sel = null; renderPanel(); req(); } else if (S.measure) { S.measure = null; req(); } return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { deleteSel(); return; }
   if (e.key === '+' || e.key === '=') return zoomAt(W / 2, H / 2, 1.25);
   if (e.key === '-') return zoomAt(W / 2, H / 2, 0.8);

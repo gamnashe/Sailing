@@ -359,7 +359,11 @@ test.describe('charts with insets and a question bank', () => {
         areas: [{ name: 'נמל לדוגמה', rect: { x0: 560, y0: 40, x1: 960, y1: 560 }, calib: { kind: 'geo', pts: inset } }] }],
       questions: [
         { n: 1, cat: 1, section: 'גאות ושפל', q: ['א. מה העומק?'], a: ['א. 3 מטרים.'] },
-        { n: 2, cat: 7, section: 'זרם', q: ['בשעה 08:00 ספינתך ליד מצוף. חשב:', 'א. את הקורס ביחס לקרקע.'], a: ['א. 045°'] },
+        { n: 2, cat: 7, section: 'זרם', q: ['בשעה 08:00 ספינתך ליד מצוף. חשב:', 'א. את הקורס ביחס לקרקע.'], a: ['א. 045°'],
+          sim: { area: 'נמל לדוגמה', steps: [   // a solution animation, drawn in the inset
+            { say: 'נקודת המוצא בשעה 08:00.', draw: [{ mark: [32.44, 34.61], kind: 'fix', text: '08:00' }], focus: [[32.44, 34.61]] },
+            { say: 'שלושה מייל דרומה.', draw: [{ line: [[32.44, 34.61], [32.39, 34.61]], arrows: 1 }], focus: [[32.44, 34.61], [32.39, 34.61]] },
+          ] } },
         { n: 3, cat: 9, section: 'זרם', q: ['בשעה 09:00 ספינתך ליד המעגן. חשב:', 'א. את מהירות הזרם.'], a: ['א. 1.5 קשרים'] },
       ],
     };
@@ -392,9 +396,29 @@ test.describe('charts with insets and a question bank', () => {
     await expect(page.locator('#taskAns')).toBeHidden();
     await page.locator('#bAns').click();
     await expect(page.locator('#taskAns')).toContainText('045°');
+
+    // its solution animation: step through it, then keep it as drawings in the solution layer
+    await page.locator('#bSim').click();
+    await expect(page.locator('#simBar')).toBeVisible();
+    await expect(page.locator('#simStep')).toHaveText('שלב 1 מתוך 2');
+    await expect(page.locator('#simSay')).toHaveText('נקודת המוצא בשעה 08:00.');
+    await expect(page.locator('#simPrev')).toBeDisabled();
+    await page.locator('#simNext').click();
+    await expect(page.locator('#simStep')).toHaveText('שלב 2 מתוך 2');
+    await expect(page.locator('#simNext')).toHaveText('מההתחלה');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#simBar')).toBeHidden();
+    await page.locator('#bSim').click();
+    await page.locator('#simNext').click();
+    await page.locator('#simKeep').click();
+    await expect(page.locator('#simBar')).toBeHidden();
+    const kept = await page.evaluate(() => window.navplot.S.objects.filter((o: { layer: string }) => o.layer === 'solution').map((o: { type: string; label?: string; text?: string }) => [o.type, o.label ?? o.text]));
+    expect(kept).toEqual([['mark', '08:00'], ['line', expect.stringMatching(/^180°T.*3\.00? NM/)]]);   // measured with the inset's own scale
+
     await page.locator('#bQNext').click();
     await expect(page.locator('#taskTitle')).toHaveText('שאלה 3 (9) · זרם');
     await expect(page.locator('#taskAns')).toBeHidden();
+    await expect(page.locator('#bSim')).toBeHidden();   // no animation for this one
     await page.locator('#qFind').fill('העומק');
     await page.locator('#qSec').selectOption('');
     await expect(page.locator('#qSel option')).toHaveCount(1);
