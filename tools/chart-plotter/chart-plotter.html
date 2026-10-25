@@ -171,6 +171,7 @@
   .empty-card p { line-height: 1.55; margin: 8px 0; }
   .empty-card .row { justify-content: center; margin: 16px 0 8px; }
   .empty-card .btn { min-height: 46px; padding: 8px 18px; font-size: 16px; }
+  .empty-card .btn.big { display: block; width: 100%; margin-top: 14px; min-height: 56px; font-size: 18px; }
   .drop-on .stage::after {
     content: "שחררו כאן כדי לפתוח"; position: absolute; inset: 10px; border: 3px dashed var(--accent); border-radius: 16px;
     display: grid; place-items: center; font-size: 22px; font-weight: 700; color: var(--accent); background: rgba(255,255,255,.6); z-index: 9;
@@ -283,6 +284,7 @@
       <div class="empty-card">
         <h1>שולחן ניווט</h1>
         <p>פתחו תמונה של מפה ימית (סריקה, צילום מסך, JPG או PNG) או תרגיל שמור, ושרטטו עליה עם סרגל, מד זווית ומחוגה.</p>
+        <button class="btn primary big" id="eQuestions" hidden>שאלות התרגול</button>
         <div class="row">
           <button class="btn primary" id="eOpen">פתיחת מפה</button>
           <button class="btn outline" id="eSample">מפת תרגול לדוגמה</button>
@@ -2101,7 +2103,11 @@ function renderQBank() {
   const qs = S.pack?.questions || [];
   $('#qBox').hidden = !qs.length;
   $('#qChartBtn').hidden = !(S.pack?.charts || []).length;
+  // a course pack: the welcome card leads straight to its questions
+  $('#eQuestions').hidden = !qs.length;
+  $('#eOpen').classList.toggle('primary', !qs.length); $('#eOpen').classList.toggle('outline', !!qs.length);
   if (!qs.length) return;
+  $('#eQuestions').textContent = `שאלות התרגול (${qs.length}) על ${S.pack.charts[0]?.name.split(' · ')[0] || 'המפה'}`;
   const secs = [...new Set(qs.map((q) => q.section).filter(Boolean))], cur = $('#qSec').value;
   $('#qSec').innerHTML = `<option value="">כל הנושאים (${qs.length})</option>` + secs.map((x) => `<option value="${esc(x)}"${x === cur ? ' selected' : ''}>${esc(x)} (${qs.filter((q) => q.section === x).length})</option>`).join('');
   $('#qInfo').textContent = S.pack.title;
@@ -2660,6 +2666,12 @@ const openPicker = () => $('#fileOpen').click();
 $('#fileOpen').onchange = (e) => { openFile(e.target.files[0]); e.target.value = ''; };
 $('#fileSolution').onchange = (e) => { loadSolution(e.target.files[0]); e.target.value = ''; };
 $('#bOpen').onclick = openPicker; $('#eOpen').onclick = openPicker;
+$('#eQuestions').onclick = async () => {
+  if ($('#panel').hidden) $('#bPanel').click();
+  $('#qBox').open = true;
+  await showQuestion(+$('#qSel').value || S.pack.questions[0].n);
+  $('#qBox').scrollIntoView({ block: 'nearest' });
+};
 $('#bSample').onclick = chooseChart; $('#eSample').onclick = chooseChart;
 $('#bSave').onclick = saveProject;
 $('#bPng').onclick = exportPNG;

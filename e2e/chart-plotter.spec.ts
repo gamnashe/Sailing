@@ -370,6 +370,7 @@ test.describe('charts with insets and a question bank', () => {
     await page.locator('#fileOpen').setInputFiles({ name: 'pack.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(pack)) });
     await expect(page.locator('#stCal')).toContainText('1 אזורים');
     await expect(page.locator('#inVar')).toHaveValue('4');
+    await expect(page.locator('#eQuestions')).toHaveText('שאלות התרגול (3) על מפת בדיקה');   // the welcome card leads to the questions
 
     // the same 3' of latitude is 3 NM in the inset and on the main map, though 4× longer there
     const r = await page.evaluate(() => {
