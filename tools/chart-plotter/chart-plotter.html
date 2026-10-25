@@ -1213,7 +1213,7 @@ function ask(title, fields, { intro = '', ok = 'אישור' } = {}) {
       if (f.type === 'select') return `<label for="${id}">${lab}<select id="${id}" name="${f.k}">${f.options.map(([val, l]) => `<option value="${esc(val)}"${String(val) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
       if (f.type === 'textarea') return `<label for="${id}">${lab}<textarea id="${id}" name="${f.k}" rows="4">${esc(v)}</textarea></label>`;
       const num = f.type === 'number';
-      return `<label for="${id}">${lab}<input id="${id}" name="${f.k}" type="${num ? 'number' : 'text'}" ${num ? 'step="any" inputmode="decimal"' : ''} value="${esc(v)}" placeholder="${esc(f.placeholder || '')}" ${num ? 'dir="ltr"' : ''}></label>`;
+      return `<label for="${id}">${lab}<input id="${id}" name="${f.k}" type="${num ? 'number' : 'text'}" ${num ? 'step="any" inputmode="decimal"' : ''} value="${esc(v)}" placeholder="${esc(f.placeholder || '')}" ${num || f.ltr ? 'dir="ltr"' : ''}></label>`;
     };
     while (i < fields.length) {
       const f = fields[i];
@@ -1261,14 +1261,59 @@ async function startCalibration() {
   if (!S.img) return toast('פתחו קודם מפה', true);
   const v = await ask('כיול המפה', [
     { k: 'method', label: 'שיטה', type: 'select', value: 'geo', options: [
-      ['geo', 'שתי נקודות עם קואורדינטות (מומלץ)'], ['scale', 'קנה מידה בלבד (שתי נקודות ומרחק)'], ['none', 'ביטול הכיול'],
+      ['geo', 'שתי נקודות עם קואורדינטות (מומלץ)'], ['ratio', 'הקלדת קנה המידה של המפה (למשל 1:50,000)'],
+      ['scale', 'שתי נקודות על הסולם ומרחק ביניהן'], ['none', 'ביטול הכיול'],
     ] },
-  ], { intro: 'בכיול מלא בוחרים שתי נקודות רחוקות זו מזו שהקואורדינטות שלהן ידועות, למשל חיתוכים של קווי רוחב ואורך בפינות המפה. מומלץ להתקרב לפני כל לחיצה כדי לדייק. אחרי הכיול: מרחקים במייל ימי, כיוונים אמיתיים ומיקום העכבר ברוחב ובאורך.' });
+  ], { intro: 'בכיול מלא בוחרים שתי נקודות רחוקות זו מזו שהקואורדינטות שלהן ידועות, למשל חיתוכים של קווי רוחב ואורך בפינות המפה. מומלץ להתקרב לפני כל לחיצה כדי לדייק. אחרי הכיול: מרחקים במייל ימי, כיוונים אמיתיים ומיקום העכבר ברוחב ובאורך.<br>בשתי השיטות האחרות מקבלים מרחקים במייל, ומניחים שהצפון למעלה.' });
   if (!v) return;
   if (v.method === 'none') { S.calib = null; buildGeo(); afterCalib(); toast('הכיול בוטל'); return; }
+  if (v.method === 'ratio') return calibrateByRatio();
   S.sel = null; S.mode = { kind: v.method === 'geo' ? 'calib-geo' : 'calib-scale', pts: [], vals: [] };
   showHint(v.method === 'geo' ? 'לחצו על נקודה ידועה ראשונה (למשל חיתוך של קו רוחב וקו אורך)' : 'לחצו על נקודה ראשונה בסולם (למשל בסולם הרוחב שבצד המפה)');
   req();
+}
+/** Scale typed by hand: the chart's printed ratio and the resolution it was scanned at give pixels per mile. */
+async function calibrateByRatio() {
+  const prev = S.calib && S.calib.kind === 'scale' && S.calib.ratio ? S.calib : null;
+  const dpi = prev?.dpi || S.imgDpi || 300;
+  const v = await ask('קנה המידה של המפה', [
+    { k: 'ratio', label: 'קנה המידה של המפה', type: 'text', value: prev ? '1:' + prev.ratio.toLocaleString('en-US') : '', placeholder: '1:50,000', ltr: true, row: 'r' },
+    { k: 'dpi', label: 'רזולוציית הסריקה (DPI)', type: 'number', value: dpi, row: 'r' },
+  ], { intro: `קנה המידה מודפס בכותרת המפה, למשל <span class="ltr">1:50,000</span>. ${S.imgDpi ? `לפי הקובץ, המפה נסרקה ב־<b class="ltr">${S.imgDpi} DPI</b>.` : 'בקובץ לא רשומה רזולוציית סריקה, ולכן מולאו <span class="ltr">300 DPI</span>. בדקו בהגדרות הסורק.'}<br>בצילום מסך או בתמונה שהוקטנה, קנה המידה המודפס כבר לא מתאים לפיקסלים, ועדיף כיול בשתי נקודות.` });
+  if (!v) return;
+  const ratio = +String(v.ratio).replace(/^\s*1\s*:\s*/, '').replace(/[,\s]/g, '');
+  if (!(ratio >= 100 && ratio <= 50e6) || !(v.dpi >= 10 && v.dpi <= 10000)) return toast('קנה המידה או ה־DPI לא תקינים', true);
+  // 1 NM = 1852 m on the ground = 1852 / ratio m on paper = that / 0.0254 inches × dpi pixels
+  S.calib = { kind: 'scale', ppnm: 1852 / ratio / 0.0254 * v.dpi, ratio, dpi: v.dpi };
+  buildGeo(); afterCalib();
+  toast(`קנה המידה נקבע: 1:${ratio.toLocaleString('en-US')} · 1 מייל ≈ ${Math.round(S.calib.ppnm)} פיקסלים. כדאי לבדוק במדידה על סולם הרוחב.`);
+}
+/** Resolution written in a PNG (pHYs) or JPEG (JFIF) file, or null. */
+function imageDpi(url) {
+  try {
+    const bin = atob(url.slice(url.indexOf(',') + 1, url.indexOf(',') + 1 + 87384));
+    const b = (i) => bin.charCodeAt(i) & 255, u16 = (i) => (b(i) << 8) | b(i + 1), u32 = (i) => ((b(i) << 24) >>> 0) + (b(i + 1) << 16) + (b(i + 2) << 8) + b(i + 3);
+    if (bin.startsWith('\x89PNG')) {
+      for (let i = 8; i + 8 < bin.length;) {
+        const len = u32(i), type = bin.slice(i + 4, i + 8);
+        if (type === 'pHYs' && b(i + 16) === 1) return Math.round(u32(i + 8) * 0.0254);
+        if (type === 'IDAT') break;
+        i += 12 + len;
+      }
+    } else if (b(0) === 0xff && b(1) === 0xd8) {
+      for (let i = 2; i + 4 < bin.length && b(i) === 0xff;) {
+        const marker = b(i + 1), len = u16(i + 2);
+        if (marker === 0xe0 && bin.slice(i + 4, i + 9) === 'JFIF\0') {
+          const unit = b(i + 11), x = u16(i + 12);
+          if (unit === 1 && x > 1) return x;
+          if (unit === 2 && x > 1) return Math.round(x * 2.54);
+        }
+        if (marker === 0xda) break;
+        i += 2 + len;
+      }
+    }
+  } catch { /* not readable: no resolution */ }
+  return null;
 }
 function dmParts(v) {
   if (v == null) return ['', ''];
@@ -1696,7 +1741,7 @@ function syncStatus() {
   const el = $('#stCal');
   if (!G) el.innerHTML = 'לא מכויל';
   else if (G.kind === 'geo') el.innerHTML = `מכויל · 1 מייל ≈ <b class="ltr">${Math.round(pxPerNm(S.calib.p1))}</b> פיקסלים`;
-  else el.innerHTML = `קנה מידה · 1 מייל ≈ <b class="ltr">${Math.round(G.ppnm)}</b> פיקסלים`;
+  else el.innerHTML = `${S.calib.ratio ? `קנה מידה <b class="ltr">1:${S.calib.ratio.toLocaleString('en-US')}</b>` : 'קנה מידה'} · 1 מייל ≈ <b class="ltr">${Math.round(G.ppnm)}</b> פיקסלים`;
   if (S.settings.variation) el.innerHTML += ` · סטייה <b class="ltr">${fVar(S.settings.variation)}</b>`;
   $('#stLayer').textContent = `שכבה: ${LAYERS[S.layer]}`;
 }
@@ -1713,7 +1758,7 @@ function project() {
 function setImage(url) {
   return new Promise((res, rej) => {
     const img = new Image();
-    img.onload = () => { S.img = img; S.imgData = url; $('#empty').hidden = true; idbSet('image', url); res(); };
+    img.onload = () => { S.img = img; S.imgData = url; S.imgDpi = imageDpi(url); $('#empty').hidden = true; idbSet('image', url); res(); };
     img.onerror = () => rej(new Error('image'));
     img.src = url;
   });
@@ -2067,6 +2112,7 @@ $('#bHelp').onclick = () => info('עזרה', `
   <h3>מתחילים</h3><ul>
   <li>פותחים תמונה של מפה, או את <b>מפת התרגול</b>, שכבר מכוילת.</li>
   <li><b>כיול מפה</b>: לוחצים על שתי נקודות שהקואורדינטות שלהן ידועות (חיתוכי רוחב ואורך, רחוקים זה מזה). אחרי הכיול כל מרחק מוצג במייל ימי וכל כיוון במעלות אמיתיות. בלי כיול מודדים רק זוויות, כשהצפון למעלה.</li>
+  <li>למפה סרוקה אפשר גם <b>להקליד את קנה המידה</b> המודפס עליה (למשל 1:50,000). רזולוציית הסריקה (DPI) נקראת מהקובץ כשהיא רשומה בו.</li>
   <li>את הסטייה המגנטית ואת כרטיס הדביאציה מגדירים בלוח בצד. כך כל כיוון מוצג גם במגנטי.</li></ul>
   <h3>כלי עזר</h3><ul>
   <li><b>סרגל / פורטלנד</b>: גוררים את גוף הסרגל כדי להזיז אותו במקביל (כמו סרגל מקבילי). גרירת העיגולים שבקצוות מסובבת אותו ומאריכה או מקצרת אותו. אפשר גם לסובב בגלגלת העכבר מעל הסרגל, ולהגדיל את הסרגל כולו בלוח שבצד. אפשר גם להקליד כיוון בלוח. קו שמתחילים על קצה הסרגל נצמד אליו.</li>
@@ -2128,7 +2174,7 @@ setTool('select'); syncSettingsInputs(); syncUndo(); resize();
 restore().then((ok) => { if (ok) toast('העבודה האחרונה שוחזרה'); });
 
 // Hooks for the automated tests
-window.navplot = { S, V, rhumb, dest, toGeo, fromGeo, toS, toW, solveCTS, loadSample, setTool, toggleInstr, T2M, M2T, M2C, C2M, f3 };
+window.navplot = { S, V, imageDpi, rhumb, dest, toGeo, fromGeo, toS, toW, solveCTS, loadSample, setTool, toggleInstr, T2M, M2T, M2C, C2M, f3 };
 })();
 </script>
 </body>

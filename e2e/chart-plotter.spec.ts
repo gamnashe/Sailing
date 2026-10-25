@@ -167,6 +167,48 @@ test.describe('lesson journeys', () => {
     await expect(page.locator('#readout')).toContainText('10.0 NM');
   });
 
+  test('a scanned map: type in its printed scale (1:25,000), the scan resolution comes from the file', async ({ page }) => {
+    await open(page);
+    // an 800×400 PNG that says it was scanned at 200 DPI (a pHYs chunk, as scanners write)
+    const png = Buffer.from(await page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 800; c.height = 400;
+      const g = c.getContext('2d')!; g.fillStyle = '#eaf3fb'; g.fillRect(0, 0, 800, 400);
+      return c.toDataURL('image/png').split(',')[1];
+    }), 'base64');
+    const crc = (buf: Buffer) => {
+      let c = ~0;
+      for (const byte of buf) { c ^= byte; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); }
+      return (~c) >>> 0;
+    };
+    const ppm = Math.round(200 / 0.0254), data = Buffer.alloc(9);
+    data.writeUInt32BE(ppm, 0); data.writeUInt32BE(ppm, 4); data.writeUInt8(1, 8);
+    const body = Buffer.concat([Buffer.from('pHYs'), data]), chunk = Buffer.alloc(12 + 9);
+    chunk.writeUInt32BE(9, 0); body.copy(chunk, 4); chunk.writeUInt32BE(crc(body), 17);
+    const afterIhdr = 8 + 12 + png.readUInt32BE(8);
+    await page.locator('#fileOpen').setInputFiles({ name: 'scan.png', mimeType: 'image/png', buffer: Buffer.concat([png.subarray(0, afterIhdr), chunk, png.subarray(afterIhdr)]) });
+    await expect(page.locator('#stCal')).toHaveText('לא מכויל');
+
+    await page.getByRole('button', { name: 'כיול מפה' }).click();
+    await page.locator('#f_method').selectOption('ratio');
+    await page.locator('dialog[open] button[value=ok]').click();   // the scale window opens right after
+    await expect(page.locator('#f_dpi')).toHaveValue('200');
+    await expect(page.locator('dialog[open] .intro')).toContainText('200 DPI');
+    await page.locator('#f_ratio').fill('1:25,000');
+    await ok(page);
+    await expect(page.locator('#stCal')).toContainText('1:25,000');
+
+    // 1 NM = 1852 m / 25,000 = 7.408 cm on paper = 583.3 px at 200 DPI
+    const box = (await page.locator('#cv').boundingBox())!;
+    const img = async (x: number, y: number) => {
+      const s = await page.evaluate(([px, py]) => window.navplot.toS({ x: px, y: py }), [x, y]);
+      return { x: box.x + s.x, y: box.y + s.y };
+    };
+    await page.getByRole('button', { name: /^מדידה/ }).click();
+    await dragLine(page, await img(100, 200), await img(100 + 1852 / 25000 / 0.0254 * 200, 200));
+    await expect(page.locator('#readout')).toContainText('090°T');
+    await expect(page.locator('#readout')).toContainText(/(0\.99|1\.00|1\.01) NM/);
+  });
+
   test('ruler: a line drawn along its edge follows the ruler bearing, and lines can be transferred', async ({ page }) => {
     await openSample(page);
     await page.getByRole('button', { name: /^סרגל/ }).click();
