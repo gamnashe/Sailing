@@ -206,11 +206,37 @@ test.describe('lesson journeys', () => {
     expect(moved.nm!).toBeCloseTo(2, 3);
   });
 
+  test('ruler: pulling an end knob stretches it, and it can be made bigger', async ({ page }) => {
+    await openSample(page);
+    await page.getByRole('button', { name: /^סרגל/ }).click();
+    const box = (await page.locator('#cv').boundingBox())!;
+    const geom = () => page.evaluate(() => {
+      const n = window.navplot, r = n.S.ruler as unknown as { c: Pt; brg: number; len: number; size: number }, c = n.toS(r.c);
+      const t = (r.brg * Math.PI) / 180, u = { x: Math.sin(t), y: -Math.cos(t) }, nn = { x: -u.y, y: u.x }, k = r.size, a = r.len / 2 - 24 * k;
+      return { len: r.len, size: r.size, brg: r.brg, knob: { x: c.x + u.x * a + nn.x * 8 * k, y: c.y + u.y * a + nn.y * 8 * k }, u };
+    });
+    const before = await geom();
+    const from = { x: box.x + before.knob.x, y: box.y + before.knob.y };
+    await dragLine(page, from, { x: from.x + before.u.x * 120, y: from.y + before.u.y * 120 });
+    const after = await geom();
+    expect(after.len).toBeGreaterThan(before.len + 200);
+    expect(after.brg).toBeCloseTo(before.brg, 0);
+    await expect(page.locator('#readout')).toContainText('אורך הסרגל');
+
+    await page.locator('#inRulerSize').selectOption('1.7');
+    expect((await geom()).size).toBe(1.7);
+    await page.screenshot({ path: `${OUT}/ruler-big.png` });
+  });
+
   test('dividers, dead reckoning, undo and redo', async ({ page }) => {
     await openSample(page);
     await page.getByRole('button', { name: /^מחוגה/ }).click();
     await dragLine(page, await at(page, 10, 45), await at(page, 12, 45));
     await expect(page.locator('#readout')).toContainText('2.00 NM');
+    // the default is a half circle, facing the way the drag went (north)
+    const arc = await page.evaluate(() => (window.navplot.S.objects.at(-1) as unknown as { arc: [number, number] }).arc);
+    expect(arc[1] - arc[0]).toBeCloseTo(Math.PI, 6);
+    expect((arc[0] + arc[1]) / 2).toBeCloseTo(-Math.PI / 2, 2);
 
     await page.getByRole('button', { name: /ניווט מת/ }).click();
     await tap(page, await at(page, 10, 45));
@@ -222,7 +248,7 @@ test.describe('lesson journeys', () => {
     await expect(page.locator('#resultBox')).toContainText(/32°07\.00'N/);   // 3 NM south
 
     const count = () => page.evaluate(() => window.navplot.S.objects.length);
-    expect(await count()).toBe(3);   // circle, water track, DR mark
+    expect(await count()).toBe(3);   // half circle, water track, DR mark
     await page.getByRole('button', { name: 'ביטול פעולה' }).click();
     expect(await count()).toBe(1);
     await page.getByRole('button', { name: 'ביצוע מחדש' }).click();

@@ -255,7 +255,11 @@
         <label>כיוון הסרגל (אמיתי)<input type="number" min="0" max="359" step="1" data-set="rulerBrg" id="inRulerBrg"></label>
         <button class="btn sm outline" data-act="rulerFlip">הפוך 180°</button>
       </div>
-      <label>אורך הסרגל<input type="range" min="240" max="1400" step="10" data-set="rulerLen" id="inRulerLen"></label>
+      <label>אורך הסרגל<input type="range" min="240" max="4000" step="10" data-set="rulerLen" id="inRulerLen"></label>
+      <label>גודל הסרגל (רוחב וכיתוב)
+        <select data-set="rulerSize" id="inRulerSize"><option value="1">רגיל</option><option value="1.35">גדול</option><option value="1.7">גדול מאוד (מקרן)</option></select>
+      </label>
+      <p class="muted">אפשר גם למתוח את הסרגל: גוררים את העיגול שבקצה החוצה או פנימה.</p>
       <label class="chk"><input type="checkbox" data-set="protOn" id="inProtOn"> מד זווית (שושנה)</label>
       <div class="row">
         <label>זרוע 1 (אמיתי)<input type="number" min="0" max="359" step="1" data-set="protA1" id="inA1"></label>
@@ -345,9 +349,9 @@ const defaultSettings = () => ({ variation: 0, dev: [0, 0, 0, 0, 0, 0, 0, 0], la
 const S = {
   img: null, imgData: null, name: '', task: '', showTask: true, forStudent: false,
   calib: null, settings: defaultSettings(), objects: [],
-  ruler: { on: false, c: { x: 0, y: 0 }, brg: 45, len: 560 },
+  ruler: { on: false, c: { x: 0, y: 0 }, brg: 45, len: 560, size: 1 },
   prot: { on: false, c: { x: 0, y: 0 }, a1: 0, a2: 90 },
-  tool: 'select', color: COLORS[0], width: 3, arrows: 0, circleMode: 'circle', fixedR: 0, markKind: 'fix', markText: '',
+  tool: 'select', color: COLORS[0], width: 3, arrows: 0, circleMode: 'half', fixedR: 0, markKind: 'fix', markText: '',
   layer: 'base', visible: { base: true, solution: true, student: true },
   sel: null, measure: null, result: '', mode: null,
   last: { brgKind: 'M', time: '', hdgKind: 'C', spd: 5, min: 60, set: '', rate: 0, lee: 0, wind: 'stbd' },
@@ -667,13 +671,17 @@ function drawTemp() {
     if (drag.kind === 'pencil') drawStroke({ pts: drag.pts, color: S.color, width: S.width });
     if (drag.kind === 'line') drawLine({ a: drag.a, b: drag.b, color: S.color, width: S.width, arrows: S.arrows, label: 'auto' });
     if (drag.kind === 'dividers') {
-      const c = toS(drag.c), b = toS(drag.b), r = dist(c, b);
+      const c = toS(drag.c), r = dividerRadius(drag) * V.s, arc = dividerArc(drag);
+      const a = arc ? (arc[0] + arc[1]) / 2 : Math.atan2(toS(drag.b).y - c.y, toS(drag.b).x - c.x);
+      const tip = { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r };
       ctx.save();
       ctx.strokeStyle = S.color; ctx.lineWidth = S.width; ctx.globalAlpha = 0.85;
-      ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.stroke();
-      ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.beginPath();
+      if (arc) ctx.arc(c.x, c.y, r, arc[0], arc[1]); else ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
       ctx.restore();
-      drawDividerLegs(c, b);
+      drawDividerLegs(c, tip);
     }
   }
   const m = S.mode;
@@ -715,18 +723,19 @@ function drawSnapHint() {
 }
 
 // ───────────────────────── Ruler (Portland plotter / parallel ruler) ─────────────────────────
-const RULER_W = 86;
+const RULER_W = 86, RULER_MIN = 240, RULER_MAX = 4000;
 function rulerFrame() {
-  const r = S.ruler, c = toS(r.c), u = dirVec(r.c, r.brg);
-  return { c, u, n: { x: -u.y, y: u.x }, len: r.len, w: RULER_W };
+  const r = S.ruler, c = toS(r.c), u = dirVec(r.c, r.brg), k = r.size || 1;
+  return { c, u, n: { x: -u.y, y: u.x }, len: r.len, w: RULER_W * k, k };
 }
 function local(f, p) { const dx = p.x - f.c.x, dy = p.y - f.c.y; return { lx: dx * f.u.x + dy * f.u.y, ly: dx * f.n.x + dy * f.n.y }; }
 function niceNum(v) { return String(+v.toFixed(2)); }
 function drawRuler() {
-  const f = rulerFrame(), r = S.ruler, L = f.len, w = f.w, ang = Math.atan2(f.u.y, f.u.x), flip = Math.cos(ang) < -1e-6;
-  const ppn = G ? pxPerNm(r.c) * V.s : null;
+  // drawn at size 1 and scaled, so a bigger ruler has bigger ticks and words but the same scale in miles
+  const f = rulerFrame(), r = S.ruler, k = f.k, L = f.len / k, w = RULER_W, ang = Math.atan2(f.u.y, f.u.x), flip = Math.cos(ang) < -1e-6;
+  const ppn = G ? pxPerNm(r.c) * V.s / k : null;
   ctx.save();
-  ctx.translate(f.c.x, f.c.y); ctx.rotate(ang);
+  ctx.translate(f.c.x, f.c.y); ctx.rotate(ang); ctx.scale(k, k);
   ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 8;
   ctx.fillStyle = 'rgba(250,252,255,0.78)'; ctx.strokeStyle = '#1d4f86'; ctx.lineWidth = 1.5;
   rrect(-L / 2, -w / 2, L, w, 8); ctx.fill(); ctx.shadowBlur = 0; ctx.stroke();
@@ -736,7 +745,7 @@ function drawRuler() {
     step = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100].find((s) => s * ppn >= 70) || 100;
     minor = step / (String(step).replace(/[0.]/g, '')[0] === '2' ? 4 : 5);
   } else { step = 50; minor = 10; }
-  const unit = ppn || 1, x0 = -L / 2 + 12;
+  const unit = ppn || 1 / k, x0 = -L / 2 + 12;
   ctx.strokeStyle = '#1d4f86'; ctx.fillStyle = '#1d4f86'; ctx.lineWidth = 1;
   ctx.font = `600 11px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'ltr';
   ctx.beginPath();
@@ -845,7 +854,7 @@ function instrumentHit(sp) {
   if (S.ruler.on) {
     const f = rulerFrame(), { lx, ly } = local(f, sp);
     if (Math.abs(ly) <= f.w / 2 && Math.abs(lx) <= f.len / 2) {
-      for (const end of [1, -1]) if (Math.hypot(lx - end * (f.len / 2 - 24), ly - 8) <= 17) return { kind: 'ruler-rot', end };
+      for (const end of [1, -1]) if (Math.hypot(lx - end * (f.len / 2 - 24 * f.k), ly - 8 * f.k) <= 17 * f.k) return { kind: 'ruler-rot', end, ly0: ly, d0: Math.hypot(sp.x - f.c.x, sp.y - f.c.y), len0: f.len, brg0: S.ruler.brg, th0: Math.atan2(f.u.y, f.u.x) };
       const drawing = ['pencil', 'line', 'measure'].includes(S.tool);
       if (!drawing || Math.abs(ly) < f.w / 2 - 12) return { kind: 'ruler-move', c0: { ...S.ruler.c } };
     }
@@ -1023,7 +1032,7 @@ function beginDrag(sp, e) {
     if (t === 'measure') S.measure = null;
     return;
   }
-  if (t === 'dividers' && !(S.fixedR > 0 && G)) { const c = snapPoint(sp, e); drag = { kind: 'dividers', c, b: c }; return; }
+  if (t === 'dividers') { const c = snapPoint(sp, e); drag = { kind: 'dividers', c, b: c, s0: sp }; return; }
   if (t === 'eraser') { drag = { kind: 'erase', any: false }; eraseAt(sp); return; }
   drag = { kind: 'click', s0: sp, last: sp, e };
 }
@@ -1059,7 +1068,9 @@ function moveDrag(sp, e) {
       d.o[d.key] = snapPoint(sp, e, d.o); showLineReadout(d.o.a, d.o.b); break;
     case 'radius':
       if (!d.snapped) { snap(); d.snapped = true; }
-      d.o.r = dist(d.o.c, wp); showCircleReadout(d.o.c, d.o.r); break;
+      d.o.r = dist(d.o.c, wp);
+      if (d.o.arc) { const a = Math.atan2(wp.y - d.o.c.y, wp.x - d.o.c.x), h = (d.o.arc[1] - d.o.arc[0]) / 2; d.o.arc = [a - h, a + h]; }
+      showCircleReadout(d.o.c, d.o.r); break;
     case 'pencil': {
       const p = d.edge ? d.edge.proj(sp) : wp;
       if (d.edge) d.pts = [d.pts[0], p];
@@ -1073,12 +1084,16 @@ function moveDrag(sp, e) {
       if (d.kind === 'measure') S.measure = { a: d.a, b };
       break;
     }
-    case 'dividers': d.b = snapPoint(sp, e); showCircleReadout(d.c, dist(d.c, d.b)); break;
+    case 'dividers': d.b = snapPoint(sp, e); d.moved = d.moved || dist(sp, d.s0) > 5; showCircleReadout(d.c, dividerRadius(d)); break;
     case 'erase': eraseAt(sp); break;
     case 'ruler-move': S.ruler.c = { x: d.c0.x + wp.x - d.w0.x, y: d.c0.y + wp.y - d.w0.y }; showRulerReadout(); break;
-    case 'ruler-rot': {
-      const r = rhumb(S.ruler.c, wp).brg;
-      S.ruler.brg = norm(Math.round(d.end > 0 ? r : r + 180)); showRulerReadout(); syncInstr(); break;
+    case 'ruler-rot': {   // the end knobs turn the ruler and stretch it, like pulling its end
+      // the grabbed point follows the pointer: its offset from the centre line stays, its distance along it stretches
+      const c = toS(S.ruler.c), dd = Math.hypot(sp.x - c.x, sp.y - c.y), lx = d.end * Math.sqrt(Math.max(dd * dd - d.ly0 * d.ly0, 1));
+      const th = Math.atan2(sp.y - c.y, sp.x - c.x) - Math.atan2(d.ly0, lx), turn = ((th - d.th0) / D + 540) % 360 - 180;
+      S.ruler.brg = norm(d.brg0 + Math.round(turn));
+      S.ruler.len = Math.round(clamp(d.len0 + 2 * (Math.hypot(sp.x - c.x, sp.y - c.y) - d.d0), RULER_MIN * (S.ruler.size || 1), RULER_MAX));
+      showRulerReadout(); syncInstr(); break;
     }
     case 'prot-move': {
       const moved = { x: d.c0.x + wp.x - d.w0.x, y: d.c0.y + wp.y - d.w0.y };
@@ -1107,17 +1122,25 @@ function endDrag(d, sp, e) {
       break;
     case 'measure': if (dist(toS(d.a), toS(d.b)) < 5) S.measure = null; break;
     case 'dividers': {
-      const r = dist(d.c, d.b);
-      if (r * V.s > 5) {
-        let arc = null;
-        if (S.circleMode === 'arc') { const a = Math.atan2(d.b.y - d.c.y, d.b.x - d.c.x); arc = [a - 0.5, a + 0.5]; }
-        snap(); pushObj({ type: 'circle', c: d.c, r, arc, color: S.color, width: S.width, label: 'auto' });
-      }
+      const r = dividerRadius(d);
+      if (r * V.s > 5) { snap(); pushObj({ type: 'circle', c: d.c, r, arc: dividerArc(d), color: S.color, width: S.width, label: 'auto' }); }
       break;
     }
     case 'erase': if (d.any) changed(); break;
     case 'ruler-move': case 'ruler-rot': case 'prot-move': case 'prot-arm': syncInstr(); scheduleSave(); break;
   }
+}
+
+// Dividers: the drag sets the radius (unless a fixed radius in miles is set) and which way the arc faces
+const ARC_SPAN = { circle: null, half: Math.PI, arc: 1 };
+function dividerRadius(d) {
+  return S.fixedR > 0 && G ? S.fixedR * pxPerNm(d.c) : dist(d.c, d.b);
+}
+function dividerArc(d) {
+  const span = ARC_SPAN[S.circleMode];
+  if (!span) return null;
+  const a = d.moved ? Math.atan2(d.b.y - d.c.y, d.b.x - d.c.x) : -Math.PI / 2;   // a click with a fixed radius: facing north
+  return [a - span / 2, a + span / 2];
 }
 function eraseAt(sp) {
   const h = hit(sp);
@@ -1141,11 +1164,6 @@ function onClick(sp, e) {
       showHint('עכשיו לחצו על היעד (נקודת ההגעה)');
       return;
     case 'text': return textAt(wp);
-    case 'dividers': {   // a circle with the fixed radius from the panel
-      const c = snapPoint(sp, e);
-      snap(); pushObj({ type: 'circle', c, r: S.fixedR * pxPerNm(c), arc: null, color: S.color, width: S.width, label: 'auto' });
-      return;
-    }
   }
 }
 
@@ -1170,6 +1188,8 @@ function showRulerReadout() {
   const b = S.ruler.brg;
   let h = `<div class="muted">כיוון הסרגל</div><div class="big ltr">${fTM(b)}</div><div class="muted">כיוון הפוך: <span class="ltr">${fTM(b + 180)}</span></div>`;
   if (hasDev()) h += `<div class="muted">מצפן (לפי כרטיס הדביאציה): <span class="ltr">${f3(M2C(T2M(b)))}C</span></div>`;
+  const k = pxPerNm(S.ruler.c);
+  if (k) h += `<div class="muted">אורך הסרגל: <span class="ltr">${fNm(S.ruler.len / (k * V.s))}</span></div>`;
   readout.innerHTML = h;
 }
 function showProtReadout() {
@@ -1466,7 +1486,7 @@ const TOOLS = [
   { id: 'pencil', code: 'KeyP', name: 'עיפרון', title: 'עיפרון', help: 'ציור חופשי. התחלת קו על קצה הסרגל מציירת לאורך הסרגל.' },
   { id: 'line', code: 'KeyL', name: 'קו', title: 'קו עם כיוון ומרחק', help: 'גררו מנקודה לנקודה. על הקו נכתבים הכיוון (אמיתי ומגנטי) והמרחק. Shift מעגל לקפיצות של 5°. על קצה הסרגל הקו נצמד אליו.' },
   { id: 'measure', code: 'KeyM', name: 'מדידה', title: 'מדידת כיוון ומרחק', help: 'גררו כדי למדוד כיוון ומרחק בלי לצייר. המדידה נשארת עד המדידה הבאה.' },
-  { id: 'dividers', code: 'KeyC', name: 'מחוגה', title: 'מחוגה: מעגל או קשת', help: 'גררו ממרכז המעגל החוצה, וקבעו את הרדיוס בעזרת קריאת המיילים. אפשר גם לקבוע רדיוס מראש.' },
+  { id: 'dividers', code: 'KeyC', name: 'מחוגה', title: 'מחוגה: חצי עיגול, מעגל או קשת', help: 'גררו מהמרכז החוצה: אורך הגרירה הוא הרדיוס (בקריאה מוצגים מיילים), והכיוון שלה הוא אמצע הקשת. אפשר גם לקבוע רדיוס מראש.' },
   { id: 'bearing', code: 'KeyB', name: 'כיוון לנ״צ', title: 'קו כיוון לנקודת ציון', help: 'לחצו על נקודת הציון (מגדלור, ארובה…) והקלידו את הכיוון שנמדד אליה מהסירה. הקו יצויר לכיוון הים.' },
   { id: 'mark', code: 'KeyF', name: 'סימון', title: 'סימון מיקום: פיקס, DR, EP', help: 'לחצו כדי לסמן. הסימון נצמד לחיתוך קווים ולקצות קווים (Alt מבטל את ההצמדה).' },
   { id: 'dr', code: 'KeyD', name: 'ניווט מת', title: 'ניווט מת ומיקום משוער (EP)', help: 'לחצו על נקודת המוצא והזינו כיוון, מהירות, זמן, וזרם וסחיפה אם יש.' },
@@ -1500,7 +1520,7 @@ function toggleInstr(which, force) {
   if (o.on && S.img) {
     const c = toW({ x: W / 2 + (which === 'prot' ? -Math.min(160, W / 5) : 0), y: H / 2 + (which === 'ruler' ? Math.min(120, H / 5) : 0) });
     o.c = c;
-    if (which === 'ruler') { S.ruler.len = clamp(S.ruler.len, 240, Math.max(260, W - 60)); showRulerReadout(); } else showProtReadout();
+    if (which === 'ruler') { S.ruler.len = clamp(S.ruler.len, RULER_MIN * (S.ruler.size || 1), Math.max(260, W - 60)); showRulerReadout(); } else showProtReadout();
   }
   syncInstr(); req(); scheduleSave();
 }
@@ -1508,7 +1528,7 @@ function syncInstr() {
   tb.querySelector('[data-instr="ruler"]').setAttribute('aria-pressed', String(S.ruler.on));
   tb.querySelector('[data-instr="prot"]').setAttribute('aria-pressed', String(S.prot.on));
   setVal('#inRulerOn', S.ruler.on); setVal('#inProtOn', S.prot.on);
-  setVal('#inRulerBrg', Math.round(S.ruler.brg)); setVal('#inRulerLen', S.ruler.len);
+  setVal('#inRulerBrg', Math.round(S.ruler.brg)); setVal('#inRulerLen', S.ruler.len); setVal('#inRulerSize', String(S.ruler.size || 1));
   setVal('#inA1', Math.round(S.prot.a1)); setVal('#inA2', Math.round(S.prot.a2));
 }
 function setVal(sel, v) {
@@ -1534,8 +1554,9 @@ function renderPanel() {
     h += `<label style="margin-top:6px">סימון הקו (חצים)<select data-set="arrows">${ARROWS.map(([v, l]) => `<option value="${v}"${v === S.arrows ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`;
   }
   if (S.tool === 'dividers') {
-    h += `<div class="seg">${[['circle', 'מעגל'], ['arc', 'קשת']].map(([v, l]) => `<button class="btn sm" data-act="circleMode" data-v="${v}" aria-pressed="${S.circleMode === v}">${l}</button>`).join('')}</div>
-      <label>רדיוס קבוע במייל (0 = גרירה חופשית)<input type="number" min="0" step="0.1" data-set="fixedR" value="${S.fixedR}" dir="ltr"></label>`;
+    h += `<div class="seg">${[['half', 'חצי עיגול'], ['circle', 'מעגל'], ['arc', 'קשת קצרה']].map(([v, l]) => `<button class="btn sm" data-act="circleMode" data-v="${v}" aria-pressed="${S.circleMode === v}">${l}</button>`).join('')}</div>
+      <label>רדיוס קבוע במייל (0 = לפי הגרירה)<input type="number" min="0" step="0.1" data-set="fixedR" value="${S.fixedR}" dir="ltr"></label>
+      <p class="muted">הכיוון שאליו גוררים הוא אמצע הקשת. אחרי הציור אפשר לבחור אותה ולגרור את הנקודה שעליה כדי לשנות רדיוס וכיוון.</p>`;
   }
   if (S.tool === 'mark') {
     h += `<div class="seg">${Object.entries(MARKS).map(([k, l]) => `<button class="btn sm" data-act="markKind" data-v="${k}" aria-pressed="${S.markKind === k}">${l}</button>`).join('')}</div>
@@ -1590,7 +1611,8 @@ const ACTIONS = {
     S.ruler.on = true; S.ruler.brg = Math.round(rhumb(o.a, o.b).brg * 10) / 10;
     const a = toS(o.a), b = toS(o.b), f0 = { u: dirVec(o.a, S.ruler.brg) };
     const n = { x: -f0.u.y, y: f0.u.x };
-    S.ruler.c = toW({ x: (a.x + b.x) / 2 + n.x * (RULER_W / 2), y: (a.y + b.y) / 2 + n.y * (RULER_W / 2) });
+    const hw = RULER_W * (S.ruler.size || 1) / 2;
+    S.ruler.c = toW({ x: (a.x + b.x) / 2 + n.x * hw, y: (a.y + b.y) / 2 + n.y * hw });
     showRulerReadout(); syncInstr(); req(); scheduleSave();
   },
   editLabel: async () => {
@@ -1626,6 +1648,7 @@ const SETTERS = {
   protOn: (el) => toggleInstr('prot', el.checked),
   rulerBrg: (el) => { if (el.value !== '') { S.ruler.brg = norm(+el.value); showRulerReadout(); req(); } },
   rulerLen: (el) => { S.ruler.len = +el.value; req(); },
+  rulerSize: (el) => { S.ruler.size = +el.value; S.ruler.len = Math.max(S.ruler.len, RULER_MIN * S.ruler.size); syncInstr(); req(); },
   protA1: (el) => { if (el.value !== '') { S.prot.a1 = norm(+el.value); showProtReadout(); req(); } },
   protA2: (el) => { if (el.value !== '') { S.prot.a2 = norm(+el.value); showProtReadout(); req(); } },
   varVal: () => readVariation(),
@@ -2046,9 +2069,9 @@ $('#bHelp').onclick = () => info('עזרה', `
   <li><b>כיול מפה</b>: לוחצים על שתי נקודות שהקואורדינטות שלהן ידועות (חיתוכי רוחב ואורך, רחוקים זה מזה). אחרי הכיול כל מרחק מוצג במייל ימי וכל כיוון במעלות אמיתיות. בלי כיול מודדים רק זוויות, כשהצפון למעלה.</li>
   <li>את הסטייה המגנטית ואת כרטיס הדביאציה מגדירים בלוח בצד. כך כל כיוון מוצג גם במגנטי.</li></ul>
   <h3>כלי עזר</h3><ul>
-  <li><b>סרגל / פורטלנד</b>: גוררים את גוף הסרגל כדי להזיז אותו במקביל (כמו סרגל מקבילי). מסובבים בעיגולים שבקצוות, או בגלגלת העכבר מעל הסרגל. אפשר גם להקליד כיוון בלוח. קו שמתחילים על קצה הסרגל נצמד אליו.</li>
+  <li><b>סרגל / פורטלנד</b>: גוררים את גוף הסרגל כדי להזיז אותו במקביל (כמו סרגל מקבילי). גרירת העיגולים שבקצוות מסובבת אותו ומאריכה או מקצרת אותו. אפשר גם לסובב בגלגלת העכבר מעל הסרגל, ולהגדיל את הסרגל כולו בלוח שבצד. אפשר גם להקליד כיוון בלוח. קו שמתחילים על קצה הסרגל נצמד אליו.</li>
   <li><b>מד זווית</b>: גוררים את המרכז לנקודה, ומסובבים את שתי הזרועות. מוצגים הכיוון של כל זרוע והזווית ביניהן.</li>
-  <li><b>מחוגה</b>: גוררים ממרכז המעגל החוצה. בלוח אפשר לבחור קשת במקום מעגל ולקבוע רדיוס קבוע במייל.</li></ul>
+  <li><b>מחוגה</b>: גוררים מהמרכז החוצה, והכיוון שאליו גוררים הוא אמצע הקשת. בלוח בוחרים חצי עיגול, מעגל או קשת קצרה, ואפשר לקבוע רדיוס קבוע במייל.</li></ul>
   <h3>קביעת מיקום</h3><ul>
   <li><b>כיוון לנ״צ</b>: לוחצים על נקודת הציון ומקלידים את הכיוון שנמדד. בחיתוך הקווים מסמנים פיקס בכלי <b>סימון</b>, שנצמד לחיתוך.</li>
   <li><b>העברת קו</b> (Running fix): בוחרים קו כיוון ולוחצים "העברת קו" בלוח.</li>
