@@ -127,6 +127,20 @@
   }
   .toast.show { opacity: 1; }
   .toast.err { background: var(--danger); }
+  .recbar {
+    position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; align-items: center; gap: 10px;
+    padding: 6px 8px 6px 14px; border-radius: 12px; background: #14202b; color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  }
+  .recbar .dot { width: 12px; height: 12px; border-radius: 50%; background: #e5484d; animation: blink 1.2s infinite; }
+  .recbar.paused .dot { animation: none; background: #f5a524; }
+  .recbar b { font-variant-numeric: tabular-nums; font-size: 16px; min-width: 3.2em; }
+  .recbar .btn { color: #fff; border-color: rgba(255,255,255,.35); }
+  .recbar .btn:hover { background: rgba(255,255,255,.12); }
+  .recbar .btn.stop { background: #e5484d; border-color: #e5484d; }
+  .meter { width: 54px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.2); overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; background: #46a758; transition: width .08s; }
+  @keyframes blink { 50% { opacity: .25; } }
+  #bRec[aria-pressed="true"] { background: #e5484d; color: #fff; }
   .task-card {
     position: absolute; top: 12px; left: 12px; z-index: 3; width: min(380px, calc(100% - 24px)); max-height: 45%; overflow: auto;
     padding: 8px 14px 10px; border-radius: 12px; background: rgba(255,255,255,.95); border: 1px solid var(--line);
@@ -191,6 +205,8 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/></svg><span class="lbl">שמירה</span></button>
   <button class="btn" id="bPng" title="שמירת המפה עם השרטוטים כתמונה (להדפסה או לשליחה)" aria-label="שמירה כתמונה">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg><span class="lbl">כתמונה</span></button>
+  <button class="btn" id="bRec" title="הקלטת הסבר בווידאו: המפה או המסך, עם הקול שלכם" aria-label="הקלטת וידאו" aria-pressed="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg><span class="lbl">הקלטה</span></button>
   <span class="sep"></span>
   <button class="btn" id="bCalib" title="כיול: מגדירים קואורדינטות לשתי נקודות, וכל המדידות יוצגו במייל ימי ובמעלות אמיתיות" aria-label="כיול מפה">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg><span class="lbl">כיול מפה</span></button>
@@ -223,6 +239,12 @@
     <div class="task-card" id="taskCard" hidden>
       <div class="task-head"><span>התרגיל</span><button class="btn sm" id="bHideTask" aria-label="הסתרת הוראות התרגיל">הסתרה</button></div>
       <div id="taskText"></div>
+    </div>
+    <div class="recbar" id="recBar" hidden role="status" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span><b id="recTime">00:00</b>
+      <span class="meter" id="recMeter" title="עוצמת הקול מהמיקרופון"><i id="recLevel"></i></span>
+      <button class="btn sm" id="recPause">השהיה</button>
+      <button class="btn sm stop" id="recStop">סיום ושמירה</button>
     </div>
     <div class="hint" id="hint" hidden><span id="hintText"></span><button class="btn sm outline" id="hintCancel">ביטול</button></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -519,6 +541,7 @@ function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   if (!S.img) return;
+  if (REC.overlay) { ctx.fillStyle = '#c6d0da'; ctx.fillRect(0, 0, W, H); }   // the video has no page behind the map
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 12; ctx.fillStyle = '#fff';
   ctx.fillRect(V.ox, V.oy, S.img.width * V.s, S.img.height * V.s);
@@ -534,6 +557,7 @@ function draw() {
   if (S.ruler.on) drawRuler();
   if (S.prot.on) drawProt();
   drawSnapHint();
+  if (REC.overlay) drawRecordingOverlay();
 }
 
 function drawObjects(exporting) {
@@ -1169,8 +1193,10 @@ function onClick(sp, e) {
 
 // ───────────────────────── Readouts ─────────────────────────
 const readout = $('#readout');
+let ovLines = [];   // the readout as plain lines, for a video of the map
 function showLineReadout(a, b) {
   const r = rhumb(a, b);
+  ovLines = [fTM(r.brg), r.nm != null ? fNm(r.nm) : '', `⇄ ${fTM(r.brg + 180)}`].filter(Boolean);
   let h = `<div class="big ltr">${fTM(r.brg)}</div>`;
   if (r.nm != null) h += `<div class="mid ltr">${fNm(r.nm)} <span class="muted" style="font-size:14px">(${Math.round(r.nm * 1852)} מ׳)</span></div>`;
   else h += `<div class="muted">${Math.round(dist(a, b))} פיקסלים. כיילו את המפה כדי לקבל מרחק במייל.</div>`;
@@ -1181,11 +1207,13 @@ function showLineReadout(a, b) {
 }
 function showCircleReadout(c, r) {
   const k = pxPerNm(c);
+  ovLines = k ? [`r ${fNm(r / k)}`] : [];
   readout.innerHTML = k ? `<div class="muted">רדיוס</div><div class="big ltr">${fNm(r / k)}</div>`
     : `<div class="muted">רדיוס</div><div class="big ltr">${Math.round(r)} px</div><div class="muted">כיילו את המפה כדי לקבל מיילים.</div>`;
 }
 function showRulerReadout() {
   const b = S.ruler.brg;
+  ovLines = [fTM(b), `⇄ ${fTM(b + 180)}`];
   let h = `<div class="muted">כיוון הסרגל</div><div class="big ltr">${fTM(b)}</div><div class="muted">כיוון הפוך: <span class="ltr">${fTM(b + 180)}</span></div>`;
   if (hasDev()) h += `<div class="muted">מצפן (לפי כרטיס הדביאציה): <span class="ltr">${f3(M2C(T2M(b)))}C</span></div>`;
   const k = pxPerNm(S.ruler.c);
@@ -1195,6 +1223,7 @@ function showRulerReadout() {
 function showProtReadout() {
   const p = S.prot;
   let between = Math.abs(norm(p.a2 - p.a1)); if (between > 180) between = 360 - between;
+  ovLines = [`1: ${fTM(p.a1)}`, `2: ${fTM(p.a2)}`, `∠ ${Math.round(between)}°`];
   readout.innerHTML = `<div class="muted">זרוע 1: <b class="ltr">${fTM(p.a1)}</b></div><div class="muted">זרוע 2: <b class="ltr">${fTM(p.a2)}</b></div><div class="big">זווית ${Math.round(between)}°</div>`;
 }
 
@@ -1553,7 +1582,7 @@ tb.addEventListener('click', (e) => {
 });
 function setTool(id) {
   if (S.mode && S.mode.kind === 'cts') cancelMode();
-  S.tool = id;
+  S.tool = id; ovLines = [];
   if (id !== 'measure') S.measure = null;
   if (id !== 'select') S.sel = null;
   tb.querySelectorAll('[data-tool]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === id)));
@@ -1732,7 +1761,7 @@ function syncSettingsInputs() {
   convert(); syncInstr(); syncTask();
 }
 function syncTask() {
-  const show = !!(S.task.trim() && S.showTask && S.img);
+  const show = !!(S.task.trim() && S.showTask && S.img && !REC.overlay);
   $('#taskCard').hidden = !show;
   if (show) $('#taskText').textContent = S.task;
 }
@@ -2090,6 +2119,139 @@ async function loadSample() {
   toast('מפת התרגול נפתחה. היא כבר מכוילת, עם סטייה 5°E');
 }
 
+// ───────────────────────── Video recording ─────────────────────────
+// "The map only" records the chart canvas, with the pointer, the task and the readout drawn into it;
+// "the screen" records whatever the teacher picks in the browser's sharing window. The voice comes from the microphone.
+const REC = { rec: null, chunks: [], tracks: [], overlay: false, t0: 0, pausedFor: 0, pausedAt: 0, timer: null, tick: null, audio: null, last: null };
+function recMime() {
+  const types = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  return types.find((t) => MediaRecorder.isTypeSupported(t)) || '';
+}
+const stopTracks = (...streams) => streams.forEach((st) => st && st.getTracks().forEach((t) => t.stop()));
+async function startRecording() {
+  if (REC.rec) return stopRecording();
+  if (!S.img) return toast('פתחו קודם מפה', true);
+  if (!window.MediaRecorder || !navigator.mediaDevices) return toast('הדפדפן הזה לא יודע להקליט. נסו Chrome או Edge', true);
+  const v = await ask('הקלטת הסבר בווידאו', [
+    { k: 'what', label: 'מה מקליטים', type: 'select', value: S.last.recWhat || 'map', options: [
+      ['map', 'המפה בלבד, עם השרטוטים, הסרגל וההוראות'], ['screen', 'חלון או מסך שלם (בוחרים בחלון של הדפדפן)'],
+    ] },
+    { k: 'mic', label: 'קול', type: 'select', value: S.last.recMic || 'yes', options: [['yes', 'להקליט את הקול שלי מהמיקרופון'], ['no', 'בלי קול']] },
+  ], { intro: 'ההקלטה נשמרת כקובץ וידאו במחשב, ואפשר לשלוח אותו לתלמידים. בפעם הראשונה הדפדפן ישאל אם לאפשר גישה למיקרופון: לוחצים "אישור".', ok: 'התחלת הקלטה' });
+  if (!v) return;
+  S.last.recWhat = v.what; S.last.recMic = v.mic;
+  let video = null, mic = null;
+  try {
+    if (v.what === 'screen') {
+      if (!navigator.mediaDevices.getDisplayMedia) return toast('הדפדפן לא מאפשר להקליט את המסך. בחרו "המפה בלבד"', true);
+      video = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false, preferCurrentTab: true, selfBrowserSurface: 'include' });
+    } else video = cv.captureStream(30);
+    if (v.mic === 'yes') mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  } catch (e) {
+    stopTracks(video, mic);
+    if (e && e.name === 'NotAllowedError') return toast(v.mic === 'yes' && video ? 'אין גישה למיקרופון. אשרו אותה בסמל שבשורת הכתובת ונסו שוב, או הקליטו בלי קול' : 'ההקלטה בוטלה', true);
+    if (e && e.name === 'NotFoundError') return toast('לא נמצא מיקרופון. חברו מיקרופון או הקליטו בלי קול', true);
+    return toast('לא הצלחתי להתחיל להקליט', true);
+  }
+  const stream = new MediaStream([...video.getVideoTracks(), ...(mic ? mic.getAudioTracks() : [])]);
+  const mime = recMime();
+  let rec;
+  try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 6e6 } : undefined); }
+  catch { stopTracks(video, mic); return toast('לא הצלחתי להתחיל להקליט', true); }
+  Object.assign(REC, { rec, chunks: [], tracks: [video, mic], overlay: v.what === 'map', t0: performance.now(), pausedFor: 0, pausedAt: 0, mime: rec.mimeType || mime });
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) REC.chunks.push(e.data); };
+  rec.onstop = finishRecording;
+  video.getVideoTracks()[0].addEventListener('ended', stopRecording);   // "stop sharing" in the browser's own bar
+  if (mic) startMeter(mic); else $('#recMeter').hidden = true;
+  rec.start(1000);
+  if (REC.overlay) REC.tick = setInterval(req, 66);   // keep frames coming while nothing moves
+  REC.timer = setInterval(showRecTime, 250);
+  $('#recBar').hidden = false; $('#recBar').classList.remove('paused'); $('#recPause').textContent = 'השהיה';
+  $('#bRec').setAttribute('aria-pressed', 'true'); showRecTime(); syncTask(); req();
+}
+function showRecTime() {
+  if (!REC.rec) return;
+  const ms = (REC.pausedAt || performance.now()) - REC.t0 - REC.pausedFor, sec = Math.floor(ms / 1000);
+  $('#recTime').textContent = `${pad2(Math.floor(sec / 60))}:${pad2(sec % 60)}`;
+}
+function togglePause() {
+  const r = REC.rec;
+  if (!r) return;
+  if (r.state === 'recording') { r.pause(); REC.pausedAt = performance.now(); $('#recPause').textContent = 'המשך'; $('#recBar').classList.add('paused'); }
+  else if (r.state === 'paused') { r.resume(); REC.pausedFor += performance.now() - REC.pausedAt; REC.pausedAt = 0; $('#recPause').textContent = 'השהיה'; $('#recBar').classList.remove('paused'); }
+}
+function stopRecording() {
+  if (REC.rec && REC.rec.state !== 'inactive') REC.rec.stop();
+}
+function finishRecording() {
+  const type = REC.mime || 'video/webm', ext = /mp4/.test(type) ? '.mp4' : '.webm';
+  const blob = new Blob(REC.chunks, { type: type.split(';')[0] });
+  const hadAudio = !!REC.tracks[1];
+  stopTracks(...REC.tracks); stopMeter();
+  clearInterval(REC.timer); clearInterval(REC.tick);
+  REC.last = { size: blob.size, type: blob.type, hadAudio };
+  Object.assign(REC, { rec: null, chunks: [], tracks: [], overlay: false, timer: null, tick: null });
+  $('#recBar').hidden = true; $('#recMeter').hidden = false; $('#bRec').setAttribute('aria-pressed', 'false'); syncTask(); req();
+  if (!blob.size) return toast('ההקלטה ריקה ולא נשמרה', true);
+  const d = new Date();
+  saveBlob(blob, `${safeName(S.name || 'הסבר')} - הסבר ${pad2(d.getHours())}-${pad2(d.getMinutes())}${ext}`, 'וידאו', blob.type, ext);
+}
+function startMeter(mic) {
+  try {
+    const ac = new AudioContext(), an = ac.createAnalyser(), buf = new Uint8Array(512);
+    an.fftSize = 512; ac.createMediaStreamSource(mic).connect(an);
+    REC.audio = { ac, raf: 0 };
+    const loop = () => {
+      an.getByteTimeDomainData(buf);
+      let sum = 0; for (const x of buf) sum += (x - 128) * (x - 128);
+      $('#recLevel').style.width = Math.min(100, Math.sqrt(sum / buf.length) * 4) + '%';
+      REC.audio.raf = requestAnimationFrame(loop);
+    };
+    loop();
+  } catch { /* the level meter is only a convenience */ }
+}
+function stopMeter() {
+  if (!REC.audio) return;
+  cancelAnimationFrame(REC.audio.raf); REC.audio.ac.close().catch(() => {}); REC.audio = null;
+  $('#recLevel').style.width = '0';
+}
+/** In a recording of the map: the pointer, the task and the live readout, since the page around the map is not in it. */
+function drawRecordingOverlay() {
+  // a box of wrapped lines; x is its right edge, or its left edge with fromLeft; y its top, or its bottom with fromBottom
+  const box = (lines, x, y, maxW, size, { fromBottom = false, fromLeft = false } = {}) => {
+    ctx.font = `600 ${size}px ${FONT}`;
+    const wrapped = [];
+    for (const line of lines) {
+      let cur = '';
+      for (const word of line.split(' ')) {
+        const next = cur ? cur + ' ' + word : word;
+        if (ctx.measureText(next).width > maxW && cur) { wrapped.push(cur); cur = word; } else cur = next;
+      }
+      wrapped.push(cur);
+    }
+    const lh = size * 1.45, w = Math.min(maxW, Math.max(...wrapped.map((l) => ctx.measureText(l).width))) + 28, h = wrapped.length * lh + 18;
+    if (fromBottom) y -= h;
+    const x0 = fromLeft ? x : x - w;
+    ctx.fillStyle = 'rgba(255,255,255,0.94)'; rrect(x0, y, w, h, 10); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#14202b'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    wrapped.forEach((l, i) => { ctx.direction = isHeb(l) ? 'rtl' : 'ltr'; ctx.textAlign = isHeb(l) ? 'right' : 'left'; ctx.fillText(l, isHeb(l) ? x0 + w - 14 : x0 + 14, y + 9 + lh * (i + 0.5)); });
+  };
+  ctx.save();
+  if (S.task.trim() && S.showTask) box(S.task.trim().split('\n'), 12, 12, Math.min(440, W * 0.45), 15, { fromLeft: true });
+  if (ovLines.length) box(ovLines, 12, H - 12, Math.min(360, W * 0.4), 17, { fromBottom: true, fromLeft: true });
+  const pts = ptrs.size ? [...ptrs.values()] : hover ? [hover] : [];
+  for (const p of pts) {
+    ctx.fillStyle = 'rgba(229,72,77,0.28)'; ctx.strokeStyle = 'rgba(229,72,77,0.9)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+}
+$('#bRec').onclick = startRecording;
+$('#recStop').onclick = stopRecording;
+$('#recPause').onclick = togglePause;
+window.addEventListener('beforeunload', (e) => { if (REC.rec) { e.preventDefault(); e.returnValue = ''; } });
+
 // ───────────────────────── Top bar, keyboard, drag & drop ─────────────────────────
 const openPicker = () => $('#fileOpen').click();
 $('#fileOpen').onchange = (e) => { openFile(e.target.files[0]); e.target.value = ''; };
@@ -2122,6 +2284,10 @@ $('#bHelp').onclick = () => info('עזרה', `
   <li><b>כיוון לנ״צ</b>: לוחצים על נקודת הציון ומקלידים את הכיוון שנמדד. בחיתוך הקווים מסמנים פיקס בכלי <b>סימון</b>, שנצמד לחיתוך.</li>
   <li><b>העברת קו</b> (Running fix): בוחרים קו כיוון ולוחצים "העברת קו" בלוח.</li>
   <li><b>ניווט מת</b> ו<b>משולש זרמים</b> מחשבים ומשרטטים DR/EP וכיוון להיגוי מול זרם.</li></ul>
+  <h3>הקלטת הסבר בווידאו</h3><ul>
+  <li><b>הקלטה</b> בשורה העליונה: בוחרים להקליט את המפה בלבד או חלון/מסך שלם, עם הקול מהמיקרופון או בלי.</li>
+  <li>בהקלטה של המפה נכנסים לסרטון גם הסרגל, השרטוטים, הוראות התרגיל, הקריאה (כיוון ומרחק) ועיגול אדום במקום הסמן.</li>
+  <li>בזמן ההקלטה מופיע פס עם שעון, מד עוצמת קול, השהיה וסיום. בסיום שומרים את הסרטון כקובץ (MP4 או WebM) ושולחים לתלמידים.</li></ul>
   <h3>תרגילים</h3><ul>
   <li>המורה משרטט את השאלה בשכבת "שאלה" ואת הפתרון בשכבת "פתרון", ושומר.</li>
   <li><b>ייצוא לתלמידים</b> שומר קובץ בלי הפתרון. התלמיד פותח אותו, עונה (בשכבת "תשובת תלמיד") ושומר.</li>
@@ -2174,7 +2340,7 @@ setTool('select'); syncSettingsInputs(); syncUndo(); resize();
 restore().then((ok) => { if (ok) toast('העבודה האחרונה שוחזרה'); });
 
 // Hooks for the automated tests
-window.navplot = { S, V, imageDpi, rhumb, dest, toGeo, fromGeo, toS, toW, solveCTS, loadSample, setTool, toggleInstr, T2M, M2T, M2C, C2M, f3 };
+window.navplot = { S, V, REC, imageDpi, rhumb, dest, toGeo, fromGeo, toS, toW, solveCTS, loadSample, setTool, toggleInstr, T2M, M2T, M2C, C2M, f3 };
 })();
 </script>
 </body>

@@ -298,6 +298,38 @@ test.describe('lesson journeys', () => {
   });
 });
 
+test.describe('video', () => {
+  test('record the map with the voice, pause, and save the video', async ({ page }, info) => {
+    await openSample(page);
+    await page.getByRole('button', { name: 'הקלטת וידאו' }).click();
+    await expect(page.locator('#f_what')).toHaveValue('map');
+    await expect(page.locator('#f_mic')).toHaveValue('yes');
+    await ok(page);
+    await expect(page.locator('#recBar')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'הקלטת וידאו' })).toHaveAttribute('aria-pressed', 'true');
+
+    // explain something on the map while recording
+    await page.getByRole('button', { name: /^קו/ }).click();
+    await dragLine(page, await at(page, 10, 40), await at(page, 12, 43));
+    await expect(page.locator('#recTime')).not.toHaveText('00:00', { timeout: 4000 });
+    await page.locator('#recPause').click();
+    await expect(page.locator('#recPause')).toHaveText('המשך');
+    await page.locator('#recPause').click();
+    await page.screenshot({ path: `${OUT}/recording.png` });
+
+    const dl = page.waitForEvent('download');
+    await page.locator('#recStop').click();
+    const file = info.outputPath('lesson-video');
+    await (await dl).saveAs(file);
+    const bytes = fs.readFileSync(file);
+    expect(bytes.length).toBeGreaterThan(2000);
+    const webm = bytes.readUInt32BE(0) === 0x1a45dfa3, mp4 = bytes.toString('latin1', 4, 8) === 'ftyp';
+    expect(webm || mp4).toBe(true);
+    expect(await page.evaluate(() => (window.navplot as unknown as { REC: { last: { hadAudio: boolean } } }).REC.last.hadAudio)).toBe(true);
+    await expect(page.locator('#recBar')).toBeHidden();
+  });
+});
+
 test.describe('exercises', () => {
   test('save, reopen, export for students and compare with the solution', async ({ page }, info) => {
     await openSample(page);

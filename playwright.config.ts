@@ -39,7 +39,8 @@ export default defineConfig({
     { name: 'flows-desktop', testMatch: /flows\.spec\.ts/, dependencies: ['seed'], use: { ...seeded, viewport: { width: 1440, height: 900 } } },
     { name: 'quality', testMatch: /quality\.spec\.ts/, dependencies: ['seed'], use: { ...phone, ...seeded } },
     // The offline chart plotter for navigation lessons (tools/chart-plotter), opened from disk
-    { name: 'chart-plotter', testMatch: /chart-plotter\.spec\.ts/, use: { viewport: { width: 1440, height: 900 } } },
+    // (a fake microphone, for the video-recording test)
+    { name: 'chart-plotter', testMatch: /chart-plotter\.spec\.ts/, use: { viewport: { width: 1440, height: 900 }, launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] } } },
   ],
   webServer: {
     command: `bunx vite --port ${PORT} --strictPort`,
