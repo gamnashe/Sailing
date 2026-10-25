@@ -38,6 +38,8 @@ export default defineConfig({
     { name: 'flows-phone', testMatch: /flows\.spec\.ts/, dependencies: ['seed'], use: { ...phone, ...seeded } },
     { name: 'flows-desktop', testMatch: /flows\.spec\.ts/, dependencies: ['seed'], use: { ...seeded, viewport: { width: 1440, height: 900 } } },
     { name: 'quality', testMatch: /quality\.spec\.ts/, dependencies: ['seed'], use: { ...phone, ...seeded } },
+    // The offline chart plotter for navigation lessons (tools/chart-plotter), opened from disk
+    { name: 'chart-plotter', testMatch: /chart-plotter\.spec\.ts/, use: { viewport: { width: 1440, height: 900 } } },
   ],
   webServer: {
     command: `bunx vite --port ${PORT} --strictPort`,
