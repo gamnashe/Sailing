@@ -26,6 +26,7 @@ declare global {
       toS: (p: Pt) => Pt;
       toW: (p: Pt) => Pt;
       solveCTS: (o: { track: number; dist: number; spd: number; set: number; rate: number; lee?: number; wind?: string }) => { wt: number; hdg: number; sog: number; hours: number; error?: string };
+      areaAt: (p: Pt) => { name: string } | null;
     };
   }
 }
@@ -160,6 +161,8 @@ test.describe('lesson journeys', () => {
     await page.locator('#f_latM').fill('0'); await page.locator('#f_lonM').fill('52');
     await ok(page);
     await expect(page.locator('#stCal')).toContainText('מכויל');
+    await page.locator('#hintDone').click();   // two points are enough here; a scan could take more
+    await expect(page.locator('#hint')).toBeHidden();
 
     await page.getByRole('button', { name: /^מדידה/ }).click();
     await dragLine(page, await img(0, 0), await img(0, 900));
@@ -295,6 +298,112 @@ test.describe('lesson journeys', () => {
     expect(await count()).toBe(1);
     await page.getByRole('button', { name: 'ביצוע מחדש' }).click();
     expect(await count()).toBe(3);
+  });
+});
+
+test.describe('charts with insets and a question bank', () => {
+  // A made-up chart: the main map is 1' of longitude = 20 px, and its right half holds an inset
+  // drawn four times larger, as printed charts do for harbours. Nothing here is real chart data.
+  const merc = (deg: number) => Math.log(Math.tan(Math.PI / 4 + (deg * Math.PI) / 360));
+  const D = Math.PI / 180;
+  const mapPoint = (lat: number, lon: number, k: number, lat0: number, lon0: number, x0: number, y0: number, stretchY = 1) =>
+    ({ x: x0 + (lon - lon0) * D * k, y: y0 - (merc(lat) - merc(lat0)) * k * stretchY, lat, lon });
+
+  test('three or more points fit a scan that is stretched one way', async ({ page }) => {
+    await open(page);
+    // 3% taller than true Mercator, like a scanner that pulls the paper a little
+    const k = 20 * 60 / D, png = await page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 900; c.height = 700;
+      const g = c.getContext('2d')!; g.fillStyle = '#eaf3fb'; g.fillRect(0, 0, 900, 700);
+      return c.toDataURL('image/png').split(',')[1];
+    });
+    await page.locator('#fileOpen').setInputFiles({ name: 'scan.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+    const pts = [[32.5, 34.5], [32.25, 34.9], [32.5, 34.9], [32.25, 34.5]].map(([la, lo]) => mapPoint(la, lo, k, 32.5, 34.5, 50, 50, 1.03));
+    await page.getByRole('button', { name: 'כיול מפה' }).click();
+    await ok(page);
+    const box = (await page.locator('#cv').boundingBox())!;
+    for (const [i, q] of pts.entries()) {
+      const s = await page.evaluate(([x, y]) => window.navplot.toS({ x, y }), [q.x, q.y]);
+      await tap(page, { x: box.x + s.x, y: box.y + s.y });
+      const d = Math.floor(q.lat), m = (q.lat - d) * 60, od = Math.floor(q.lon), om = (q.lon - od) * 60;
+      if (i === 0 || i === 2 || i === 3) {   // the window starts from the previous point: fill everything anyway
+        await page.locator('#f_latD').fill(String(d)); await page.locator('#f_latM').fill(m.toFixed(3));
+        await page.locator('#f_lonD').fill(String(od)); await page.locator('#f_lonM').fill(om.toFixed(3));
+      } else { await page.locator('#f_latM').fill(m.toFixed(3)); await page.locator('#f_lonM').fill(om.toFixed(3)); }
+      await ok(page);
+    }
+    await expect(page.locator('#hintText')).toContainText('4 נקודות');
+    await page.locator('#hintDone').click();
+    // a distance along each axis is right in miles: 15' of latitude = 15 NM, 24' of longitude at 32.5° ≈ 20.24 NM
+    const r = await page.evaluate(([a, b, c]) => [window.navplot.rhumb(a, b), window.navplot.rhumb(a, c)], [pts[0], pts[3], pts[2]] as Pt[]);
+    expect(r[0].nm!).toBeCloseTo(15, 2);
+    expect(r[0].brg).toBeCloseTo(180, 1);
+    expect(r[1].nm!).toBeCloseTo(24 * Math.cos(32.5 * D), 1);
+    expect(r[1].brg).toBeCloseTo(90, 1);
+  });
+
+  test('a course pack: its chart opens calibrated, insets measure at their own scale, and its questions can be shown', async ({ page }) => {
+    await open(page);
+    const k = 20 * 60 / D;
+    const img = await page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 1000; c.height = 600;
+      const g = c.getContext('2d')!; g.fillStyle = '#f5fafd'; g.fillRect(0, 0, 1000, 600);
+      g.strokeStyle = '#333'; g.strokeRect(560, 40, 400, 520);
+      return c.toDataURL('image/png');
+    });
+    const main = [mapPoint(32.5, 34.5, k, 32.5, 34.5, 40, 40), mapPoint(32.2, 34.8, k, 32.5, 34.5, 40, 40)];
+    const inset = [mapPoint(32.45, 34.6, 4 * k, 32.45, 34.6, 580, 60), mapPoint(32.40, 34.65, 4 * k, 32.45, 34.6, 580, 60)];
+    const pack = {
+      app: 'navplot-pack', version: 1, title: 'חבילת בדיקה',
+      charts: [{ id: 't', name: 'מפת בדיקה', image: img, variation: 4, calib: { kind: 'geo', pts: main },
+        areas: [{ name: 'נמל לדוגמה', rect: { x0: 560, y0: 40, x1: 960, y1: 560 }, calib: { kind: 'geo', pts: inset } }] }],
+      questions: [
+        { n: 1, cat: 1, section: 'גאות ושפל', q: ['א. מה העומק?'], a: ['א. 3 מטרים.'] },
+        { n: 2, cat: 7, section: 'זרם', q: ['בשעה 08:00 ספינתך ליד מצוף. חשב:', 'א. את הקורס ביחס לקרקע.'], a: ['א. 045°'] },
+        { n: 3, cat: 9, section: 'זרם', q: ['בשעה 09:00 ספינתך ליד המעגן. חשב:', 'א. את מהירות הזרם.'], a: ['א. 1.5 קשרים'] },
+      ],
+    };
+    await page.locator('#fileOpen').setInputFiles({ name: 'pack.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(pack)) });
+    await expect(page.locator('#stCal')).toContainText('1 אזורים');
+    await expect(page.locator('#inVar')).toHaveValue('4');
+
+    // the same 3' of latitude is 3 NM in the inset and on the main map, though 4× longer there
+    const r = await page.evaluate(() => {
+      const n = window.navplot;
+      const inMain = n.fromGeo(32.40, 34.55), inInset = n.fromGeo(32.38, 34.62);   // the inset spans 32.36°–32.45°
+      return {
+        mainArea: n.areaAt(inMain), insetArea: n.areaAt(inInset)?.name,
+        main3: n.rhumb(inMain, n.fromGeo(32.45, 34.55)).nm, inset3: n.rhumb(inInset, n.fromGeo(32.43, 34.62)).nm,
+        px: [n.fromGeo(32.45, 34.55).y - inMain.y, n.fromGeo(32.43, 34.62).y - inInset.y],
+      };
+    });
+    expect(r.mainArea).toBeNull();
+    expect(r.insetArea).toBe('נמל לדוגמה');
+    expect(r.main3!).toBeCloseTo(3, 2);
+    expect(r.inset3!).toBeCloseTo(3, 2);
+    expect(Math.abs(r.px[1]) / Math.abs(r.px[0])).toBeCloseTo(4, 1);
+
+    // the question bank: pick a topic, show a question on the map, reveal its answer, go to the next one
+    await page.locator('#qBox summary').click();
+    await page.locator('#qSec').selectOption('זרם');
+    await expect(page.locator('#qSel option')).toHaveCount(2);
+    await page.locator('[data-act="qShow"]').click();
+    await expect(page.locator('#taskTitle')).toHaveText('שאלה 2 (7) · זרם');
+    await expect(page.locator('#taskAns')).toBeHidden();
+    await page.locator('#bAns').click();
+    await expect(page.locator('#taskAns')).toContainText('045°');
+    await page.locator('#bQNext').click();
+    await expect(page.locator('#taskTitle')).toHaveText('שאלה 3 (9) · זרם');
+    await expect(page.locator('#taskAns')).toBeHidden();
+    await page.locator('#qFind').fill('העומק');
+    await page.locator('#qSec').selectOption('');
+    await expect(page.locator('#qSel option')).toHaveCount(1);
+    await page.screenshot({ path: `${OUT}/question-bank.png` });
+
+    // the pack stays after a reload
+    await page.waitForTimeout(300);
+    await page.reload();
+    await expect(page.locator('#qBox')).toBeVisible();
   });
 });
 

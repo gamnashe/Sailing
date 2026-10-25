@@ -142,11 +142,15 @@
   @keyframes blink { 50% { opacity: .25; } }
   #bRec[aria-pressed="true"] { background: #e5484d; color: #fff; }
   .task-card {
-    position: absolute; top: 12px; left: 12px; z-index: 3; width: min(380px, calc(100% - 24px)); max-height: 45%; overflow: auto;
-    padding: 8px 14px 10px; border-radius: 12px; background: rgba(255,255,255,.95); border: 1px solid var(--line);
-    box-shadow: 0 4px 14px rgba(0,0,0,.15); line-height: 1.5; font-size: 15px;
+    position: absolute; top: 12px; left: 12px; z-index: 3; width: min(400px, calc(100% - 24px)); max-height: 62%;
+    display: flex; flex-direction: column; padding: 8px 14px 10px; border-radius: 12px; background: rgba(255,255,255,.96);
+    border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.15); line-height: 1.5; font-size: 15px;
   }
+  .task-card .task-body { overflow: auto; min-height: 0; }
   #taskText { white-space: pre-wrap; }
+  .task-card .ans { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); white-space: pre-wrap; color: #0a5c2b; }
+  .task-card .task-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .qprev { white-space: pre-wrap; line-height: 1.5; font-size: 13px; max-height: 220px; overflow: auto; margin-top: 6px; }
   .task-card .task-head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; margin-bottom: 4px; }
   .empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; z-index: 2; }
   .empty-card {
@@ -237,8 +241,13 @@
   <div class="stage" id="stage">
     <canvas id="cv" aria-label="המפה ואזור השרטוט"></canvas>
     <div class="task-card" id="taskCard" hidden>
-      <div class="task-head"><span>התרגיל</span><button class="btn sm" id="bHideTask" aria-label="הסתרת הוראות התרגיל">הסתרה</button></div>
-      <div id="taskText"></div>
+      <div class="task-head"><span id="taskTitle">התרגיל</span><button class="btn sm" id="bHideTask" aria-label="הסתרת הוראות התרגיל">הסתרה</button></div>
+      <div class="task-body"><div id="taskText"></div><div class="ans" id="taskAns" hidden></div></div>
+      <div class="task-actions" id="taskActions" hidden>
+        <button class="btn sm outline" id="bAns">הצגת התשובה</button>
+        <button class="btn sm outline" id="bQPrev" aria-label="השאלה הקודמת">הקודמת</button>
+        <button class="btn sm outline" id="bQNext" aria-label="השאלה הבאה">הבאה</button>
+      </div>
     </div>
     <div class="recbar" id="recBar" hidden role="status" aria-live="polite">
       <span class="dot" aria-hidden="true"></span><b id="recTime">00:00</b>
@@ -246,7 +255,7 @@
       <button class="btn sm" id="recPause">השהיה</button>
       <button class="btn sm stop" id="recStop">סיום ושמירה</button>
     </div>
-    <div class="hint" id="hint" hidden><span id="hintText"></span><button class="btn sm outline" id="hintCancel">ביטול</button></div>
+    <div class="hint" id="hint" hidden><span id="hintText"></span><button class="btn sm outline" id="hintDone" hidden>סיום</button><button class="btn sm outline" id="hintCancel">ביטול</button></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <div class="empty" id="empty">
       <div class="empty-card">
@@ -306,6 +315,18 @@
       <div class="readout ltr" id="cvOut"></div>
     </details>
 
+    <details class="card" id="qBox" hidden>
+      <summary>מאגר שאלות</summary>
+      <p class="muted" id="qInfo"></p>
+      <label>נושא<select id="qSec"></select></label>
+      <label style="margin-top:6px">חיפוש<input type="text" id="qFind" placeholder="למשל: חדרה, NOA, זרם"></label>
+      <label style="margin-top:6px">שאלה<select id="qSel"></select></label>
+      <div class="qprev" id="qPrev"></div>
+      <div class="row">
+        <button class="btn sm primary" data-act="qShow">הצגה על המפה</button>
+        <button class="btn sm outline" data-act="qOpenChart" id="qChartBtn" hidden>פתיחת המפה של השאלות</button>
+      </div>
+    </details>
     <details class="card" id="exBox">
       <summary>תרגיל ושכבות</summary>
       <label>הוראות התרגיל<textarea id="inTask" rows="5" data-set="task" placeholder="למשל: בשעה 10:00 נלקחו כיוונים…"></textarea></label>
@@ -341,6 +362,8 @@
 <input type="file" id="fileOpen" accept="image/*,.json,application/json" hidden>
 <input type="file" id="fileSolution" accept=".json,application/json" hidden>
 
+<!-- A course pack (charts, their calibration and a question bank) can be embedded here as JSON. -->
+<script type="application/json" id="navplotPack"></script>
 <script>
 (() => {
 'use strict';
@@ -370,7 +393,7 @@ const defaultSettings = () => ({ variation: 0, dev: [0, 0, 0, 0, 0, 0, 0, 0], la
 // ───────────────────────── State ─────────────────────────
 const S = {
   img: null, imgData: null, name: '', task: '', showTask: true, forStudent: false,
-  calib: null, settings: defaultSettings(), objects: [],
+  calib: null, areas: [], settings: defaultSettings(), objects: [], taskAnswer: '', showAnswer: false, pack: null,
   ruler: { on: false, c: { x: 0, y: 0 }, brg: 45, len: 560, size: 1 },
   prot: { on: false, c: { x: 0, y: 0 }, a1: 0, a2: 90 },
   tool: 'select', color: COLORS[0], width: 3, arrows: 0, circleMode: 'half', fixedR: 0, markKind: 'fix', markText: '',
@@ -382,75 +405,116 @@ const V = { s: 1, ox: 0, oy: 0 };   // view: screen = world * s + o
 let K = 1;                          // line/label multiplier (raised when exporting a big image)
 
 // ───────────────────────── Chart geometry ─────────────────────────
-// Full calibration fits a similarity transform (scale + rotation + shift) between Mercator
-// coordinates and image pixels, so a slightly rotated scan still measures correctly.
+// A calibration maps Mercator coordinates (longitude, −meridional part) to image pixels: w = A·g + t.
+// Two known points give a similarity (scale + rotation + shift), so a slightly rotated scan still
+// measures correctly; three or more give a least-squares affine fit, which also absorbs a scan that is
+// stretched more one way than the other. A chart with insets has an area (frame) per inset, each with
+// its own calibration or none; a point uses the smallest area around it, else the whole-map one.
 const merc = (f) => Math.log(Math.tan(Math.PI / 4 + f / 2));
 const imerc = (m) => 2 * Math.atan(Math.exp(m)) - Math.PI / 2;
-const cadd = (a, b) => ({ re: a.re + b.re, im: a.im + b.im });
-const csub = (a, b) => ({ re: a.re - b.re, im: a.im - b.im });
-const cmul = (a, b) => ({ re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re });
-const cdiv = (a, b) => { const d = b.re * b.re + b.im * b.im; return { re: (a.re * b.re + a.im * b.im) / d, im: (a.im * b.re - a.re * b.im) / d }; };
-let G = null;   // derived from S.calib: { kind:'geo', a, b } or { kind:'scale', ppnm }
+let G = null;       // the whole-map calibration: { kind:'geo', A, t, inv } or { kind:'scale', ppnm }
+let AREAS = [];     // [{ name, rect, G }], smallest first
 
-function buildGeo() {
-  const c = S.calib; G = null;
-  if (!c) return;
-  if (c.kind === 'geo') {
-    const g = (p) => ({ re: p.lon * D, im: -merc(p.lat * D) });
-    const w = (p) => ({ re: p.x, im: p.y });
-    const dg = csub(g(c.p2), g(c.p1));
-    if (Math.hypot(dg.re, dg.im) < 1e-9) return;
-    const a = cdiv(csub(w(c.p2), w(c.p1)), dg);
-    G = { kind: 'geo', a, b: csub(w(c.p1), cmul(a, g(c.p1))) };
-  } else if (c.kind === 'scale' && c.ppnm > 0) {
-    G = { kind: 'scale', ppnm: c.ppnm };
+function makeG(c) {
+  if (!c) return null;
+  if (c.kind === 'scale') return c.ppnm > 0 ? { kind: 'scale', ppnm: c.ppnm } : null;
+  if (c.kind !== 'geo') return null;
+  const pts = (c.pts || [c.p1, c.p2]).filter(Boolean);
+  if (pts.length < 2) return null;
+  const gx = (p) => p.lon * D, gy = (p) => -merc(p.lat * D);
+  let A, t;
+  if (pts.length === 2) {
+    const [p, q] = pts, dl = gx(q) - gx(p), dm = gy(q) - gy(p), dd = dl * dl + dm * dm;
+    if (dd < 1e-18) return null;
+    const wx = q.x - p.x, wy = q.y - p.y;
+    const re = (wx * dl + wy * dm) / dd, im = (wy * dl - wx * dm) / dd;   // (wx + i·wy) / (dl + i·dm)
+    A = [[re, -im], [im, re]];
+    t = [p.x - (re * gx(p) - im * gy(p)), p.y - (im * gx(p) + re * gy(p))];
+  } else {
+    // least squares for x and for y over [λ, m, 1]
+    const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], bx = [0, 0, 0], by = [0, 0, 0];
+    const l0 = gx(pts[0]), m0 = gy(pts[0]);   // centred, for a well-conditioned system
+    for (const p of pts) {
+      const r = [gx(p) - l0, gy(p) - m0, 1];
+      for (let i = 0; i < 3; i++) { bx[i] += r[i] * p.x; by[i] += r[i] * p.y; for (let j = 0; j < 3; j++) M[i][j] += r[i] * r[j]; }
+    }
+    const sx = solve3(M, bx), sy = solve3(M, by);
+    if (!sx || !sy) return null;
+    A = [[sx[0], sx[1]], [sy[0], sy[1]]];
+    t = [sx[2] - sx[0] * l0 - sx[1] * m0, sy[2] - sy[0] * l0 - sy[1] * m0];
   }
+  const det = A[0][0] * A[1][1] - A[0][1] * A[1][0];
+  if (!(Math.abs(det) > 1e-9)) return null;
+  return { kind: 'geo', A, t, inv: [[A[1][1] / det, -A[0][1] / det], [-A[1][0] / det, A[0][0] / det]] };
 }
-function toGeo(p) {
-  if (!G || G.kind !== 'geo') return null;
-  const g = cdiv(csub({ re: p.x, im: p.y }, G.b), G.a);
-  return { lat: imerc(-g.im) / D, lon: g.re / D };
+function solve3(M, b) {   // Cramer's rule, enough for a 3×3
+  const d3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const d = d3(M);
+  if (Math.abs(d) < 1e-24) return null;
+  return [0, 1, 2].map((k) => d3(M.map((row, i) => row.map((v, j) => (j === k ? b[i] : v)))) / d);
 }
-function fromGeo(lat, lon) {
-  const w = cadd(cmul(G.a, { re: lon * D, im: -merc(lat * D) }), G.b);
-  return { x: w.re, y: w.im };
+function buildGeo() {
+  G = makeG(S.calib);
+  const size = (r) => (r.x1 - r.x0) * (r.y1 - r.y0);
+  AREAS = (S.areas || []).map((a) => ({ name: a.name, rect: a.rect, G: makeG(a.calib) })).sort((a, b) => size(a.rect) - size(b.rect));
+}
+const inRect = (p, r) => p.x >= r.x0 && p.x <= r.x1 && p.y >= r.y0 && p.y <= r.y1;
+const areaAt = (p) => AREAS.find((a) => inRect(p, a.rect)) || null;
+function gAt(p) { const a = areaAt(p); return a ? a.G : G; }
+const calibrated = () => !!G || AREAS.some((a) => a.G);
+function toGeo(p, g = gAt(p)) {
+  if (!g || g.kind !== 'geo') return null;
+  const dx = p.x - g.t[0], dy = p.y - g.t[1];
+  return { lat: imerc(-(g.inv[1][0] * dx + g.inv[1][1] * dy)) / D, lon: (g.inv[0][0] * dx + g.inv[0][1] * dy) / D };
+}
+/** Image point of a latitude/longitude: in the smallest calibrated area that holds it, else on the whole map. */
+function fromGeo(lat, lon, g) {
+  const at = (h) => { const a = lon * D, m = -merc(lat * D); return { x: h.A[0][0] * a + h.A[0][1] * m + h.t[0], y: h.A[1][0] * a + h.A[1][1] * m + h.t[1] }; };
+  if (g) return at(g);
+  for (const a of AREAS) if (a.G && a.G.kind === 'geo') { const w = at(a.G); if (inRect(w, a.rect)) return w; }
+  return at(G);
 }
 /** Rhumb-line (loxodrome) true bearing and distance in nautical miles between two image points. */
 function rhumb(p1, p2) {
-  if (G && G.kind === 'geo') {
-    const g1 = toGeo(p1), g2 = toGeo(p2);
+  const g = gAt(p1);
+  if (g && g.kind === 'geo') {
+    const g1 = toGeo(p1, g), g2 = toGeo(p2, g);
     const f1 = g1.lat * D, f2 = g2.lat * D, df = f2 - f1, dl = (g2.lon - g1.lon) * D;
     const dp = merc(f2) - merc(f1);
     const q = Math.abs(dp) > 1e-12 ? df / dp : Math.cos(f1);
     return { brg: norm(Math.atan2(dl, dp) / D), nm: Math.sqrt(df * df + q * q * dl * dl) / D * 60 };
   }
   const dx = p2.x - p1.x, dy = p2.y - p1.y;
-  return { brg: norm(Math.atan2(dx, -dy) / D), nm: G ? Math.hypot(dx, dy) / G.ppnm : null };
+  return { brg: norm(Math.atan2(dx, -dy) / D), nm: g ? Math.hypot(dx, dy) / g.ppnm : null };
 }
 /** The point reached from p by sailing nm miles on true bearing brg (rhumb line). */
 function dest(p, brg, nm) {
-  if (G && G.kind === 'geo') {
-    const g = toGeo(p), f1 = g.lat * D, d = nm / 60 * D, t = brg * D;
+  const g = gAt(p);
+  if (g && g.kind === 'geo') {
+    const o = toGeo(p, g), f1 = o.lat * D, d = nm / 60 * D, t = brg * D;
     const df = d * Math.cos(t), f2 = f1 + df, dp = merc(f2) - merc(f1);
     const q = Math.abs(dp) > 1e-12 ? df / dp : Math.cos(f1);
-    return fromGeo(f2 / D, g.lon + d * Math.sin(t) / q / D);
+    return fromGeo(f2 / D, o.lon + d * Math.sin(t) / q / D, g);
   }
-  const k = G ? G.ppnm : 1;
+  const k = g ? g.ppnm : 1;
   return { x: p.x + nm * k * Math.sin(brg * D), y: p.y - nm * k * Math.cos(brg * D) };
 }
 /** Unit vector (image pixels) pointing along true bearing brg at p. */
 function dirVec(p, brg) {
-  if (G && G.kind === 'geo') {
+  const g = gAt(p);
+  if (g && g.kind === 'geo') {
     const q = dest(p, brg, 0.05), dx = q.x - p.x, dy = q.y - p.y, l = Math.hypot(dx, dy) || 1;
     return { x: dx / l, y: dy / l };
   }
   return { x: Math.sin(brg * D), y: -Math.cos(brg * D) };
 }
+/** Pixels per nautical mile at p (the mean of north and east, which differ a little in a stretched scan). */
 function pxPerNm(p) {
-  if (!G) return null;
-  if (G.kind === 'scale') return G.ppnm;
-  const q = dest(p, 0, 1);
-  return Math.hypot(q.x - p.x, q.y - p.y);
+  const g = gAt(p);
+  if (!g) return null;
+  if (g.kind === 'scale') return g.ppnm;
+  const n = dest(p, 0, 1), e = dest(p, 90, 1);
+  return (Math.hypot(n.x - p.x, n.y - p.y) + Math.hypot(e.x - p.x, e.y - p.y)) / 2;
 }
 
 // ───────────────────────── Compass: variation & deviation ─────────────────────────
@@ -712,7 +776,13 @@ function drawTemp() {
   if (m && m.kind === 'cts' && hover) {
     drawLine({ a: m.a, b: snapPoint(hover), color: S.color, width: 2, dash: true, arrows: 2, label: 'auto' });
   }
-  if (m && m.kind && m.kind.startsWith('calib')) {
+  if (m && m.kind && m.kind.startsWith('calib')) drawAreas();
+  if (drag && drag.kind === 'area') {
+    const a = toS(drag.a), b = toS(drag.b);
+    ctx.save(); ctx.strokeStyle = '#d0021b'; ctx.lineWidth = 2; ctx.setLineDash([8, 5]);
+    ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y)); ctx.restore();
+  }
+  if (m && m.pts) {
     m.pts.forEach((p, i) => {
       const s = toS(p);
       ctx.save(); ctx.strokeStyle = '#d0021b'; ctx.lineWidth = 2;
@@ -720,6 +790,15 @@ function drawTemp() {
       ctx.beginPath(); ctx.arc(s.x, s.y, 8, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
       pill(String(i + 1), s.x + 22, s.y - 18, { color: '#d0021b' });
     });
+  }
+}
+/** The frames of the calibrated areas, with their names (shown while calibrating). */
+function drawAreas() {
+  for (const a of AREAS) {
+    const p = toS({ x: a.rect.x0, y: a.rect.y0 }), q = toS({ x: a.rect.x1, y: a.rect.y1 });
+    ctx.save(); ctx.strokeStyle = a.G ? '#0a7d32' : '#c2410c'; ctx.lineWidth = 2; ctx.setLineDash([8, 5]);
+    ctx.strokeRect(p.x, p.y, q.x - p.x, q.y - p.y); ctx.restore();
+    pill(`${a.name}${a.G ? '' : ' · לא מכויל'}`, p.x + 8, p.y + 16, { align: 'left', color: a.G ? '#0a7d32' : '#c2410c' });
   }
 }
 /** The two legs of a pair of dividers, so the tool looks like the real thing while it is open. */
@@ -757,7 +836,7 @@ function niceNum(v) { return String(+v.toFixed(2)); }
 function drawRuler() {
   // drawn at size 1 and scaled, so a bigger ruler has bigger ticks and words but the same scale in miles
   const f = rulerFrame(), r = S.ruler, k = f.k, L = f.len / k, w = RULER_W, ang = Math.atan2(f.u.y, f.u.x), flip = Math.cos(ang) < -1e-6;
-  const ppn = G ? pxPerNm(r.c) * V.s / k : null;
+  const ppn = pxPerNm(r.c) ? pxPerNm(r.c) * V.s / k : null;
   ctx.save();
   ctx.translate(f.c.x, f.c.y); ctx.rotate(ang); ctx.scale(k, k);
   ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 8;
@@ -1030,14 +1109,15 @@ function setCursor(sp) {
 }
 function showPos(sp) {
   if (!S.img) return;
-  const w = toW(sp), g = toGeo(w);
-  $('#stPos').textContent = g ? fPos(g) : `${Math.round(w.x)}, ${Math.round(w.y)} px`;
+  const w = toW(sp), g = toGeo(w), a = areaAt(w);
+  $('#stPos').textContent = (a ? `${a.name}${a.G ? '' : ' (לא מכויל)'}: ` : '') + (g ? fPos(g) : `${Math.round(w.x)}, ${Math.round(w.y)} px`);
 }
 
 function beginDrag(sp, e) {
   const wp = toW(sp);
   const ih = instrumentHit(sp);
   if (ih) { drag = { ...ih, w0: wp }; return; }
+  if (S.mode && S.mode.kind === 'calib-area') { drag = { kind: 'area', a: wp, b: wp }; return; }
   if (S.mode) { drag = { kind: 'click', s0: sp, last: sp, e }; return; }
   const t = S.tool;
   if (t === 'select') {
@@ -1110,6 +1190,7 @@ function moveDrag(sp, e) {
     }
     case 'dividers': d.b = snapPoint(sp, e); d.moved = d.moved || dist(sp, d.s0) > 5; showCircleReadout(d.c, dividerRadius(d)); break;
     case 'erase': eraseAt(sp); break;
+    case 'area': d.b = wp; break;
     case 'ruler-move': S.ruler.c = { x: d.c0.x + wp.x - d.w0.x, y: d.c0.y + wp.y - d.w0.y }; showRulerReadout(); break;
     case 'ruler-rot': {   // the end knobs turn the ruler and stretch it, like pulling its end
       // the grabbed point follows the pointer: its offset from the centre line stays, its distance along it stretches
@@ -1151,6 +1232,12 @@ function endDrag(d, sp, e) {
       break;
     }
     case 'erase': if (d.any) changed(); break;
+    case 'area': {
+      const r = { x0: Math.min(d.a.x, d.b.x), y0: Math.min(d.a.y, d.b.y), x1: Math.max(d.a.x, d.b.x), y1: Math.max(d.a.y, d.b.y) };
+      if ((r.x1 - r.x0) * V.s < 30 || (r.y1 - r.y0) * V.s < 30) { toast('המסגרת קטנה מדי. גררו מפינה לפינה של המפה המשנית', true); break; }
+      finishArea(r, S.mode.next);
+      break;
+    }
     case 'ruler-move': case 'ruler-rot': case 'prot-move': case 'prot-arm': syncInstr(); scheduleSave(); break;
   }
 }
@@ -1158,7 +1245,7 @@ function endDrag(d, sp, e) {
 // Dividers: the drag sets the radius (unless a fixed radius in miles is set) and which way the arc faces
 const ARC_SPAN = { circle: null, half: Math.PI, arc: 1 };
 function dividerRadius(d) {
-  return S.fixedR > 0 && G ? S.fixedR * pxPerNm(d.c) : dist(d.c, d.b);
+  return S.fixedR > 0 && pxPerNm(d.c) ? S.fixedR * pxPerNm(d.c) : dist(d.c, d.b);
 }
 function dividerArc(d) {
   const span = ARC_SPAN[S.circleMode];
@@ -1183,7 +1270,7 @@ function onClick(sp, e) {
     case 'mark': snap(); pushObj({ type: 'mark', p: snapPoint(sp, e), kind: S.markKind, text: S.markText, color: S.color }); return;
     case 'dr': return drAt(snapPoint(sp, e));
     case 'cts':
-      if (!G) return toast('כדי לחשב כיוון להיגוי צריך לכייל את המפה קודם (כפתור "כיול מפה")', true);
+      if (!gAt(toW(sp))) return toast('כדי לחשב כיוון להיגוי צריך לכייל את המפה קודם (כפתור "כיול מפה")', true);
       S.mode = { kind: 'cts', a: snapPoint(sp, e) };
       showHint('עכשיו לחצו על היעד (נקודת ההגעה)');
       return;
@@ -1280,30 +1367,62 @@ function toast(msg, err = false) {
   t.textContent = msg; t.classList.toggle('err', err); t.classList.add('show');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), err ? 5000 : 3200);
 }
-function showHint(text) { $('#hintText').textContent = text; $('#hint').hidden = false; }
+function showHint(text, { done = false } = {}) { $('#hintText').textContent = text; $('#hintDone').hidden = !done; $('#hint').hidden = false; }
 function hideHint() { $('#hint').hidden = true; }
 function cancelMode() { S.mode = null; hideHint(); req(); }
 $('#hintCancel').onclick = cancelMode;
+$('#hintDone').onclick = () => { cancelMode(); toast('הכיול נשמר'); };
 
 // ───────────────────────── Calibration ─────────────────────────
 async function startCalibration() {
   if (!S.img) return toast('פתחו קודם מפה', true);
   const v = await ask('כיול המפה', [
-    { k: 'method', label: 'שיטה', type: 'select', value: 'geo', options: [
-      ['geo', 'שתי נקודות עם קואורדינטות (מומלץ)'], ['ratio', 'הקלדת קנה המידה של המפה (למשל 1:50,000)'],
-      ['scale', 'שתי נקודות על הסולם ומרחק ביניהן'], ['none', 'ביטול הכיול'],
+    { k: 'where', label: 'מה מכיילים', type: 'select', value: 'all', options: [
+      ['all', 'את כל המפה'], ['area', 'אזור אחד במפה: מפה משנית או תרשים מוגדל'],
     ] },
-  ], { intro: 'בכיול מלא בוחרים שתי נקודות רחוקות זו מזו שהקואורדינטות שלהן ידועות, למשל חיתוכים של קווי רוחב ואורך בפינות המפה. מומלץ להתקרב לפני כל לחיצה כדי לדייק. אחרי הכיול: מרחקים במייל ימי, כיוונים אמיתיים ומיקום העכבר ברוחב ובאורך.<br>בשתי השיטות האחרות מקבלים מרחקים במייל, ומניחים שהצפון למעלה.' });
+    { k: 'method', label: 'שיטה', type: 'select', value: 'geo', options: [
+      ['geo', 'נקודות עם קואורדינטות (מומלץ)'], ['ratio', 'הקלדת קנה המידה של המפה (למשל 1:50,000)'],
+      ['scale', 'שתי נקודות על הסולם ומרחק ביניהן'], ['none', 'בלי כיול (לאזור: אזור שלא נמדד) / ביטול הכיול'],
+    ] },
+  ], { intro: 'בכיול בנקודות לוחצים על נקודות שהקואורדינטות שלהן ידועות, למשל חיתוכים של קווי רוחב ואורך. שתי נקודות רחוקות מספיקות; בסריקה, נקודה שלישית ורביעית משפרות את הדיוק. מומלץ להתקרב לפני כל לחיצה.<br>במפה עם מפות משניות (כמו מפה מוגדלת של נמל) מכיילים כל מפה משנית כ"אזור": מסמנים מסגרת סביבה ומכיילים אותה לבד. מדידה בתוך המסגרת תשתמש בכיול שלה.' });
   if (!v) return;
-  if (v.method === 'none') { S.calib = null; buildGeo(); afterCalib(); toast('הכיול בוטל'); return; }
-  if (v.method === 'ratio') return calibrateByRatio();
-  S.sel = null; S.mode = { kind: v.method === 'geo' ? 'calib-geo' : 'calib-scale', pts: [], vals: [] };
-  showHint(v.method === 'geo' ? 'לחצו על נקודה ידועה ראשונה (למשל חיתוך של קו רוחב וקו אורך)' : 'לחצו על נקודה ראשונה בסולם (למשל בסולם הרוחב שבצד המפה)');
+  S.sel = null;
+  if (v.where === 'area') {
+    S.mode = { kind: 'calib-area', next: v.method };
+    showHint('גררו מסגרת סביב האזור (המפה המשנית) שאותו מכיילים');
+    return req();
+  }
+  if (v.method === 'none') {
+    if (!S.calib && !(S.areas || []).length) return toast('המפה לא מכוילת');
+    if ((S.areas || []).length && !confirm('לבטל את הכיול של כל המפה ושל כל האזורים?')) return;
+    S.calib = null; S.areas = []; buildGeo(); afterCalib(); return toast('הכיול בוטל');
+  }
+  beginMethod(v.method, null);
+}
+/** Starts a calibration method for the whole map (target null) or for one area of it. */
+function beginMethod(method, target) {
+  if (method === 'ratio') return calibrateByRatio(target);
+  S.mode = { kind: method === 'geo' ? 'calib-geo' : 'calib-scale', pts: [], vals: [], target };
+  showHint(method === 'geo' ? 'לחצו על נקודה ידועה ראשונה (למשל חיתוך של קו רוחב וקו אורך)' : 'לחצו על נקודה ראשונה בסולם (למשל בסולם הרוחב שבצד המפה)');
   req();
 }
+function setCalib(target, c) {
+  if (target) target.calib = c; else S.calib = c;
+  buildGeo(); afterCalib();
+}
+async function finishArea(rect, next) {
+  const v = await ask('שם האזור', [{ k: 'name', label: 'שם (למשל "נמל חיפה")', type: 'text', value: `אזור ${(S.areas || []).length + 1}` }],
+    { intro: next === 'none' ? 'באזור הזה לא יימדדו מרחקים לפי כיול של המפה הראשית.' : 'אחרי השם מכיילים את האזור באותה שיטה כמו מפה שלמה.' });
+  if (!v) return cancelMode();
+  const area = { name: v.name.trim() || `אזור ${(S.areas || []).length + 1}`, rect, calib: null };
+  S.areas = [...(S.areas || []), area]; buildGeo(); afterCalib();
+  if (next === 'none') { cancelMode(); return toast(`נוסף האזור "${area.name}" (בלי כיול)`); }
+  cancelMode(); beginMethod(next, area);
+}
 /** Scale typed by hand: the chart's printed ratio and the resolution it was scanned at give pixels per mile. */
-async function calibrateByRatio() {
-  const prev = S.calib && S.calib.kind === 'scale' && S.calib.ratio ? S.calib : null;
+async function calibrateByRatio(target) {
+  const cur = target ? target.calib : S.calib;
+  const prev = cur && cur.kind === 'scale' && cur.ratio ? cur : null;
   const dpi = prev?.dpi || S.imgDpi || 300;
   const v = await ask('קנה המידה של המפה', [
     { k: 'ratio', label: 'קנה המידה של המפה', type: 'text', value: prev ? '1:' + prev.ratio.toLocaleString('en-US') : '', placeholder: '1:50,000', ltr: true, row: 'r' },
@@ -1313,9 +1432,9 @@ async function calibrateByRatio() {
   const ratio = +String(v.ratio).replace(/^\s*1\s*:\s*/, '').replace(/[,\s]/g, '');
   if (!(ratio >= 100 && ratio <= 50e6) || !(v.dpi >= 10 && v.dpi <= 10000)) return toast('קנה המידה או ה־DPI לא תקינים', true);
   // 1 NM = 1852 m on the ground = 1852 / ratio m on paper = that / 0.0254 inches × dpi pixels
-  S.calib = { kind: 'scale', ppnm: 1852 / ratio / 0.0254 * v.dpi, ratio, dpi: v.dpi };
-  buildGeo(); afterCalib();
-  toast(`קנה המידה נקבע: 1:${ratio.toLocaleString('en-US')} · 1 מייל ≈ ${Math.round(S.calib.ppnm)} פיקסלים. כדאי לבדוק במדידה על סולם הרוחב.`);
+  const c = { kind: 'scale', ppnm: 1852 / ratio / 0.0254 * v.dpi, ratio, dpi: v.dpi };
+  setCalib(target, c);
+  toast(`קנה המידה נקבע: 1:${ratio.toLocaleString('en-US')} · 1 מייל ≈ ${Math.round(c.ppnm)} פיקסלים. כדאי לבדוק במדידה על סולם הרוחב.`);
 }
 /** Resolution written in a PNG (pHYs) or JPEG (JFIF) file, or null. */
 function imageDpi(url) {
@@ -1373,18 +1492,24 @@ async function modeClick(sp, wp, e) {
   if (m.kind === 'cts') { const b = snapPoint(sp, e); cancelMode(); return ctsDialog(m.a, b); }
   if (m.kind === 'calib-geo') {
     m.pts.push(wp); req();
-    const v = await askLatLon(m.pts.length, m.vals[0]);
+    const v = await askLatLon(m.pts.length, m.vals[m.vals.length - 1]);
     if (!v) { m.pts.pop(); req(); return; }
     m.vals.push(v);
     if (m.pts.length === 1) { showHint('עכשיו לחצו על נקודה ידועה שנייה, רחוקה מהראשונה (עדיף בפינה הנגדית)'); return; }
-    if (dist(toS(m.pts[0]), toS(m.pts[1])) < 30 || (m.vals[0].lat === m.vals[1].lat && m.vals[0].lon === m.vals[1].lon)) {
-      cancelMode(); return toast('שתי הנקודות קרובות מדי או זהות. נסו שוב עם נקודות רחוקות זו מזו', true);
+    const c = { kind: 'geo', pts: m.pts.map((p, i) => ({ x: p.x, y: p.y, lat: m.vals[i].lat, lon: m.vals[i].lon })) };
+    const g = makeG(c);
+    if (!g || (m.pts.length === 2 && dist(toS(m.pts[0]), toS(m.pts[1])) < 30)) {
+      m.pts.pop(); m.vals.pop(); req();
+      return toast('הנקודה קרובה מדי לנקודה אחרת או זהה לה. בחרו נקודה רחוקה יותר', true);
     }
-    S.calib = { kind: 'geo', p1: { ...m.pts[0], ...m.vals[0] }, p2: { ...m.pts[1], ...m.vals[1] } };
-    buildGeo(); cancelMode(); afterCalib();
-    const rot = Math.atan2(G.a.im, G.a.re) / D;
-    if (Math.abs(rot) > 3) toast(`שימו לב: לפי הכיול המפה מסובבת ב־${rot.toFixed(1)}°. אם המפה ישרה, כנראה יש טעות באחת הקואורדינטות. כדאי לכייל שוב.`, true);
-    else toast(`המפה כוילה. 1 מייל ≈ ${Math.round(pxPerNm(m.pts[0]))} פיקסלים${Math.abs(rot) >= 0.2 ? `, המפה מסובבת ב־${rot.toFixed(1)}°` : ''}`);
+    setCalib(m.target, c);
+    const rot = Math.atan2(g.A[1][0], g.A[0][0]) / D;
+    // how well the points agree with each other (with three or more): the largest miss in miles
+    const miss = m.pts.length > 2 ? Math.max(...c.pts.map((q) => dist(fromGeo(q.lat, q.lon, g), q) / (pxPerNm(q) || 1))) : 0;
+    showHint(`הכיול פעיל (${m.pts.length} נקודות). אפשר ללחוץ על נקודה ידועה נוספת לדיוק, או לסיים`, { done: true });
+    if (Math.abs(rot) > 3) toast(`שימו לב: לפי הכיול המפה מסובבת ב־${rot.toFixed(1)}°. אם המפה ישרה, כנראה יש טעות באחת הקואורדינטות.`, true);
+    else if (miss > 0.1) toast(`הנקודות לא מתאימות זו לזו (פער של ${miss.toFixed(2)} מייל). בדקו את הקואורדינטות של הנקודה האחרונה, או בטלו אותה ב"ביטול"`, true);
+    else toast(m.pts.length > 2 ? `נקודה ${m.pts.length} נוספה. הפער הגדול בין הנקודות: ${miss.toFixed(2)} מייל` : `המפה כוילה. 1 מייל ≈ ${Math.round(pxPerNm(m.pts[0]))} פיקסלים${Math.abs(rot) >= 0.2 ? `, המפה מסובבת ב־${rot.toFixed(1)}°` : ''}`);
     return;
   }
   if (m.kind === 'calib-scale') {
@@ -1393,9 +1518,9 @@ async function modeClick(sp, wp, e) {
     const v = await ask('כמה מיילים בין שתי הנקודות?', [{ k: 'nm', label: 'מרחק במייל ימי', type: 'number', value: '' }],
       { intro: 'בסולם הרוחב, כל דקת רוחב היא מייל ימי אחד. בכיול מסוג זה מניחים שהצפון למעלה.' });
     if (!v || !(v.nm > 0) || dist(m.pts[0], m.pts[1]) < 1) { cancelMode(); if (v) toast('המרחק לא תקין', true); return; }
-    S.calib = { kind: 'scale', ppnm: dist(m.pts[0], m.pts[1]) / v.nm };
-    buildGeo(); cancelMode(); afterCalib();
-    toast(`קנה המידה נקבע: 1 מייל ≈ ${Math.round(S.calib.ppnm)} פיקסלים`);
+    const c = { kind: 'scale', ppnm: dist(m.pts[0], m.pts[1]) / v.nm };
+    cancelMode(); setCalib(m.target, c);
+    toast(`קנה המידה נקבע: 1 מייל ≈ ${Math.round(c.ppnm)} פיקסלים`);
   }
 }
 function afterCalib() { syncStatus(); renderPanel(); req(); scheduleSave(); }
@@ -1418,7 +1543,7 @@ async function bearingAt(p) {
 }
 
 async function drAt(p) {
-  if (!G) return toast('כדי לחשב ניווט מת צריך לכייל את המפה קודם (כפתור "כיול מפה")', true);
+  if (!gAt(p)) return toast('כדי לחשב ניווט מת צריך לכייל את המפה קודם (כפתור "כיול מפה")', true);
   const L = S.last;
   const v = await ask('ניווט מת / מיקום משוער (EP)', [
     { k: 'hdg', label: 'כיוון הסירה (מעלות)', type: 'number', value: L.hdg ?? '', row: 'h' },
@@ -1522,7 +1647,7 @@ async function textAt(p) {
 }
 
 async function transferLine(o) {
-  if (!G) return toast('כדי להעביר קו צריך לכייל את המפה', true);
+  if (!gAt(o.a)) return toast('כדי להעביר קו צריך לכייל את המפה', true);
   const L = S.last;
   const v = await ask('העברת קו (Running fix)', [
     { k: 'hdg', label: 'המסלול שעברה הסירה (מעלות)', type: 'number', value: L.hdg ?? '', row: 'h' },
@@ -1581,7 +1706,7 @@ tb.addEventListener('click', (e) => {
   if (b.dataset.instr) toggleInstr(b.dataset.instr);
 });
 function setTool(id) {
-  if (S.mode && S.mode.kind === 'cts') cancelMode();
+  if (S.mode) cancelMode();   // a calibration in progress is already saved
   S.tool = id; ovLines = [];
   if (id !== 'measure') S.measure = null;
   if (id !== 'select') S.sel = null;
@@ -1636,7 +1761,7 @@ function renderPanel() {
     h += `<div class="seg">${Object.entries(MARKS).map(([k, l]) => `<button class="btn sm" data-act="markKind" data-v="${k}" aria-pressed="${S.markKind === k}">${l}</button>`).join('')}</div>
       <label>כיתוב (למשל שעה)<input type="text" data-set="markText" value="${esc(S.markText)}" placeholder="10:15"></label>`;
   }
-  if (['dr', 'cts', 'mark', 'bearing', 'dividers', 'line'].includes(S.tool) && !G) {
+  if (['dr', 'cts', 'mark', 'bearing', 'dividers', 'line'].includes(S.tool) && !calibrated()) {
     h += `<p class="muted" style="margin-top:8px">המפה לא מכוילת, ולכן אין מרחקים במייל. <button class="btn sm outline" data-act="calib">כיול מפה</button></p>`;
   }
   $('#toolInfo').innerHTML = h;
@@ -1701,6 +1826,8 @@ const ACTIONS = {
   clearResult: () => { S.result = ''; renderPanel(); },
   rulerFlip: () => { S.ruler.brg = norm(S.ruler.brg + 180); showRulerReadout(); syncInstr(); req(); scheduleSave(); },
   exportStudent: () => exportStudent(),
+  qShow: () => showQuestion(+$('#qSel').value),
+  qOpenChart: () => chooseChart(),
   loadSolution: () => $('#fileSolution').click(),
   clearLayer: () => {
     const n = S.objects.filter((o) => (o.layer || 'base') === S.layer).length;
@@ -1727,7 +1854,7 @@ const SETTERS = {
   protA2: (el) => { if (el.value !== '') { S.prot.a2 = norm(+el.value); showProtReadout(); req(); } },
   varVal: () => readVariation(),
   varDir: () => readVariation(),
-  task: (el) => { S.task = el.value; syncTask(); },
+  task: (el) => { S.task = el.value; if (S.qn) { S.qn = 0; S.taskTitle = ''; S.taskAnswer = ''; } syncTask(); },
   showTask: (el) => { S.showTask = el.checked; syncTask(); },
   layer: (el) => { S.layer = el.value; S.visible[el.value] = true; renderPanel(); req(); },
   labelScale: (el) => { S.settings.labelScale = +el.value; req(); },
@@ -1763,14 +1890,104 @@ function syncSettingsInputs() {
 function syncTask() {
   const show = !!(S.task.trim() && S.showTask && S.img && !REC.overlay);
   $('#taskCard').hidden = !show;
-  if (show) $('#taskText').textContent = S.task;
+  if (!show) return;
+  $('#taskTitle').textContent = S.taskTitle || 'התרגיל';
+  $('#taskText').textContent = S.task;
+  const ans = (S.taskAnswer || '').trim();
+  $('#taskActions').hidden = !ans && !S.qn;
+  $('#bAns').hidden = !ans;
+  $('#bAns').textContent = S.showAnswer ? 'הסתרת התשובה' : 'הצגת התשובה';
+  $('#taskAns').hidden = !(ans && S.showAnswer);
+  $('#taskAns').textContent = ans ? 'תשובות:\n' + ans : '';
+  $('#bQPrev').hidden = $('#bQNext').hidden = !S.qn;
 }
 $('#bHideTask').onclick = () => { S.showTask = false; setVal('#inShowTask', false); syncTask(); scheduleSave(); };
+$('#bAns').onclick = () => { S.showAnswer = !S.showAnswer; syncTask(); req(); };
+$('#bQPrev').onclick = () => stepQuestion(-1);
+$('#bQNext').onclick = () => stepQuestion(1);
+
+// ───────────────────────── Course pack and question bank ─────────────────────────
+// A pack is a JSON file { app:'navplot-pack', title, charts:[{ id, name, image, calib, areas, variation }],
+// questions:[{ n, cat, section, q:[lines], a:[lines] }] }, opened like any file or embedded above.
+function loadPack(pack, { persist = true, quiet = false } = {}) {
+  if (!pack || pack.app !== 'navplot-pack') return false;
+  S.pack = { title: pack.title || 'חבילת קורס', charts: pack.charts || [], questions: pack.questions || [] };
+  if (persist) idbSet('pack', pack);
+  renderQBank();
+  if (!quiet) toast(`נטענה "${S.pack.title}": ${S.pack.charts.length} מפות, ${S.pack.questions.length} שאלות`);
+  return true;
+}
+const qList = () => {
+  const sec = $('#qSec').value, find = $('#qFind').value.trim().toLowerCase();
+  return (S.pack?.questions || []).filter((q) => (!sec || q.section === sec) && (!find || (q.q.join(' ') + ' ' + q.a.join(' ')).toLowerCase().includes(find)));
+};
+function renderQBank() {
+  const qs = S.pack?.questions || [];
+  $('#qBox').hidden = !qs.length;
+  $('#qChartBtn').hidden = !(S.pack?.charts || []).length;
+  if (!qs.length) return;
+  const secs = [...new Set(qs.map((q) => q.section).filter(Boolean))], cur = $('#qSec').value;
+  $('#qSec').innerHTML = `<option value="">כל הנושאים (${qs.length})</option>` + secs.map((x) => `<option value="${esc(x)}"${x === cur ? ' selected' : ''}>${esc(x)} (${qs.filter((q) => q.section === x).length})</option>`).join('');
+  $('#qInfo').textContent = S.pack.title;
+  renderQList();
+}
+function renderQList() {
+  const list = qList(), keep = +$('#qSel').value;
+  $('#qSel').innerHTML = list.map((q) => `<option value="${q.n}"${q.n === keep ? ' selected' : ''}>${q.n}. ${esc(q.q[0].slice(0, 60))}${q.q[0].length > 60 ? '…' : ''}</option>`).join('') || '<option value="">אין שאלות מתאימות</option>';
+  renderQPreview();
+}
+function renderQPreview() {
+  const q = (S.pack?.questions || []).find((x) => x.n === +$('#qSel').value);
+  $('#qPrev').textContent = q ? q.q.join('\n') : '';
+}
+async function showQuestion(n) {
+  const q = (S.pack?.questions || []).find((x) => x.n === n);
+  if (!q) return;
+  if (!S.img && S.pack.charts.length) await openPackChart(S.pack.charts[0]);
+  S.qn = q.n; S.taskTitle = `שאלה ${q.n}${q.cat && q.cat !== q.n ? ` (${q.cat})` : ''}${q.section ? ' · ' + q.section : ''}`;
+  S.task = q.q.join('\n'); S.taskAnswer = q.a.join('\n'); S.showAnswer = false; S.showTask = true;
+  setVal('#inTask', S.task); setVal('#inShowTask', true); setVal('#qSel', String(q.n));
+  syncTask(); renderQPreview(); req(); scheduleSave();
+}
+function stepQuestion(d) {
+  const list = qList().length ? qList() : S.pack?.questions || [];
+  const i = list.findIndex((q) => q.n === S.qn);
+  const next = list[clamp(i + d, 0, list.length - 1)];
+  if (next) showQuestion(next.n);
+}
+async function openPackChart(chart) {
+  if (S.objects.length && !confirm(`לפתוח את "${chart.name}"? השרטוטים על המפה הנוכחית יימחקו (אפשר לשמור קודם).`)) return false;
+  await setImage(chart.image);
+  resetDoc();
+  S.objects = []; S.calib = chart.calib || null; S.areas = JSON.parse(JSON.stringify(chart.areas || [])); buildGeo();
+  S.settings = { ...defaultSettings(), labelScale: S.settings.labelScale, variation: chart.variation || 0 };
+  S.name = chart.name; S.task = ''; S.taskAnswer = ''; S.taskTitle = ''; S.qn = 0; S.forStudent = false; S.layer = 'base';
+  syncSettingsInputs(); fit(); changed();
+  toast(`"${chart.name}" נפתחה, מכוילת${S.areas.length ? ` (כולל ${S.areas.length} אזורים)` : ''}`);
+  return true;
+}
+async function chooseChart() {
+  const charts = S.pack?.charts || [];
+  if (!charts.length) return loadSample();
+  const v = await ask('מפת תרגול', [{ k: 'c', label: 'איזו מפה לפתוח', type: 'select', value: charts[0].id, options: [
+    ...charts.map((c) => [c.id, c.name]), ['__sample', 'מפת תרגול דמיונית (עם תרגיל לדוגמה)'],
+  ] }], { ok: 'פתיחה' });
+  if (!v) return;
+  if (v.c === '__sample') return loadSample();
+  const c = charts.find((x) => x.id === v.c);
+  if (c) openPackChart(c);
+}
+$('#qSec').onchange = renderQList;
+$('#qFind').oninput = renderQList;
+$('#qSel').onchange = renderQPreview;
+$('#qSel').ondblclick = () => showQuestion(+$('#qSel').value);
 function syncStatus() {
-  const el = $('#stCal');
-  if (!G) el.innerHTML = 'לא מכויל';
-  else if (G.kind === 'geo') el.innerHTML = `מכויל · 1 מייל ≈ <b class="ltr">${Math.round(pxPerNm(S.calib.p1))}</b> פיקסלים`;
+  const el = $('#stCal'), nAreas = AREAS.filter((x) => x.G).length;
+  const mid = S.img ? { x: S.img.width / 2, y: S.img.height / 2 } : { x: 0, y: 0 };
+  if (!G) el.innerHTML = nAreas ? 'מכויל באזורים' : 'לא מכויל';
+  else if (G.kind === 'geo') el.innerHTML = `מכויל · 1 מייל ≈ <b class="ltr">${Math.round((() => { const n = dest(mid, 0, 1); return Math.hypot(n.x - mid.x, n.y - mid.y); })())}</b> פיקסלים`;
   else el.innerHTML = `${S.calib.ratio ? `קנה מידה <b class="ltr">1:${S.calib.ratio.toLocaleString('en-US')}</b>` : 'קנה מידה'} · 1 מייל ≈ <b class="ltr">${Math.round(G.ppnm)}</b> פיקסלים`;
+  if (AREAS.length) el.innerHTML += ` · <b>${AREAS.length}</b> אזורים`;
   if (S.settings.variation) el.innerHTML += ` · סטייה <b class="ltr">${fVar(S.settings.variation)}</b>`;
   $('#stLayer').textContent = `שכבה: ${LAYERS[S.layer]}`;
 }
@@ -1782,7 +1999,7 @@ function deleteSel() {
 // ───────────────────────── Files ─────────────────────────
 function project() {
   return { app: 'navplot', version: 1, name: S.name, task: S.task, showTask: S.showTask, forStudent: S.forStudent, image: S.imgData,
-    calib: S.calib, settings: S.settings, objects: S.objects, ruler: S.ruler, prot: S.prot };
+    calib: S.calib, areas: S.areas || [], settings: S.settings, objects: S.objects, ruler: S.ruler, prot: S.prot, taskAnswer: S.taskAnswer || '', taskTitle: S.taskTitle || '', qn: S.qn || 0 };
 }
 function setImage(url) {
   return new Promise((res, rej) => {
@@ -1800,7 +2017,7 @@ async function applyProject(p, { restoring = false } = {}) {
   await setImage(p.image);
   resetDoc();
   S.name = p.name || ''; S.task = p.task || ''; S.showTask = p.showTask !== false; S.forStudent = !!p.forStudent;
-  S.calib = p.calib || null; buildGeo();
+  S.calib = p.calib || null; S.areas = Array.isArray(p.areas) ? p.areas : []; S.taskAnswer = p.taskAnswer || ''; S.taskTitle = p.taskTitle || ''; S.qn = p.qn || 0; S.showAnswer = false; buildGeo();
   S.settings = { ...defaultSettings(), ...(p.settings || {}) };
   S.objects = Array.isArray(p.objects) ? p.objects : [];
   if (p.ruler) S.ruler = { ...S.ruler, ...p.ruler };
@@ -1823,7 +2040,7 @@ async function openFile(file) {
       if (S.objects.length && !confirm('לפתוח מפה חדשה? השרטוטים על המפה הנוכחית יימחקו (אפשר לשמור קודם).')) return;
       await setImage(await readFile(file, 'url'));
       resetDoc();
-      S.objects = []; S.calib = null; buildGeo(); S.task = ''; S.forStudent = false; S.layer = 'base';
+      S.objects = []; S.calib = null; S.areas = []; buildGeo(); S.task = ''; S.taskAnswer = ''; S.taskTitle = ''; S.qn = 0; S.forStudent = false; S.layer = 'base';
       S.name = file.name.replace(/\.[^.]+$/, '');
       syncSettingsInputs(); fit(); changed();
       toast('המפה נפתחה. כדי למדוד במייל, כיילו אותה (כפתור "כיול מפה")');
@@ -1833,7 +2050,12 @@ async function openFile(file) {
       // exercise files are recognised by their content: a download may lose the .json ending
       let p = null;
       try { p = JSON.parse(await readFile(file, 'text')); } catch { /* not an exercise */ }
-      if (!p || p.app !== 'navplot') return toast('אפשר לפתוח תמונה (JPG, PNG…) או קובץ תרגיל ששמרתם בכלי', true);
+      if (p && p.app === 'navplot-pack') {
+        loadPack(p);
+        if (p.charts && p.charts.length) await openPackChart(p.charts[0]);
+        return;
+      }
+      if (!p || p.app !== 'navplot') return toast('אפשר לפתוח תמונה (JPG, PNG…), קובץ תרגיל או חבילת קורס ששמרתם בכלי', true);
       await applyProject(p);
       toast(S.forStudent ? 'התרגיל נפתח. התשובות שלכם נכנסות לשכבת "תשובת תלמיד"' : 'התרגיל נפתח');
     }
@@ -1864,7 +2086,7 @@ function exportStudent() {
   if (!S.img) return toast('פתחו קודם מפה', true);
   const p = project();
   p.objects = p.objects.filter((o) => o.layer !== 'solution' && o.layer !== 'student');
-  p.forStudent = true; p.name = (S.name || 'תרגיל') + ' - לתלמיד';
+  p.forStudent = true; p.taskAnswer = ''; p.name = (S.name || 'תרגיל') + ' - לתלמיד';
   saveBlob(new Blob([JSON.stringify(p)], { type: 'application/json' }), safeName(p.name) + '.json', 'תרגיל ניווט', 'application/json', '.json');
 }
 async function loadSolution(file) {
@@ -2106,7 +2328,7 @@ async function loadSample() {
   const s = sampleChart();
   await setImage(s.url);
   resetDoc();
-  S.objects = []; S.calib = s.calib; buildGeo();
+  S.objects = []; S.calib = s.calib; S.areas = []; S.taskAnswer = ''; S.taskTitle = ''; S.qn = 0; buildGeo();
   S.settings = { ...defaultSettings(), labelScale: S.settings.labelScale, variation: 5 };
   S.name = 'מפת תרגול'; S.forStudent = false; S.layer = 'base'; S.showTask = true;
   // the exercise is built from a real position, so its numbers work out on the chart
@@ -2238,7 +2460,10 @@ function drawRecordingOverlay() {
     wrapped.forEach((l, i) => { ctx.direction = isHeb(l) ? 'rtl' : 'ltr'; ctx.textAlign = isHeb(l) ? 'right' : 'left'; ctx.fillText(l, isHeb(l) ? x0 + w - 14 : x0 + 14, y + 9 + lh * (i + 0.5)); });
   };
   ctx.save();
-  if (S.task.trim() && S.showTask) box(S.task.trim().split('\n'), 12, 12, Math.min(440, W * 0.45), 15, { fromLeft: true });
+  if (S.task.trim() && S.showTask) {
+    const lines = [...(S.taskTitle ? [S.taskTitle] : []), ...S.task.trim().split('\n'), ...(S.showAnswer && S.taskAnswer ? ['תשובות:', ...S.taskAnswer.split('\n')] : [])];
+    box(lines, 12, 12, Math.min(460, W * 0.45), 15, { fromLeft: true });
+  }
   if (ovLines.length) box(ovLines, 12, H - 12, Math.min(360, W * 0.4), 17, { fromBottom: true, fromLeft: true });
   const pts = ptrs.size ? [...ptrs.values()] : hover ? [hover] : [];
   for (const p of pts) {
@@ -2257,7 +2482,7 @@ const openPicker = () => $('#fileOpen').click();
 $('#fileOpen').onchange = (e) => { openFile(e.target.files[0]); e.target.value = ''; };
 $('#fileSolution').onchange = (e) => { loadSolution(e.target.files[0]); e.target.value = ''; };
 $('#bOpen').onclick = openPicker; $('#eOpen').onclick = openPicker;
-$('#bSample').onclick = loadSample; $('#eSample').onclick = loadSample;
+$('#bSample').onclick = chooseChart; $('#eSample').onclick = chooseChart;
 $('#bSave').onclick = saveProject;
 $('#bPng').onclick = exportPNG;
 $('#bCalib').onclick = startCalibration;
@@ -2274,6 +2499,8 @@ $('#bHelp').onclick = () => info('עזרה', `
   <h3>מתחילים</h3><ul>
   <li>פותחים תמונה של מפה, או את <b>מפת התרגול</b>, שכבר מכוילת.</li>
   <li><b>כיול מפה</b>: לוחצים על שתי נקודות שהקואורדינטות שלהן ידועות (חיתוכי רוחב ואורך, רחוקים זה מזה). אחרי הכיול כל מרחק מוצג במייל ימי וכל כיוון במעלות אמיתיות. בלי כיול מודדים רק זוויות, כשהצפון למעלה.</li>
+  <li>בסריקה, נקודה שלישית ורביעית (בפינות אחרות) משפרות את הדיוק: אחרי שתי נקודות אפשר להמשיך ללחוץ על נקודות ידועות, ובסוף "סיום".</li>
+  <li>מפה עם מפות משניות (למשל תרשים מוגדל של נמל): בכיול בוחרים <b>אזור אחד במפה</b>, גוררים מסגרת סביב המפה המשנית ומכיילים אותה לבד. מדידה בתוך המסגרת משתמשת בכיול שלה.</li>
   <li>למפה סרוקה אפשר גם <b>להקליד את קנה המידה</b> המודפס עליה (למשל 1:50,000). רזולוציית הסריקה (DPI) נקראת מהקובץ כשהיא רשומה בו.</li>
   <li>את הסטייה המגנטית ואת כרטיס הדביאציה מגדירים בלוח בצד. כך כל כיוון מוצג גם במגנטי.</li></ul>
   <h3>כלי עזר</h3><ul>
@@ -2288,6 +2515,9 @@ $('#bHelp').onclick = () => info('עזרה', `
   <li><b>הקלטה</b> בשורה העליונה: בוחרים להקליט את המפה בלבד או חלון/מסך שלם, עם הקול מהמיקרופון או בלי.</li>
   <li>בהקלטה של המפה נכנסים לסרטון גם הסרגל, השרטוטים, הוראות התרגיל, הקריאה (כיוון ומרחק) ועיגול אדום במקום הסמן.</li>
   <li>בזמן ההקלטה מופיע פס עם שעון, מד עוצמת קול, השהיה וסיום. בסיום שומרים את הסרטון כקובץ (MP4 או WebM) ושולחים לתלמידים.</li></ul>
+  <h3>מאגר שאלות וחבילת קורס</h3><ul>
+  <li>חבילת קורס היא קובץ שמכיל מפות מכוילות ומאגר שאלות. פותחים אותה ב"פתיחה", והיא נשארת בכלי. המפות שלה מופיעות ב"מפת תרגול".</li>
+  <li>בלוח שבצד, ב"מאגר שאלות", בוחרים נושא או מחפשים, ולוחצים "הצגה על המפה". בתיבה על המפה: "הצגת התשובה", "הקודמת" ו"הבאה".</li></ul>
   <h3>תרגילים</h3><ul>
   <li>המורה משרטט את השאלה בשכבת "שאלה" ואת הפתרון בשכבת "פתרון", ושומר.</li>
   <li><b>ייצוא לתלמידים</b> שומר קובץ בלי הפתרון. התלמיד פותח אותו, עונה (בשכבת "תשובת תלמיד") ושומר.</li>
@@ -2337,10 +2567,17 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sav
 // ───────────────────────── Start ─────────────────────────
 if (window.innerWidth < 1000) { $('#panel').hidden = true; $('#bPanel').setAttribute('aria-pressed', 'false'); }
 setTool('select'); syncSettingsInputs(); syncUndo(); resize();
-restore().then((ok) => { if (ok) toast('העבודה האחרונה שוחזרה'); });
+(async () => {
+  let embedded = null;
+  try { const t = $('#navplotPack').textContent.trim(); if (t) embedded = JSON.parse(t); } catch { /* no pack */ }
+  if (embedded) loadPack(embedded, { persist: false, quiet: true });
+  else { const saved = await idbGet('pack'); if (saved) loadPack(saved, { persist: false, quiet: true }); }
+  const ok = await restore();
+  if (ok) toast('העבודה האחרונה שוחזרה');
+})();
 
 // Hooks for the automated tests
-window.navplot = { S, V, REC, imageDpi, rhumb, dest, toGeo, fromGeo, toS, toW, solveCTS, loadSample, setTool, toggleInstr, T2M, M2T, M2C, C2M, f3 };
+window.navplot = { S, V, REC, imageDpi, areaAt, gAt, loadPack, showQuestion, rhumb, dest, toGeo, fromGeo, toS, toW, solveCTS, loadSample, setTool, toggleInstr, T2M, M2T, M2C, C2M, f3 };
 })();
 </script>
 </body>
