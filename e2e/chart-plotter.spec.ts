@@ -19,7 +19,8 @@ type Pt = { x: number; y: number };
 declare global {
   interface Window {
     navplot: {
-      S: { objects: { type: string; layer: string; label?: string; kind?: string }[]; ruler: { on: boolean; brg: number }; calib: unknown; task: string };
+      S: { objects: { type: string; layer: string; label?: string; kind?: string }[]; ruler: { on: boolean; brg: number }; calib: unknown; task: string; mapId: string | null };
+      showQuestion: (n: number) => Promise<void>;
       rhumb: (a: Pt, b: Pt) => { brg: number; nm: number | null };
       fromGeo: (lat: number, lon: number) => Pt;
       toGeo: (p: Pt) => { lat: number; lon: number } | null;
@@ -27,6 +28,8 @@ declare global {
       toW: (p: Pt) => Pt;
       solveCTS: (o: { track: number; dist: number; spd: number; set: number; rate: number; lee?: number; wind?: string }) => { wt: number; hdg: number; sog: number; hours: number; error?: string };
       areaAt: (p: Pt) => { name: string } | null;
+      LIB: { maps: { id: string; name: string; calib: unknown }[] };
+      openMap: (id: string) => Promise<boolean>;
     };
   }
 }
@@ -429,6 +432,87 @@ test.describe('charts with insets and a question bank', () => {
     await page.waitForTimeout(300);
     await page.reload();
     await expect(page.locator('#qBox')).toBeVisible();
+  });
+});
+
+test.describe('map library', () => {
+  test('imported maps keep their calibration and drawings, and the course questions stay on the course chart', async ({ page }) => {
+    await open(page);
+    const picture = (fill: string) => page.evaluate((f) => {
+      const c = document.createElement('canvas'); c.width = 800; c.height = 500;
+      const g = c.getContext('2d')!; g.fillStyle = f; g.fillRect(0, 0, 800, 500);
+      return c.toDataURL('image/png');
+    }, fill);
+    const state = () => page.evaluate(() => { const n = window.navplot; return { map: n.S.mapId as string | null, objects: n.S.objects.length, maps: n.LIB.maps.map((m) => m.name) }; });
+    const drawLine = async () => {
+      const box = (await page.locator('#cv').boundingBox())!;
+      const scr = (x: number, y: number) => page.evaluate(([px, py]) => window.navplot.toS({ x: px, y: py }), [x, y]);
+      const a = await scr(200, 250), b = await scr(500, 250);
+      await page.locator('[data-tool="line"]').click();
+      await dragLine(page, { x: box.x + a.x, y: box.y + a.y }, { x: box.x + b.x, y: box.y + b.y });
+    };
+    // a course pack with its chart and one question (made-up data)
+    const pack = { app: 'navplot-pack', version: 1, title: 'חבילת בדיקה', questions: [{ n: 1, q: ['שאלה לבדיקה'], a: ['תשובה'] }],
+      charts: [{ id: 't', name: 'מפת הקורס', image: await picture('#f5fafd'), calib: { kind: 'geo', pts: [{ x: 40, y: 40, lat: 32.5, lon: 34.5 }, { x: 760, y: 460, lat: 32.2, lon: 34.9 }] } }] };
+    await page.locator('#fileOpen').setInputFiles({ name: 'pack.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(pack)) });
+    await expect.poll(async () => (await state()).map).toBe('pack:t');
+    await drawLine();
+    expect((await state()).objects).toBe(1);
+
+    // import a map from the maps window
+    await page.getByRole('button', { name: 'מפות', exact: true }).click();
+    const dlg = page.locator('dialog[open]');
+    await expect(dlg.locator('.maprow.cur')).toContainText('מפת הקורס');
+    const chooser = page.waitForEvent('filechooser');
+    await dlg.getByRole('button', { name: 'ייבוא מפה חדשה' }).click();
+    await (await chooser).setFiles({ name: 'מפת חוף.png', mimeType: 'image/png', buffer: Buffer.from((await picture('#eaf3fb')).split(',')[1], 'base64') });
+    await expect(page.locator('#stCal')).toHaveText('לא מכויל');
+    expect(await state()).toEqual({ map: expect.stringMatching(/^lib:/), objects: 0, maps: ['מפת חוף'] });
+
+    // calibrate it by its printed scale and draw on it
+    await page.locator('#bCalib').click();
+    await page.locator('#f_method').selectOption('ratio');
+    await page.locator('dialog[open] button[value=ok]').click();
+    await page.locator('#f_dpi').fill('200');
+    await page.locator('#f_ratio').fill('1:25,000');
+    await ok(page);
+    await expect(page.locator('#stCal')).toContainText('1:25,000');
+    await drawLine(); await drawLine();
+    expect((await state()).objects).toBe(2);
+
+    // a question opens on the course chart, with that chart's drawing still there
+    await page.evaluate(() => window.navplot.showQuestion(1));
+    await expect(page.locator('#taskText')).toHaveText('שאלה לבדיקה');
+    expect(await state()).toMatchObject({ map: 'pack:t', objects: 1 });
+
+    // and the imported map comes back calibrated, with its own drawings, also after a reload
+    await page.getByRole('button', { name: 'מפות', exact: true }).click();
+    await expect(dlg.locator('.maprow', { hasText: 'מפת חוף' })).toContainText('מכוילת');
+    await dlg.getByRole('button', { name: 'פתיחה: מפת חוף' }).click();
+    await expect(page.locator('#stCal')).toContainText('1:25,000');
+    expect((await state()).objects).toBe(2);
+    await page.waitForTimeout(300);
+    await page.reload();
+    await expect(page.locator('#stCal')).toContainText('1:25,000');
+    expect(await state()).toMatchObject({ map: expect.stringMatching(/^lib:/), objects: 2, maps: ['מפת חוף'] });
+
+    // rename and delete; the window fits the screen and closes with Escape
+    await page.getByRole('button', { name: 'מפות', exact: true }).click();
+    await dlg.getByRole('button', { name: 'שינוי שם: מפת חוף' }).click();
+    await page.locator('#f_n').fill('מפרץ חיפה');
+    await page.locator('dialog[open] button[value=ok]').click();
+    await expect(dlg.locator('.maprow.cur')).toContainText('מפרץ חיפה');
+    const r = (await dlg.boundingBox())!;
+    expect(r.x).toBeGreaterThanOrEqual(0);
+    expect(r.x + r.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    await page.screenshot({ path: `${OUT}/maps.png` });
+    const axe = await new AxeBuilder({ page }).include('dialog[open]').withTags(['wcag2a', 'wcag2aa']).analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+    await dlg.getByRole('button', { name: 'מחיקה: מפרץ חיפה' }).click();   // the "are you sure" question is accepted by the test setup
+    await expect(dlg.locator('.maprow', { hasText: 'מפרץ חיפה' })).toHaveCount(0);
+    expect((await state()).maps).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(dlg).toBeHidden();
   });
 });
 

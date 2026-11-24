@@ -189,6 +189,16 @@
   .dlg .actions { display: flex; gap: 8px; justify-content: flex-start; margin-top: 6px; }
   .dlg .actions .btn { min-width: 96px; }
   .help h3 { margin: 12px 0 4px; font-size: 15px; }
+  .maps h3 { margin: 8px 0 0; font-size: 15px; }
+  .maps .muted { margin: 0; }
+  .maplist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .maprow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .maprow.cur { border-color: var(--accent); background: var(--accent-soft); }
+  .mapname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .mapname b { overflow-wrap: anywhere; }
+  .mapname span { font-size: 13px; }
+  .mapacts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .mapacts .tag { font-size: 13px; color: var(--accent); font-weight: 600; padding: 6px 4px; }
   .help ul { margin: 0; padding-inline-start: 20px; line-height: 1.6; }
   kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: #f6f8fa; }
 
@@ -214,8 +224,8 @@
   </div>
   <button class="btn" id="bOpen" title="פתיחת מפה (תמונה) או תרגיל שמור · Ctrl+O" aria-label="פתיחה">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">פתיחה</span></button>
-  <button class="btn" id="bSample" title="מפת תרגול לדוגמה, מכוילת ומוכנה" aria-label="מפת תרגול">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg><span class="lbl">מפת תרגול</span></button>
+  <button class="btn" id="bSample" title="המפות: מפת התרגול של הקורס, המפות שייבאתם, וייבוא מפה חדשה" aria-label="מפות">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg><span class="lbl">מפות</span></button>
   <button class="btn" id="bSave" title="שמירת המפה והשרטוטים לקובץ תרגיל · Ctrl+S" aria-label="שמירה">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/></svg><span class="lbl">שמירה</span></button>
   <button class="btn" id="bPng" title="שמירת המפה עם השרטוטים כתמונה (להדפסה או לשליחה)" aria-label="שמירה כתמונה">
@@ -286,7 +296,8 @@
         <p>פתחו תמונה של מפה ימית (סריקה, צילום מסך, JPG או PNG) או תרגיל שמור, ושרטטו עליה עם סרגל, מד זווית ומחוגה.</p>
         <button class="btn primary big" id="eQuestions" hidden>שאלות התרגול</button>
         <div class="row">
-          <button class="btn primary" id="eOpen">פתיחת מפה</button>
+          <button class="btn primary" id="eOpen">ייבוא מפה</button>
+          <button class="btn outline" id="eMaps" hidden>המפות שלי</button>
           <button class="btn outline" id="eSample">מפת תרגול לדוגמה</button>
         </div>
         <p class="muted">אפשר גם לגרור קובץ לחלון או להדביק תמונה (Ctrl+V). הכלי עובד בלי אינטרנט.</p>
@@ -384,6 +395,7 @@
 
 <dialog id="dlg"></dialog>
 <input type="file" id="fileOpen" accept="image/*,.json,application/json" hidden>
+<input type="file" id="fileMap" accept="image/*" hidden>
 <input type="file" id="fileSolution" accept=".json,application/json" hidden>
 
 <!-- A course pack (charts, their calibration and a question bank) can be embedded here as JSON. -->
@@ -418,6 +430,7 @@ const defaultSettings = () => ({ variation: 0, dev: [0, 0, 0, 0, 0, 0, 0, 0], la
 const S = {
   img: null, imgData: null, name: '', task: '', showTask: true, forStudent: false,
   calib: null, areas: [], settings: defaultSettings(), objects: [], taskAnswer: '', showAnswer: false, pack: null,
+  mapId: null,   // the open map: 'pack:<id>', 'lib:<id>', 'sample', or null for a picture or exercise opened from a file
   ruler: { on: false, c: { x: 0, y: 0 }, brg: 45, len: 560, size: 1 },
   prot: { on: false, c: { x: 0, y: 0 }, a1: 0, a2: 90 },
   tool: 'select', color: COLORS[0], width: 3, arrows: 0, circleMode: 'half', fixedR: 0, markKind: 'fix', markText: '',
@@ -1853,7 +1866,7 @@ const ACTIONS = {
   rulerFlip: () => { S.ruler.brg = norm(S.ruler.brg + 180); showRulerReadout(); syncInstr(); req(); scheduleSave(); },
   exportStudent: () => exportStudent(),
   qShow: () => showQuestion(+$('#qSel').value),
-  qOpenChart: () => chooseChart(),
+  qOpenChart: () => S.pack?.charts?.[0] && openMap('pack:' + S.pack.charts[0].id),
   loadSolution: () => $('#fileSolution').click(),
   clearLayer: () => {
     const n = S.objects.filter((o) => (o.layer || 'base') === S.layer).length;
@@ -2126,7 +2139,8 @@ async function showQuestion(n) {
   const q = (S.pack?.questions || []).find((x) => x.n === n);
   if (!q) return;
   endSim();
-  if (!S.img && S.pack.charts.length) await openPackChart(S.pack.charts[0]);
+  const chart = S.pack.charts[0];   // the course questions are asked on the course chart
+  if (chart && S.mapId !== 'pack:' + chart.id && !(await openMap('pack:' + chart.id))) return;
   S.qn = q.n; S.taskTitle = `שאלה ${q.n}${q.cat && q.cat !== q.n ? ` (${q.cat})` : ''}${q.section ? ' · ' + q.section : ''}`;
   S.task = q.q.join('\n'); S.taskAnswer = q.a.join('\n'); S.showAnswer = false; S.showTask = true;
   setVal('#inTask', S.task); setVal('#inShowTask', true); setVal('#qSel', String(q.n));
@@ -2138,27 +2152,115 @@ function stepQuestion(d) {
   const next = list[clamp(i + d, 0, list.length - 1)];
   if (next) showQuestion(next.n);
 }
-async function openPackChart(chart) {
-  if (S.objects.length && !confirm(`לפתוח את "${chart.name}"? השרטוטים על המפה הנוכחית יימחקו (אפשר לשמור קודם).`)) return false;
-  await setImage(chart.image);
+
+// ───────────────────────── Map library ─────────────────────────
+// Maps the teacher imports stay in this browser with their calibration and drawings, next to the course
+// charts. Switching maps keeps each map's drawings, so the course questions keep their own chart.
+const LIB = { maps: [] };   // [{ id, name, calib, areas, variation }]; each image is stored under 'mapimg:<id>'
+async function loadLib() { LIB.maps = (await idbGet('maps')) || []; syncWelcome(); }
+const saveLib = () => idbSet('maps', LIB.maps);
+const libMap = (id) => LIB.maps.find((m) => 'lib:' + m.id === id);
+const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
+// drawings belong to one picture: a course chart replaced by a new scan starts clean
+const imageSig = (url) => url ? `${url.length}:${url.slice(-48)}` : '';
+function stashCurrent() {   // what belongs to the open map, kept for when it is opened again
+  if (!S.img || !S.mapId) return;
+  syncLibMap();
+  idbSet('mapstate:' + S.mapId, clone({ objects: S.objects, task: S.task, showTask: S.showTask, taskAnswer: S.taskAnswer, taskTitle: S.taskTitle,
+    qn: S.qn, settings: S.settings, image: imageSig(S.imgData) }));
+}
+function applyStash(st) {
+  if (st.image !== imageSig(S.imgData)) return;
+  Object.assign(S, { objects: st.objects || [], task: st.task || '', showTask: st.showTask !== false, taskAnswer: st.taskAnswer || '',
+    taskTitle: st.taskTitle || '', qn: st.qn || 0 });
+  if (st.settings) S.settings = { ...defaultSettings(), ...st.settings, labelScale: S.settings.labelScale };
+}
+// before another map opens: keep this one's drawings, or ask when they would be lost (a picture or exercise from a file)
+async function leaveMap() {
+  if (!S.img) return true;
+  if (S.mapId) { stashCurrent(); return true; }
+  return !S.objects.length || confirm('לפתוח מפה אחרת? השרטוטים על המפה הנוכחית יימחקו (אפשר לשמור קודם).');
+}
+async function openMap(id, { force = false } = {}) {
+  if (id === S.mapId && S.img && !force) return true;
+  if (id === 'sample') return loadSample();
+  let src = null;
+  if (id.startsWith('pack:')) {
+    const c = (S.pack?.charts || []).find((x) => 'pack:' + x.id === id);
+    if (c) src = { name: c.name, image: c.image, calib: c.calib, areas: c.areas, variation: c.variation };
+  } else {
+    const m = libMap(id), image = m && await idbGet('mapimg:' + m.id);
+    if (image) src = { ...m, image };
+  }
+  if (!src) { toast('המפה לא נמצאה', true); return false; }
+  if (!(await leaveMap())) return false;
+  await setImage(src.image);
   resetDoc();
-  S.objects = []; S.calib = chart.calib || null; S.areas = JSON.parse(JSON.stringify(chart.areas || [])); buildGeo();
-  S.settings = { ...defaultSettings(), labelScale: S.settings.labelScale, variation: chart.variation || 0 };
-  S.name = chart.name; S.task = ''; S.taskAnswer = ''; S.taskTitle = ''; S.qn = 0; S.forStudent = false; S.layer = 'base';
+  S.mapId = id; S.name = src.name; S.calib = clone(src.calib) || null; S.areas = clone(src.areas) || []; buildGeo();
+  S.settings = { ...defaultSettings(), labelScale: S.settings.labelScale, variation: src.variation || 0 };
+  Object.assign(S, { objects: [], task: '', taskAnswer: '', taskTitle: '', qn: 0, forStudent: false, layer: 'base', showTask: true });
+  const st = await idbGet('mapstate:' + id);
+  if (st) applyStash(st);
   syncSettingsInputs(); fit(); changed();
-  toast(`"${chart.name}" נפתחה, מכוילת${S.areas.length ? ` (כולל ${S.areas.length} אזורים)` : ''}`);
+  const nAreas = S.areas.filter((x) => x.calib).length;
+  toast(`"${S.name}" נפתחה` + (S.calib || nAreas ? `, מכוילת${S.areas.length ? ` (כולל ${S.areas.length} אזורים)` : ''}` : '. כדי למדוד במייל, כיילו אותה (כפתור "כיול מפה")'));
   return true;
 }
-async function chooseChart() {
+async function importMap(file) {
+  if (!file || !file.type.startsWith('image/')) return toast('בוחרים תמונה של מפה: JPG, PNG וכדומה', true);
+  const url = await readFile(file, 'url');
+  const m = { id: uid(), name: file.name.replace(/\.[^.]+$/, '') || 'מפה', calib: null, areas: [], variation: 0 };
+  await idbSet('mapimg:' + m.id, url);
+  LIB.maps.push(m); await saveLib(); syncWelcome();
+  if (await openMap('lib:' + m.id)) toast('המפה נוספה ל"מפות". כדי למדוד במייל, כיילו אותה (כפתור "כיול מפה")');
+  else toast('המפה נוספה ל"מפות"');
+}
+// the library keeps each map's name and calibration up to date, for the list
+function syncLibMap() {
+  const m = libMap(S.mapId); if (!m) return;
+  const sig = JSON.stringify([S.name, S.calib, S.areas, S.settings.variation]);
+  if (m.sig === sig) return;
+  Object.assign(m, { name: S.name || m.name, calib: clone(S.calib), areas: clone(S.areas), variation: S.settings.variation, sig });
+  saveLib();
+}
+function syncWelcome() {
+  $('#eMaps').hidden = !LIB.maps.length;
+  $('#eMaps').textContent = `המפות שלי (${LIB.maps.length})`;
+}
+function openMaps() {
   const charts = S.pack?.charts || [];
-  if (!charts.length) return loadSample();
-  const v = await ask('מפת תרגול', [{ k: 'c', label: 'איזו מפה לפתוח', type: 'select', value: charts[0].id, options: [
-    ...charts.map((c) => [c.id, c.name]), ['__sample', 'מפת תרגול דמיונית (עם תרגיל לדוגמה)'],
-  ] }], { ok: 'פתיחה' });
-  if (!v) return;
-  if (v.c === '__sample') return loadSample();
-  const c = charts.find((x) => x.id === v.c);
-  if (c) openPackChart(c);
+  const calibrated = (m) => m.calib ? 'מכוילת' : (m.areas || []).some((a) => a.calib) ? 'מכוילת באזורים' : 'לא מכוילת';
+  const row = (id, name, sub, own) => `<li class="maprow${id === S.mapId ? ' cur' : ''}"><div class="mapname"><b>${esc(name)}</b><span class="muted">${esc(sub)}</span></div>
+    <div class="mapacts">${id === S.mapId ? '<span class="tag">פתוחה</span>' : `<button type="button" class="btn sm primary" data-open="${esc(id)}" aria-label="פתיחה: ${esc(name)}">פתיחה</button>`}
+    ${own ? `<button type="button" class="btn sm outline" data-ren="${esc(id)}" aria-label="שינוי שם: ${esc(name)}">שינוי שם</button><button type="button" class="btn sm outline danger" data-del="${esc(id)}" aria-label="מחיקה: ${esc(name)}">מחיקה</button>` : ''}</div></li>`;
+  dlg.innerHTML = `<form method="dialog" class="dlg maps"><h2>מפות</h2>
+    ${charts.length ? `<h3>מפות הקורס</h3><ul class="maplist">${charts.map((c) => row('pack:' + c.id, c.name, 'שאלות התרגול נפתחות עליה', false)).join('')}</ul>` : ''}
+    <h3>המפות שלי</h3>
+    ${LIB.maps.length ? `<ul class="maplist">${LIB.maps.map((m) => row('lib:' + m.id, m.name, calibrated(m), true)).join('')}</ul>`
+      : '<p class="muted">עוד אין כאן מפות. מייבאים תמונה של מפה (סריקה, צילום מסך, JPG או PNG), והיא נשמרת כאן עם הכיול והשרטוטים שלה.</p>'}
+    <ul class="maplist">${row('sample', 'מפת תרגול לדוגמה', 'מפה דמיונית עם תרגיל לדוגמה', false)}</ul>
+    <div class="actions"><button type="button" class="btn primary" data-import>ייבוא מפה חדשה</button><button class="btn outline" value="cancel">סגירה</button></div></form>`;
+  dlg.onclose = null;
+  dlg.querySelector('form').addEventListener('click', async (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.open) { dlg.close(); openMap(b.dataset.open); }
+    else if ('import' in b.dataset) { dlg.close(); $('#fileMap').click(); }
+    else if (b.dataset.ren) {
+      const m = libMap(b.dataset.ren);
+      const closed = new Promise((r) => dlg.addEventListener('close', r, { once: true }));   // the name window reuses this one
+      dlg.close(); await closed;
+      const v = await ask('שינוי שם', [{ k: 'n', label: 'שם המפה', value: m.name }], { ok: 'שמירה' });
+      if (v && v.n.trim()) { m.name = v.n.trim(); await saveLib(); if (S.mapId === b.dataset.ren) { S.name = m.name; changed(); } }
+      openMaps();
+    } else if (b.dataset.del) {
+      const id = b.dataset.del, m = libMap(id);
+      if (!confirm(`למחוק את "${m.name}" מהמפות? המפה, הכיול והשרטוטים שעליה יימחקו מהדפדפן.`)) return;
+      LIB.maps = LIB.maps.filter((x) => x !== m); await saveLib(); idbDel('mapimg:' + m.id); idbDel('mapstate:' + id); syncWelcome();
+      if (S.mapId === id) S.mapId = null;   // it stays on the screen until another map opens
+      openMaps();
+    }
+  });
+  if (!dlg.open) dlg.showModal();
 }
 $('#qSec').onchange = renderQList;
 $('#qFind').oninput = renderQList;
@@ -2182,7 +2284,8 @@ function deleteSel() {
 // ───────────────────────── Files ─────────────────────────
 function project() {
   return { app: 'navplot', version: 1, name: S.name, task: S.task, showTask: S.showTask, forStudent: S.forStudent, image: S.imgData,
-    calib: S.calib, areas: S.areas || [], settings: S.settings, objects: S.objects, ruler: S.ruler, prot: S.prot, taskAnswer: S.taskAnswer || '', taskTitle: S.taskTitle || '', qn: S.qn || 0 };
+    calib: S.calib, areas: S.areas || [], settings: S.settings, objects: S.objects, ruler: S.ruler, prot: S.prot, taskAnswer: S.taskAnswer || '', taskTitle: S.taskTitle || '', qn: S.qn || 0,
+    mapId: S.mapId || null };
 }
 function setImage(url) {
   return new Promise((res, rej) => {
@@ -2199,6 +2302,7 @@ async function applyProject(p, { restoring = false } = {}) {
   if (!p || p.app !== 'navplot' || !p.image) throw new Error('not a project');
   await setImage(p.image);
   resetDoc();
+  S.mapId = restoring ? p.mapId || null : null;
   S.name = p.name || ''; S.task = p.task || ''; S.showTask = p.showTask !== false; S.forStudent = !!p.forStudent;
   S.calib = p.calib || null; S.areas = Array.isArray(p.areas) ? p.areas : []; S.taskAnswer = p.taskAnswer || ''; S.taskTitle = p.taskTitle || ''; S.qn = p.qn || 0; S.showAnswer = false; buildGeo();
   S.settings = { ...defaultSettings(), ...(p.settings || {}) };
@@ -2220,13 +2324,7 @@ async function openFile(file) {
   if (!file) return;
   try {
     if (file.type.startsWith('image/')) {
-      if (S.objects.length && !confirm('לפתוח מפה חדשה? השרטוטים על המפה הנוכחית יימחקו (אפשר לשמור קודם).')) return;
-      await setImage(await readFile(file, 'url'));
-      resetDoc();
-      S.objects = []; S.calib = null; S.areas = []; buildGeo(); S.task = ''; S.taskAnswer = ''; S.taskTitle = ''; S.qn = 0; S.forStudent = false; S.layer = 'base';
-      S.name = file.name.replace(/\.[^.]+$/, '');
-      syncSettingsInputs(); fit(); changed();
-      toast('המפה נפתחה. כדי למדוד במייל, כיילו אותה (כפתור "כיול מפה")');
+      await importMap(file);
     } else if (/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)) {
       toast('קובצי PDF עוד לא נתמכים. שמרו את המפה כתמונה (צילום מסך, או ייצוא ל־PNG או JPG) ופתחו אותה', true);
     } else {
@@ -2235,10 +2333,11 @@ async function openFile(file) {
       try { p = JSON.parse(await readFile(file, 'text')); } catch { /* not an exercise */ }
       if (p && p.app === 'navplot-pack') {
         loadPack(p);
-        if (p.charts && p.charts.length) await openPackChart(p.charts[0]);
+        if (p.charts && p.charts.length) await openMap('pack:' + p.charts[0].id, { force: true });
         return;
       }
       if (!p || p.app !== 'navplot') return toast('אפשר לפתוח תמונה (JPG, PNG…), קובץ תרגיל או חבילת קורס ששמרתם בכלי', true);
+      if (!(await leaveMap())) return;
       await applyProject(p);
       toast(S.forStudent ? 'התרגיל נפתח. התשובות שלכם נכנסות לשכבת "תשובת תלמיד"' : 'התרגיל נפתח');
     }
@@ -2313,6 +2412,9 @@ function idb() {
 async function idbSet(k, v) {
   try { const d = await idb(); await new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); } catch { /* storage unavailable */ }
 }
+async function idbDel(k) {
+  try { const d = await idb(); await new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').delete(k); t.oncomplete = res; t.onerror = () => rej(t.error); }); } catch { /* storage unavailable */ }
+}
 async function idbGet(k) {
   try { const d = await idb(); return await new Promise((res, rej) => { const r = d.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); } catch { return undefined; }
 }
@@ -2320,6 +2422,7 @@ let saveT = null;
 function saveNow() {
   clearTimeout(saveT); saveT = null;
   const p = project(); delete p.image; p.layer = S.layer; p.visible = S.visible;
+  syncLibMap();
   return idbSet('state', p);
 }
 function scheduleSave() {
@@ -2331,7 +2434,10 @@ async function restore() {
   const image = await idbGet('image'), st = await idbGet('state');
   if (!image || !st) return false;
   try {
-    await applyProject({ ...st, image }, { restoring: true });
+    const chart = S.pack?.charts?.[0], mapId = st.mapId ?? (st.qn && chart ? 'pack:' + chart.id : null);
+    const c = mapId?.startsWith('pack:') && S.pack.charts.find((x) => 'pack:' + x.id === mapId);
+    if (c && c.image !== image) return openMap(mapId, { force: true });   // the course chart was replaced by a new scan
+    await applyProject({ ...st, image, mapId }, { restoring: true });
     if (st.layer) S.layer = st.layer;
     if (st.visible) S.visible = st.visible;
     renderPanel(); return true;
@@ -2507,7 +2613,8 @@ function sampleChart() {
   };
 }
 async function loadSample() {
-  if (S.objects.length && !confirm('לפתוח את מפת התרגול? השרטוטים על המפה הנוכחית יימחקו (אפשר לשמור קודם).')) return;
+  if (S.mapId === 'sample' && S.img) return true;
+  if (!(await leaveMap())) return false;
   const s = sampleChart();
   await setImage(s.url);
   resetDoc();
@@ -2520,8 +2627,12 @@ async function loadSample() {
   const bm = (key) => f3(T2M(rhumb(boat, at(s.marks[key])).brg));
   S.task = `בשעה 10:00 נלקחו במצפן יד הכיוונים:\nמגדלור כף הדולפין ${bm('lh')}M, מגדל מים ${bm('tower')}M, ארובה ${bm('chim')}M.\n1. סמנו את הפיקס וכתבו את קואורדינטות המיקום.\n2. מה הכיוון להיגוי (מגנטי) אל כניסת נמל אלמוג, במהירות 5 קשר ובזרם 020° 0.8 קשר? מתי תגיעו?\n3. האם המסלול עובר בבטחה ליד סלע הצב?`;
   Object.assign(S.last, { set: 20, rate: 0.8, spd: 5, start: '10:00', time: '10:00' });
+  S.mapId = 'sample';
+  const st = await idbGet('mapstate:sample');
+  if (st) applyStash(st);
   syncSettingsInputs(); fit(); changed();
   toast('מפת התרגול נפתחה. היא כבר מכוילת, עם סטייה 5°E');
+  return true;
 }
 
 // ───────────────────────── Video recording ─────────────────────────
@@ -2665,14 +2776,15 @@ window.addEventListener('beforeunload', (e) => { if (REC.rec) { e.preventDefault
 const openPicker = () => $('#fileOpen').click();
 $('#fileOpen').onchange = (e) => { openFile(e.target.files[0]); e.target.value = ''; };
 $('#fileSolution').onchange = (e) => { loadSolution(e.target.files[0]); e.target.value = ''; };
-$('#bOpen').onclick = openPicker; $('#eOpen').onclick = openPicker;
+$('#bOpen').onclick = openPicker; $('#eOpen').onclick = () => $('#fileMap').click();
 $('#eQuestions').onclick = async () => {
   if ($('#panel').hidden) $('#bPanel').click();
   $('#qBox').open = true;
   await showQuestion(+$('#qSel').value || S.pack.questions[0].n);
   $('#qBox').scrollIntoView({ block: 'nearest' });
 };
-$('#bSample').onclick = chooseChart; $('#eSample').onclick = chooseChart;
+$('#bSample').onclick = openMaps; $('#eMaps').onclick = openMaps; $('#eSample').onclick = loadSample;
+$('#fileMap').onchange = (e) => { importMap(e.target.files[0]); e.target.value = ''; };
 $('#bSave').onclick = saveProject;
 $('#bPng').onclick = exportPNG;
 $('#bCalib').onclick = startCalibration;
@@ -2688,6 +2800,7 @@ $('#bPanel').onclick = () => {
 $('#bHelp').onclick = () => info('עזרה', `
   <h3>מתחילים</h3><ul>
   <li>פותחים תמונה של מפה, או את <b>מפת התרגול</b>, שכבר מכוילת.</li>
+  <li><b>מפות</b>: כל מפה שמייבאים נשמרת שם עם הכיול והשרטוטים שלה, לצד מפות הקורס. אפשר לעבור בין המפות בלי לאבד שרטוטים, ושאלות התרגול תמיד נפתחות על מפת הקורס.</li>
   <li><b>כיול מפה</b>: לוחצים על שתי נקודות שהקואורדינטות שלהן ידועות (חיתוכי רוחב ואורך, רחוקים זה מזה). אחרי הכיול כל מרחק מוצג במייל ימי וכל כיוון במעלות אמיתיות. בלי כיול מודדים רק זוויות, כשהצפון למעלה.</li>
   <li>בסריקה, נקודה שלישית ורביעית (בפינות אחרות) משפרות את הדיוק: אחרי שתי נקודות אפשר להמשיך ללחוץ על נקודות ידועות, ובסוף "סיום".</li>
   <li>מפה עם מפות משניות (למשל תרשים מוגדל של נמל): בכיול בוחרים <b>אזור אחד במפה</b>, גוררים מסגרת סביב המפה המשנית ומכיילים אותה לבד. מדידה בתוך המסגרת משתמשת בכיול שלה.</li>
@@ -2762,12 +2875,13 @@ setTool('select'); syncSettingsInputs(); syncUndo(); resize();
   try { const t = $('#navplotPack').textContent.trim(); if (t) embedded = JSON.parse(t); } catch { /* no pack */ }
   if (embedded) loadPack(embedded, { persist: false, quiet: true });
   else { const saved = await idbGet('pack'); if (saved) loadPack(saved, { persist: false, quiet: true }); }
+  await loadLib();
   const ok = await restore();
   if (ok) toast('העבודה האחרונה שוחזרה');
 })();
 
 // Hooks for the automated tests
-window.navplot = { S, V, REC, imageDpi, areaAt, gAt, loadPack, showQuestion, rhumb, dest, toGeo, fromGeo, toS, toW, solveCTS, loadSample, setTool, toggleInstr, T2M, M2T, M2C, C2M, f3 };
+window.navplot = { S, V, REC, LIB, imageDpi, areaAt, gAt, loadPack, showQuestion, openMap, rhumb, dest, toGeo, fromGeo, toS, toW, solveCTS, loadSample, setTool, toggleInstr, T2M, M2T, M2C, C2M, f3 };
 })();
 </script>
 </body>
